@@ -1,0 +1,4 @@
+number,value,datetime_start,datetime_complete,duration,params_ema_fast_period,params_ema_slow_period,params_rsi_overbought,params_rsi_oversold,params_rsi_period,state
+0,0.13826040160399064,2026-01-19 03:04:28.854518,2026-01-19 03:32:41.996061,0 days 00:28:13.141543,34,32,80,28,12,COMPLETE
+1,-0.9554263323222418,2026-01-19 03:32:41.996848,2026-01-19 04:00:35.231199,0 days 00:27:53.234351,34,77,70,29,9,COMPLETE
+2,-1.6631299544922664,2026-01-19 04:00:35.231582,2026-01-19 04:29:09.284648,0 days 00:28:34.053066,18,34,80,29,7,COMPLETE

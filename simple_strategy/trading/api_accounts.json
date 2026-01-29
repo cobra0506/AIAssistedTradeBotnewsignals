@@ -1,0 +1,11 @@
+{
+    "demo_accounts": {
+        "bybit_demo": {
+            "api_key": "YifYlaZqQL9uSATHHd",
+            "api_secret": "nuWRukMExGhT2bqzLeU4MNqCnzAfghvYnBTo",
+            "description": "demo test",
+            "testnet": true
+        }
+    },
+    "live_accounts": {}
+}
