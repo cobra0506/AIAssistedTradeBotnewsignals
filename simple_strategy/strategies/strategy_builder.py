@@ -131,8 +131,10 @@ class StrategyBuilder:
                 'stochastic_signals': ['k_percent', 'd_percent'],
                 'divergence_signals': ['price', 'indicator'],
                 'breakout_signals': ['price', 'resistance', 'support'],
-                'trend_strength_signals': ['price', 'short_ma', 'long_ma']
+                 'trend_strength_signals': ['price', 'short_ma', 'long_ma'],
+                'rsi_mean_reversion_with_trend': ['rsi', 'ema_fast', 'ema_slow']
             }
+
             
             # Get the expected indicator parameter names for this function
             expected_indicators = indicator_param_names.get(signal_func.__name__, [])
@@ -608,6 +610,41 @@ class StrategyBuilder:
                     # Set our custom attributes
                     self._custom_strategy_name = name
                     self._custom_version = "1.0.0"
+
+                    self._position_state = {}
+
+                def _apply_position_rules(self, position_key, signal):
+                    """
+                    Ensure we only close positions that are open and only open if none exist.
+                    """
+                    position = self._position_state.get(position_key)
+
+                    if signal == 'OPEN_LONG':
+                        if position is not None:
+                            return 'HOLD'
+                        self._position_state[position_key] = {'is_short': False}
+                        return signal
+
+                    if signal == 'OPEN_SHORT':
+                        if position is not None:
+                            return 'HOLD'
+                        self._position_state[position_key] = {'is_short': True}
+                        return signal
+
+                    if signal == 'CLOSE_LONG':
+                        if position is None or position.get('is_short', False):
+                            return 'HOLD'
+                        self._position_state.pop(position_key, None)
+                        return signal
+
+                    if signal == 'CLOSE_SHORT':
+                        if position is None or not position.get('is_short', False):
+                            return 'HOLD'
+                        self._position_state.pop(position_key, None)
+                        return signal
+
+                    return signal
+
                 
                 def generate_signals(self, data: Dict[str, Dict[str, pd.DataFrame]]) -> Dict[str, Dict[str, str]]:
                     """
@@ -631,16 +668,33 @@ class StrategyBuilder:
                             # Take the last signal (most recent) or implement your own logic
                             if len(signals_series) > 0:
                                 last_signal = signals_series.iloc[-1]  # Get most recent signal
+                                position_key = (symbol, timeframe)
                                 if isinstance(last_signal, str):
-                                    result[symbol][timeframe] = last_signal
+                                    result[symbol][timeframe] = self._apply_position_rules(
+                                        position_key, last_signal
+                                    )
                                 elif isinstance(last_signal, (int, float)):
                                     # Convert numeric signals to strings
-                                    if last_signal == 1:
-                                        result[symbol][timeframe] = 'BUY'
+                                    if last_signal >= 2:
+                                        result[symbol][timeframe] = self._apply_position_rules(
+                                            position_key, 'OPEN_LONG'
+                                        )
+                                    elif last_signal == 1:
+                                        result[symbol][timeframe] = self._apply_position_rules(
+                                            position_key, 'CLOSE_SHORT'
+                                        )
                                     elif last_signal == -1:
-                                        result[symbol][timeframe] = 'SELL'
+                                        result[symbol][timeframe] = self._apply_position_rules(
+                                            position_key, 'CLOSE_LONG'
+                                        )
+                                    elif last_signal <= -2:
+                                        result[symbol][timeframe] = self._apply_position_rules(
+                                            position_key, 'OPEN_SHORT'
+                                        )
                                     else:
                                         result[symbol][timeframe] = 'HOLD'
+
+
                                 else:
                                     result[symbol][timeframe] = 'HOLD'
                             else:

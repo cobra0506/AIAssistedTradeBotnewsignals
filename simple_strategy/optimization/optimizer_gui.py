@@ -1,14 +1,17 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import sys
+import importlib
+import importlib.util
+
 from pathlib import Path
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from simple_strategy.optimization import BayesianOptimizer, ParameterSpace
-from simple_strategy.strategies.strategy_builder import StrategyBuilder
+#from simple_strategy.optimization import BayesianOptimizer, ParameterSpace
+#from simple_strategy.strategies.strategy_builder import StrategyBuilder
 from simple_strategy.shared.data_feeder import DataFeeder
 
 class OptimizerGUI:
@@ -62,6 +65,18 @@ class OptimizerGUI:
         try:
             self.results_text.delete(1.0, tk.END)
             self.results_text.insert(tk.END, "Starting optimization...\n\n")
+
+            if importlib.util.find_spec("optuna") is None:
+                messagebox.showerror(
+                    "Missing Dependency",
+                    "Optuna is not installed. Run:\n\n"
+                    "pip install -r requirements.txt\n\n"
+                    "or\n\n"
+                    "pip install optuna"
+                )
+                return
+
+            from simple_strategy.optimization import BayesianOptimizer, ParameterSpace
             
             # Get parameters
             symbol = self.symbol_var.get()
