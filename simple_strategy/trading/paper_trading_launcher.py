@@ -80,26 +80,46 @@ class PaperTradingLauncher:
         right_frame = ttk.Frame(header_frame)
         right_frame.pack(side="right", fill="y")
         
-        # Performance display in header
+        # Performance display in header (split into two columns)
         perf_header_frame = ttk.LabelFrame(right_frame, text="Performance", padding=5)
         perf_header_frame.pack(side="right", padx=10)
-        
+
+        left_perf_frame = ttk.Frame(perf_header_frame)
+        left_perf_frame.pack(side="left", padx=5)
+
+        right_perf_frame = ttk.Frame(perf_header_frame)
+        right_perf_frame.pack(side="left", padx=5)
+
         self.perf_header_labels = {}
-        # UPDATED: Changed label text and dictionary keys
-        perf_items = [
-            ("Account Value:", "account_value", "$1000.00"), # Renamed from P&L
-            ("Available Bal:", "available_balance", "$1000.00"), # Renamed from Balance
-            ("Open:", "open_positions", "0"),
-            ("Total Trades:", "total_trades", "0"), # Renamed from Closed
+
+        left_items = [
+            ("Account Value:", "account_value", "$1000.00"),
+            ("If Close Now:", "liquidation_value", "$1000.00"),
+            ("Available Bal:", "available_balance", "$1000.00"),
+            ("Open:", "open_positions", "0")
+        ]
+
+        right_items = [
+            ("Realized P&L:", "realized_pnl", "$0.00"),
+            ("Unrealized P&L:", "unrealized_pnl", "$0.00"),
+            ("Total Trades:", "total_trades", "0"),
             ("Win Rate:", "win_rate", "0.0%")
         ]
-        
-        for i, (label_text, key, default) in enumerate(perf_items):
-            label = ttk.Label(perf_header_frame, text=label_text)
+
+        for i, (label_text, key, default) in enumerate(left_items):
+            label = ttk.Label(left_perf_frame, text=label_text)
             label.grid(row=i, column=0, sticky="e", padx=2)
-            value_label = ttk.Label(perf_header_frame, text=default, font=("Arial", 10, "bold"))
+            value_label = ttk.Label(left_perf_frame, text=default, font=("Arial", 10, "bold"))
             value_label.grid(row=i, column=1, sticky="w", padx=2)
             self.perf_header_labels[key] = value_label
+
+        for i, (label_text, key, default) in enumerate(right_items):
+            label = ttk.Label(right_perf_frame, text=label_text)
+            label.grid(row=i, column=0, sticky="e", padx=2)
+            value_label = ttk.Label(right_perf_frame, text=default, font=("Arial", 10, "bold"))
+            value_label.grid(row=i, column=1, sticky="w", padx=2)
+            self.perf_header_labels[key] = value_label
+
         
         # Control buttons and status
         control_frame = ttk.Frame(self.root)
@@ -194,9 +214,16 @@ class PaperTradingLauncher:
                     else:
                         self.perf_header_labels['account_value'].config(text=account_text, foreground="black")
 
-                if 'available_balance' in performance_data:
-                    self.perf_header_labels['available_balance'].config(text=f"${performance_data['available_balance']:.2f}")
-                
+                if 'liquidation_value' in performance_data:
+                    self.perf_header_labels['liquidation_value'].config(text=f"${performance_data['liquidation_value']:.2f}")
+
+                if 'realized_pnl' in performance_data:
+                    self.perf_header_labels['realized_pnl'].config(text=f"${performance_data['realized_pnl']:.2f}")
+
+                if 'unrealized_pnl' in performance_data:
+                    self.perf_header_labels['unrealized_pnl'].config(text=f"${performance_data['unrealized_pnl']:.2f}")
+
+
                 if 'open_positions' in performance_data:
                     self.perf_header_labels['open_positions'].config(text=str(performance_data['open_positions']))
                 
@@ -466,14 +493,12 @@ class PaperTradingLauncher:
                 total_trades = performance_data.get('total_trades', 0)
                 win_rate = performance_data.get('win_rate', 0.0)
                 pnl = performance_data.get('pnl', 0.0)
+                realized_pnl = performance_data.get('realized_pnl', 0.0)
+                unrealized_pnl = performance_data.get('unrealized_pnl', 0.0)
                 
                 # Show both realized and unrealized P&L if available
-                if 'realized_pnl' in performance_data and 'unrealized_pnl' in performance_data:
-                    realized_pnl = performance_data['realized_pnl']
-                    unrealized_pnl = performance_data['unrealized_pnl']
-                    pnl_text = f"Realized: ${realized_pnl:.2f}, Unrealized: ${unrealized_pnl:.2f}"
-                else:
-                    pnl_text = f"${pnl:.2f}"
+                pnl_text = f"Realized: ${realized_pnl:.2f}, Unrealized: ${unrealized_pnl:.2f}"
+
                     
                 # Log to the trading log instead of a separate widget
                 self.log_message(f"Performance Update:")
@@ -571,8 +596,12 @@ class PaperTradingLauncher:
     Win Rate: 0.0%
     Profit/Loss: $0.00"""
             
-            self.perf_text.delete(1.0, "end")
-            self.perf_text.insert(1.0, perf_text)
+            if hasattr(self, "perf_text"):
+                self.perf_text.delete(1.0, "end")
+                self.perf_text.insert(1.0, perf_text)
+            else:
+                self.log_message("Performance timer updated (no perf_text widget).")
+
             
             # Schedule next update
             self.root.after(5000, self.update_performance_timer)

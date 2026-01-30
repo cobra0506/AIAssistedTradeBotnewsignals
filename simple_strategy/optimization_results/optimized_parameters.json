@@ -18,5 +18,17 @@
         "ema_fast_period": 34,
         "ema_slow_period": 32,
         "last_optimized": "2026-01-19"
+    },
+    "Strategy_Simple_EMA_RSI_Scalping": {
+        "fast_ema_period": 12,
+        "slow_ema_period": 24,
+        "rsi_period": 19,
+        "rsi_overbought": 74,
+        "rsi_oversold": 31,
+        "last_optimized": "2026-01-30"
+    },
+    "Strategy_Fast_Test_Scalper": {
+        "min_periods": 5,
+        "last_optimized": "2026-01-30"
     }
 }

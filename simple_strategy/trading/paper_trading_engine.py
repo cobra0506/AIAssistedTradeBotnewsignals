@@ -1410,35 +1410,50 @@ class PaperTradingEngine:
         self.simulated_balance += pnl_amount
         self.log_message(f"💰 Balance updated: ${self.simulated_balance:.2f} (P&L: ${pnl_amount:.2f})")
 
-    '''def get_balance_info(self):
-        """Get complete balance information"""
-        return {
-            'simulated_balance': self.simulated_balance,
-            'real_balance': self.real_balance,
-            'balance_offset': self.balance_offset,
-            'initial_balance': self.initial_balance,
-            'total_pnl': self.simulated_balance - self.initial_balance
-        }'''
     def get_balance_info(self):
         """Get complete balance information"""
         # Calculate value of open positions
         open_positions_value = 0.0
-        
+        liquidation_value = self.simulated_balance
+        unrealized_pnl_total = 0.0
+
         for symbol, position in self.current_positions.items():
             try:
                 current_price = self.get_current_price_from_api(symbol)
                 if current_price > 0:
                     open_positions_value += position['quantity'] * current_price
+                    entry_price = position.get('entry_price', current_price)
+                    qty = position.get('quantity', 0)
+                    margin_used = position.get('margin_used', 0.0)
+                    if position.get('type') == 'SHORT':
+                        unrealized_pnl = (entry_price - current_price) * qty
+                    else:
+                        unrealized_pnl = (current_price - entry_price) * qty
+                    liquidation_value += margin_used + unrealized_pnl
+                    unrealized_pnl_total += unrealized_pnl
+
             except Exception as e:
                 self.log_message(f"⚠️ Could not get price for {symbol}: {e}")
+
         
         # Calculate total account value
         account_value = self.simulated_balance + open_positions_value
+
+        # Calculate realized PnL from closed trades
+        realized_pnl_total = 0.0
+        for trade in self.trades:
+            if trade.get('type') in ('CLOSE_LONG', 'CLOSE_SHORT') and 'pnl' in trade:
+                realized_pnl_total += trade['pnl']
+
         
         return {
+            'simulated_balance': self.simulated_balance,
             'available_balance': self.simulated_balance,  # Cash available for new trades
             'account_value': account_value,  # Cash + open positions
+            'liquidation_value': liquidation_value,  # Cash if all positions closed now
             'open_positions_value': open_positions_value,
+            'realized_pnl': realized_pnl_total,
+            'unrealized_pnl': unrealized_pnl_total,
             'real_balance': self.real_balance,
             'balance_offset': self.balance_offset,
             'initial_balance': self.initial_balance,
@@ -1446,6 +1461,8 @@ class PaperTradingEngine:
             'open_trades_count': self.open_trades_count,
             'closed_trades_count': self.closed_trades_count
         }
+
+
     
     def start_trading(self):
         """Start paper trading with real API calls"""
@@ -1649,9 +1666,13 @@ class PaperTradingEngine:
                 'current_balance': balance_info['simulated_balance'],
                 'available_balance': balance_info['available_balance'],
                 'account_value': balance_info['account_value'],
+                'liquidation_value': balance_info.get('liquidation_value', balance_info['simulated_balance']),
                 'open_positions_value': balance_info['open_positions_value'],
                 'total_pnl': balance_info['total_pnl'],
-                'total_trades': self.closed_trades_count,  # Use closed trades count
+                'realized_pnl': balance_info.get('realized_pnl', 0.0),
+                'unrealized_pnl': balance_info.get('unrealized_pnl', 0.0),
+                'total_trades': self.closed_trades_count,
+
                 'open_trades': self.open_trades_count,
                 'closed_trades': self.closed_trades_count,
                 'win_rate': win_rate,
@@ -1689,8 +1710,12 @@ class PaperTradingEngine:
             # Optional: Log a summary to console
             self.log_message(
                 f"💰 Perf: ${performance['account_value']:.2f} | "
+                f"If Close Now: ${performance['liquidation_value']:.2f} | "
                 f"P&L: ${performance['total_pnl']:.2f} | "
+                f"Realized: ${performance.get('realized_pnl', 0.0):.2f} | "
+                f"Unrealized: ${performance.get('unrealized_pnl', 0.0):.2f} | "
                 f"WinRate: {performance['win_rate']:.1f}% | "
+
                 f"Trades: {performance['total_trades']}"
             )
                 
