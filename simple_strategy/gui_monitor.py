@@ -205,6 +205,18 @@ class SimpleStrategyGUI:
         
         params_text.insert("1.0", current_params_text)
         params_text.config(state="disabled")  # Make it read-only
+
+        # Optimization progress bar
+        progress_frame = ttk.LabelFrame(content_frame, text="Optimization Progress", padding=10)
+        progress_frame.pack(fill="x", padx=10, pady=10)
+
+        progress_var = tk.DoubleVar(value=0)
+        progress_bar = ttk.Progressbar(progress_frame, variable=progress_var, maximum=100)
+        progress_bar.pack(fill="x", padx=5, pady=5)
+
+        progress_text_var = tk.StringVar(value="0%")
+        progress_text = ttk.Label(progress_frame, textvariable=progress_text_var, font=("Arial", 10, "bold"))
+        progress_text.pack(pady=2)
         
         def run_optimization():
             try:
@@ -263,6 +275,8 @@ class SimpleStrategyGUI:
                 # Show progress
                 progress_label = ttk.Label(content_frame, text="🚀 Starting optimization...")
                 progress_label.pack(pady=5)
+                progress_var.set(0)
+                progress_text_var.set("0%")
                 opt_window.update()
                 
                 # Get symbols (support multiple symbols)
@@ -281,6 +295,14 @@ class SimpleStrategyGUI:
                     n_trials=int(trials_var.get()),
                     timeout=3600
                 )
+
+                def update_progress(completed_trials, total_trials):
+                    total = max(1, int(total_trials))
+                    percent = min(100, int((completed_trials / total) * 100))
+                    progress_var.set(percent)
+                    progress_text_var.set(f"{percent}%")
+                    opt_window.update_idletasks()
+
                 
                 best_params, best_score = optimizer.optimize(
                     strategy_name=strategy_name,
@@ -289,8 +311,11 @@ class SimpleStrategyGUI:
                     timeframes=[timeframe_var.get()],
                     start_date=start_date_var.get(),
                     end_date=end_date_var.get(),
-                    metric='sharpe_ratio'
+                    metric='sharpe_ratio',
+                    progress_callback=update_progress
                 )
+                progress_var.set(100)
+                progress_text_var.set("100%")
                 
                 # FIXED: Better string formatting with error handling
                 try:
