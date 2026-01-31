@@ -123,13 +123,15 @@ class BayesianOptimizer:
         return objective
     
     def optimize(self, 
-                strategy_name: str,
-                parameter_space: ParameterSpace,
-                symbols: List[str],
-                timeframes: List[str],
-                start_date: str,
-                end_date: str,
-                metric: str = 'sharpe_ratio'):
+            strategy_name: str,
+            parameter_space: ParameterSpace,
+            symbols: List[str],
+            timeframes: List[str],
+            start_date: str,
+            end_date: str,
+            metric: str = 'sharpe_ratio',
+            progress_callback: Optional[Callable[[int, int], None]] = None):
+
         """
         Run optimization
         
@@ -168,7 +170,20 @@ class BayesianOptimizer:
         
         # Run optimization
         self.logger.info(f"Starting optimization with {self.n_trials} trials...")
-        self.study.optimize(objective, n_trials=self.n_trials, timeout=self.timeout)
+        callbacks = None
+        if progress_callback:
+            def _optuna_progress_callback(study, trial):
+                progress_callback(len(study.trials), self.n_trials or 0)
+
+            callbacks = [_optuna_progress_callback]
+
+        self.study.optimize(
+            objective,
+            n_trials=self.n_trials,
+            timeout=self.timeout,
+            callbacks=callbacks
+        )
+
         
         # Store results
         self.best_params = self.study.best_params
