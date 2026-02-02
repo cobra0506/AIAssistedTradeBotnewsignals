@@ -18,6 +18,7 @@ import logging
 from typing import Dict, List, Any
 
 import pandas as pd
+import numpy as np
 
 from simple_strategy.shared.strategy_base import StrategyBase
 from simple_strategy.strategies.indicators_library import ema, rsi, atr, volume_sma
@@ -266,6 +267,114 @@ class ImprovedMultiTimeframeScalpingStrategy(StrategyBase):
                         continue
 
                 signals[symbol][timeframe] = 'HOLD'
+
+        return signals
+
+    def generate_signals_vectorized(self, data: Dict[str, Dict[str, pd.DataFrame]]) -> Dict[str, Dict[str, pd.Series]]:
+        signals: Dict[str, Dict[str, pd.Series]] = {}
+        min_periods = max(self.slow_ema_period, self.rsi_period, self.atr_period, self.volume_sma_period) + 1
+
+        for symbol in data:
+            signals[symbol] = {}
+            entry_timeframe = '1m' if '1m' in self.timeframes else self.timeframes[0]
+
+            trend_df = data.get(symbol, {}).get(self.trend_timeframe)
+            trend_bool = None
+            trend_bear = None
+            if trend_df is not None and len(trend_df) >= self.slow_ema_period + 1:
+                trend_close = trend_df['close']
+                trend_fast = ema(trend_close, period=self.fast_ema_period)
+                trend_slow = ema(trend_close, period=self.slow_ema_period)
+                trend_bool = trend_fast > trend_slow
+                trend_bear = trend_fast < trend_slow
+
+            for timeframe, df in data[symbol].items():
+                if df is None or len(df) < min_periods:
+                    signals[symbol][timeframe] = pd.Series(['HOLD'] * len(df), index=df.index)
+                    continue
+
+                if timeframe != entry_timeframe:
+                    signals[symbol][timeframe] = pd.Series(['HOLD'] * len(df), index=df.index)
+                    continue
+
+                close_series = df['close']
+                volume_series = df['volume']
+
+                ema_fast = ema(close_series, period=self.fast_ema_period)
+                ema_slow = ema(close_series, period=self.slow_ema_period)
+                rsi_series = rsi(close_series, period=self.rsi_period)
+                atr_series = atr(df['high'], df['low'], close_series, period=self.atr_period)
+                volume_sma_series = volume_sma(volume_series, period=self.volume_sma_period)
+
+                atr_percent = (atr_series / close_series) * 100
+                volume_confirmed = volume_series > (volume_sma_series * 1.1)
+
+                if trend_bool is not None and trend_bear is not None:
+                    bullish_trend = trend_bool.reindex(df.index, method='ffill').fillna(False)
+                    bearish_trend = trend_bear.reindex(df.index, method='ffill').fillna(False)
+                else:
+                    bullish_trend = pd.Series(False, index=df.index)
+                    bearish_trend = pd.Series(False, index=df.index)
+
+                price_above_emas = (close_series > ema_fast) & (close_series > ema_slow)
+                price_below_emas = (close_series < ema_fast) & (close_series < ema_slow)
+                rsi_ok_long = rsi_series < self.rsi_overbought
+                rsi_ok_short = rsi_series > self.rsi_oversold
+
+                can_trade = atr_percent >= self.min_atr_threshold
+
+                position_key = (symbol, timeframe)
+                position = self._position_state.get(position_key)
+                signals_list = []
+
+                for idx in range(len(df)):
+                    if not bool(can_trade.iloc[idx]):
+                        signals_list.append('HOLD')
+                        continue
+
+                    close_val = close_series.iloc[idx]
+                    atr_val = atr_series.iloc[idx]
+
+                    if position:
+                        if not position.get('is_short', False):
+                            if close_val >= position['take_profit'] or close_val <= position['stop_loss']:
+                                position = None
+                                signals_list.append('CLOSE_LONG')
+                                continue
+                        else:
+                            if close_val <= position['take_profit'] or close_val >= position['stop_loss']:
+                                position = None
+                                signals_list.append('CLOSE_SHORT')
+                                continue
+
+                    if bool(bullish_trend.iloc[idx]):
+                        if bool(price_above_emas.iloc[idx]) and bool(rsi_ok_long.iloc[idx]) and bool(volume_confirmed.iloc[idx]):
+                            position = {
+                                'is_short': False,
+                                'stop_loss': close_val - (atr_val * self.atr_stop_loss),
+                                'take_profit': close_val + (atr_val * self.atr_take_profit)
+                            }
+                            signals_list.append('OPEN_LONG')
+                            continue
+
+                    if bool(bearish_trend.iloc[idx]):
+                        if bool(price_below_emas.iloc[idx]) and bool(rsi_ok_short.iloc[idx]) and bool(volume_confirmed.iloc[idx]):
+                            position = {
+                                'is_short': True,
+                                'stop_loss': close_val + (atr_val * self.atr_stop_loss),
+                                'take_profit': close_val - (atr_val * self.atr_take_profit)
+                            }
+                            signals_list.append('OPEN_SHORT')
+                            continue
+
+                    signals_list.append('HOLD')
+
+                if position is None:
+                    self._position_state.pop(position_key, None)
+                else:
+                    self._position_state[position_key] = position
+
+                signals[symbol][timeframe] = pd.Series(signals_list, index=df.index)
 
         return signals
 

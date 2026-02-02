@@ -16,6 +16,7 @@ import logging
 from typing import Dict, List, Any
 
 import pandas as pd
+import numpy as np
 
 from simple_strategy.shared.strategy_base import StrategyBase
 
@@ -135,6 +136,77 @@ class MeanReversionStrategy(StrategyBase):
                     raw_signal = 'HOLD'
 
                 signals[symbol][timeframe] = self._apply_position_rules(position_key, raw_signal)
+
+        return signals
+
+    def generate_signals_vectorized(self, data: Dict[str, Dict[str, pd.DataFrame]]) -> Dict[str, Dict[str, pd.Series]]:
+        signals: Dict[str, Dict[str, pd.Series]] = {}
+        min_periods = self.lookback_period + 2
+
+        for symbol in data:
+            signals[symbol] = {}
+            for timeframe, df in data[symbol].items():
+                if df is None or len(df) < min_periods:
+                    signals[symbol][timeframe] = pd.Series(['HOLD'] * len(df), index=df.index)
+                    continue
+
+                close = df['close']
+                sma = close.rolling(window=self.lookback_period).mean()
+                std = close.rolling(window=self.lookback_period).std()
+
+                upper_band = sma + (std * self.entry_threshold)
+                lower_band = sma - (std * self.entry_threshold)
+                exit_upper = sma + (std * self.exit_threshold)
+                exit_lower = sma - (std * self.exit_threshold)
+
+                open_long = close < lower_band
+                open_short = close > upper_band
+                close_long = (close.shift(1) < exit_lower.shift(1)) & (close > exit_lower)
+                close_short = (close.shift(1) > exit_upper.shift(1)) & (close < exit_upper)
+
+                raw = np.where(open_long, 'OPEN_LONG',
+                      np.where(open_short, 'OPEN_SHORT',
+                      np.where(close_long, 'CLOSE_LONG',
+                      np.where(close_short, 'CLOSE_SHORT', 'HOLD'))))
+
+                position_key = (symbol, timeframe)
+                position = self._position_state.get(position_key)
+                signals_list = []
+
+                for raw_signal in raw:
+                    if raw_signal == 'OPEN_LONG':
+                        if position is None:
+                            position = {'is_short': False}
+                            signals_list.append('OPEN_LONG')
+                        else:
+                            signals_list.append('HOLD')
+                    elif raw_signal == 'OPEN_SHORT':
+                        if position is None:
+                            position = {'is_short': True}
+                            signals_list.append('OPEN_SHORT')
+                        else:
+                            signals_list.append('HOLD')
+                    elif raw_signal == 'CLOSE_LONG':
+                        if position is not None and not position.get('is_short', False):
+                            position = None
+                            signals_list.append('CLOSE_LONG')
+                        else:
+                            signals_list.append('HOLD')
+                    elif raw_signal == 'CLOSE_SHORT':
+                        if position is not None and position.get('is_short', False):
+                            position = None
+                            signals_list.append('CLOSE_SHORT')
+                        else:
+                            signals_list.append('HOLD')
+                    else:
+                        signals_list.append('HOLD')
+
+                if position is None:
+                    self._position_state.pop(position_key, None)
+                else:
+                    self._position_state[position_key] = position
+
+                signals[symbol][timeframe] = pd.Series(signals_list, index=df.index)
 
         return signals
 

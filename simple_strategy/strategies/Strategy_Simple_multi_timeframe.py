@@ -16,6 +16,7 @@ import logging
 from typing import Dict, List, Any
 
 import pandas as pd
+import numpy as np
 
 from simple_strategy.shared.strategy_base import StrategyBase
 from simple_strategy.strategies.indicators_library import ema
@@ -165,6 +166,75 @@ class SimpleMultiTimeframeStrategy(StrategyBase):
                     raw_signal = 'HOLD'
 
                 signals[symbol][timeframe] = self._apply_position_rules(position_key, raw_signal)
+
+        return signals
+
+    def generate_signals_vectorized(self, data: Dict[str, Dict[str, pd.DataFrame]]) -> Dict[str, Dict[str, pd.Series]]:
+        signals: Dict[str, Dict[str, pd.Series]] = {}
+        min_periods = max(self.slow_ema_period, self.trend_ema_period) + 2
+
+        for symbol in data:
+            signals[symbol] = {}
+            for timeframe, df in data[symbol].items():
+                if df is None or len(df) < min_periods:
+                    signals[symbol][timeframe] = pd.Series(['HOLD'] * len(df), index=df.index)
+                    continue
+
+                if timeframe != self.entry_timeframe:
+                    signals[symbol][timeframe] = pd.Series(['HOLD'] * len(df), index=df.index)
+                    continue
+
+                close = df['close']
+                ema_fast = ema(close, period=self.fast_ema_period)
+                ema_slow = ema(close, period=self.slow_ema_period)
+
+                trend_df = data.get(symbol, {}).get(self.trend_timeframe)
+                if trend_df is not None and len(trend_df) >= self.trend_ema_period + 1:
+                    trend_close = trend_df['close']
+                    trend_ema = ema(trend_close, period=self.trend_ema_period)
+                    bullish_trend = (trend_close > trend_ema).reindex(df.index, method='ffill').fillna(True)
+                else:
+                    bullish_trend = pd.Series(True, index=df.index)
+
+                bullish_cross = (ema_fast > ema_slow) & (ema_fast.shift(1) <= ema_slow.shift(1))
+                bearish_cross = (ema_fast < ema_slow) & (ema_fast.shift(1) >= ema_slow.shift(1))
+
+                position_key = (symbol, timeframe)
+                position = self._position_state.get(position_key)
+                signals_list = []
+
+                for idx in range(len(df)):
+                    if bool(bullish_trend.iloc[idx]) and bool(bullish_cross.iloc[idx]):
+                        if position is None:
+                            position = {'is_short': False}
+                            signals_list.append('OPEN_LONG')
+                        else:
+                            signals_list.append('HOLD')
+                        continue
+                    if (not bool(bullish_trend.iloc[idx])) and bool(bearish_cross.iloc[idx]):
+                        if position is None:
+                            position = {'is_short': True}
+                            signals_list.append('OPEN_SHORT')
+                        else:
+                            signals_list.append('HOLD')
+                        continue
+                    if position and not position.get('is_short', False) and bool(bearish_cross.iloc[idx]):
+                        position = None
+                        signals_list.append('CLOSE_LONG')
+                        continue
+                    if position and position.get('is_short', False) and bool(bullish_cross.iloc[idx]):
+                        position = None
+                        signals_list.append('CLOSE_SHORT')
+                        continue
+
+                    signals_list.append('HOLD')
+
+                if position is None:
+                    self._position_state.pop(position_key, None)
+                else:
+                    self._position_state[position_key] = position
+
+                signals[symbol][timeframe] = pd.Series(signals_list, index=df.index)
 
         return signals
 

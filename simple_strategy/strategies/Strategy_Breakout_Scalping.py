@@ -19,6 +19,7 @@ import logging
 from typing import Dict, List, Any
 
 import pandas as pd
+import numpy as np
 
 from simple_strategy.shared.strategy_base import StrategyBase
 from simple_strategy.strategies.indicators_library import atr, ema, volume_sma, highest, lowest
@@ -244,6 +245,90 @@ class BreakoutScalpingStrategy(StrategyBase):
                         continue
 
                 signals[symbol][timeframe] = 'HOLD'
+
+        return signals
+
+    def generate_signals_vectorized(self, data: Dict[str, Dict[str, pd.DataFrame]]) -> Dict[str, Dict[str, pd.Series]]:
+        signals: Dict[str, Dict[str, pd.Series]] = {}
+        min_periods = max(self.atr_period, self.range_period, self.ema_period, self.volume_sma_period) + 1
+
+        for symbol in data:
+            signals[symbol] = {}
+            for timeframe, df in data[symbol].items():
+                if df is None or len(df) < min_periods:
+                    signals[symbol][timeframe] = pd.Series(['HOLD'] * len(df), index=df.index)
+                    continue
+
+                close_series = df['close']
+                high_series = df['high']
+                low_series = df['low']
+                volume_series = df['volume']
+
+                atr_series = atr(high_series, low_series, close_series, period=self.atr_period)
+                ema_series = ema(close_series, period=self.ema_period)
+                highest_series = highest(high_series, period=self.range_period)
+                lowest_series = lowest(low_series, period=self.range_period)
+                volume_sma_series = volume_sma(volume_series, period=self.volume_sma_period)
+
+                range_size = highest_series - lowest_series
+                breakout_high = highest_series + (range_size * self.breakout_threshold / 100)
+                breakout_low = lowest_series - (range_size * self.breakout_threshold / 100)
+
+                atr_percent = (atr_series / close_series) * 100
+                in_consolidation = atr_percent < self.atr_threshold
+                volume_confirmed = volume_series > (volume_sma_series * self.volume_multiplier)
+
+                position_key = (symbol, timeframe)
+                position = self._position_state.get(position_key)
+                signals_list = []
+
+                for idx in range(len(df)):
+                    close_val = close_series.iloc[idx]
+                    atr_val = atr_series.iloc[idx]
+                    ema_val = ema_series.iloc[idx]
+                    breakout_high_val = breakout_high.iloc[idx]
+                    breakout_low_val = breakout_low.iloc[idx]
+                    in_cons = bool(in_consolidation.iloc[idx])
+                    vol_ok = bool(volume_confirmed.iloc[idx])
+
+                    if position:
+                        if not position.get('is_short', False):
+                            if close_val >= position['take_profit'] or close_val <= position['stop_loss']:
+                                position = None
+                                signals_list.append('CLOSE_LONG')
+                                continue
+                        else:
+                            if close_val <= position['take_profit'] or close_val >= position['stop_loss']:
+                                position = None
+                                signals_list.append('CLOSE_SHORT')
+                                continue
+
+                    if in_cons and vol_ok:
+                        if close_val > breakout_high_val and close_val > ema_val:
+                            position = {
+                                'is_short': False,
+                                'stop_loss': close_val - (atr_val * self.atr_stop_loss),
+                                'take_profit': close_val + (atr_val * self.atr_take_profit)
+                            }
+                            signals_list.append('OPEN_LONG')
+                            continue
+                        if close_val < breakout_low_val and close_val < ema_val:
+                            position = {
+                                'is_short': True,
+                                'stop_loss': close_val + (atr_val * self.atr_stop_loss),
+                                'take_profit': close_val - (atr_val * self.atr_take_profit)
+                            }
+                            signals_list.append('OPEN_SHORT')
+                            continue
+
+                    signals_list.append('HOLD')
+
+                if position is None:
+                    self._position_state.pop(position_key, None)
+                else:
+                    self._position_state[position_key] = position
+
+                signals[symbol][timeframe] = pd.Series(signals_list, index=df.index)
 
         return signals
 

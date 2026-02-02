@@ -1322,14 +1322,20 @@ class PaperTradingEngine:
             
             # Generate signals using the strategy
             try:
-                self.log_message(f"🔍 DEBUG: Calling strategy.generate_signals for {symbol}")
-                signals = self.strategy.generate_signals(strategy_data)
+                if hasattr(self.strategy, 'generate_signals_vectorized'):
+                    self.log_message(f"🔍 DEBUG: Calling strategy.generate_signals_vectorized for {symbol}")
+                    signals = self.strategy.generate_signals_vectorized(strategy_data)
+                else:
+                    self.log_message(f"🔍 DEBUG: Calling strategy.generate_signals for {symbol}")
+                    signals = self.strategy.generate_signals(strategy_data)
                 
                 self.log_message(f"🔍 DEBUG: Raw signals from strategy for {symbol}: {signals}")
                 
                 # Extract the signal for our symbol and timeframe
                 if signals and symbol in signals and "1m" in signals[symbol]:
                     signal = signals[symbol]["1m"]
+                    if hasattr(signal, "iloc"):
+                        signal = signal.iloc[-1]
                     self.log_message(f"🔍 DEBUG: Extracted signal for {symbol}: {signal}")
                     
                     # Validate that the signal is one of the expected types

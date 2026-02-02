@@ -17,6 +17,7 @@ import logging
 from typing import Dict, List, Any
 
 import pandas as pd
+import numpy as np
 
 from simple_strategy.shared.strategy_base import StrategyBase
 from simple_strategy.strategies.indicators_library import sma, rsi
@@ -189,6 +190,72 @@ class SimpleFrequentTradingStrategy(StrategyBase):
                     raw_signal = 'HOLD'
 
                 signals[symbol][timeframe] = self._apply_position_rules(position_key, raw_signal)
+
+        return signals
+
+    def generate_signals_vectorized(self, data: Dict[str, Dict[str, pd.DataFrame]]) -> Dict[str, Dict[str, pd.Series]]:
+        signals: Dict[str, Dict[str, pd.Series]] = {}
+        min_periods = max(self.fast_ma_period, self.slow_ma_period, self.rsi_period) + 2
+
+        for symbol in data:
+            signals[symbol] = {}
+            for timeframe, df in data[symbol].items():
+                if df is None or len(df) < min_periods:
+                    signals[symbol][timeframe] = pd.Series(['HOLD'] * len(df), index=df.index)
+                    continue
+
+                close = df['close']
+                fast_ma = sma(close, period=self.fast_ma_period)
+                slow_ma = sma(close, period=self.slow_ma_period)
+                rsi_series = rsi(close, period=self.rsi_period)
+
+                price_change = close.pct_change()
+
+                ma_signal = np.where((fast_ma > slow_ma) & (fast_ma.shift(1) <= slow_ma.shift(1)), 1,
+                            np.where((fast_ma < slow_ma) & (fast_ma.shift(1) >= slow_ma.shift(1)), -1, 0))
+                rsi_signal = np.where(rsi_series < self.rsi_oversold, 1,
+                             np.where(rsi_series > self.rsi_overbought, -1, 0))
+                price_signal = np.where(price_change > self.price_change_threshold, 1,
+                               np.where(price_change < -self.price_change_threshold, -1, 0))
+
+                combined_signal = ma_signal + rsi_signal + price_signal
+
+                position_key = (symbol, timeframe)
+                position = self._position_state.get(position_key)
+                signals_list = []
+
+                for val in combined_signal:
+                    if position:
+                        if not position.get('is_short', False) and val < 0:
+                            position = None
+                            signals_list.append('CLOSE_LONG')
+                            continue
+                        if position.get('is_short', False) and val > 0:
+                            position = None
+                            signals_list.append('CLOSE_SHORT')
+                            continue
+
+                    if val > 0:
+                        if position is None:
+                            position = {'is_short': False}
+                            signals_list.append('OPEN_LONG')
+                        else:
+                            signals_list.append('HOLD')
+                    elif val < 0:
+                        if position is None:
+                            position = {'is_short': True}
+                            signals_list.append('OPEN_SHORT')
+                        else:
+                            signals_list.append('HOLD')
+                    else:
+                        signals_list.append('HOLD')
+
+                if position is None:
+                    self._position_state.pop(position_key, None)
+                else:
+                    self._position_state[position_key] = position
+
+                signals[symbol][timeframe] = pd.Series(signals_list, index=df.index)
 
         return signals
 

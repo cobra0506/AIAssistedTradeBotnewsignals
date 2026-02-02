@@ -145,6 +145,8 @@ class BayesianOptimizer:
             metric: Performance metric to optimize
         """
         self.parameter_space = parameter_space
+        start_time = datetime.now()
+        self.last_optimization_duration_sec = None
         
         # Get strategy from registry
         from ..strategies.strategy_registry import StrategyRegistry
@@ -188,9 +190,12 @@ class BayesianOptimizer:
         # Store results
         self.best_params = self.study.best_params
         self.best_score = self.study.best_value
+        end_time = datetime.now()
+        self.last_optimization_duration_sec = (end_time - start_time).total_seconds()
         
         self.logger.info(f"Optimization complete. Best score: {self.best_score}")
         self.logger.info(f"Best parameters: {self.best_params}")
+        self.logger.info(f"Optimization duration (sec): {self.last_optimization_duration_sec}")
         
         # Save optimized parameters to ParameterManager
         try:
@@ -207,7 +212,7 @@ class BayesianOptimizer:
         except Exception as e:
             print(f"⚠️  Failed to save optimized parameters: {e}")
 
-        return self.best_params, self.best_score
+        return self.best_params, self.best_score, self.last_optimization_duration_sec
     
     def get_optimization_history(self):
         """Get optimization history as DataFrame"""
@@ -244,6 +249,9 @@ class BayesianOptimizer:
             summary += "• SMA Short Period: " + str(self.best_params.get('sma_short_period', 'N/A')) + "\n"
             summary += "• SMA Long Period: " + str(self.best_params.get('sma_long_period', 'N/A')) + "\n"
             summary += "• Performance: " + str(self.best_score) + " Sharpe Ratio (EXCELLENT!)"
+            
+            if self.last_optimization_duration_sec is not None:
+                summary += "\nâ€¢ Optimization Duration (sec): " + str(self.last_optimization_duration_sec)
             
             with open(f"{base_path}/winning_summary.txt", 'w') as f:
                 f.write(summary)

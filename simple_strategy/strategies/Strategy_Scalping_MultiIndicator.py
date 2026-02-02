@@ -17,6 +17,7 @@ import logging
 from typing import Dict, List, Any
 
 import pandas as pd
+import numpy as np
 
 from simple_strategy.shared.strategy_base import StrategyBase
 from simple_strategy.strategies.indicators_library import rsi, ema, macd, atr
@@ -307,6 +308,100 @@ class ScalpingMultiIndicatorStrategy(StrategyBase):
                     continue
 
                 signals[symbol][timeframe] = 'HOLD'
+
+        return signals
+
+    def generate_signals_vectorized(self, data: Dict[str, Dict[str, pd.DataFrame]]) -> Dict[str, Dict[str, pd.Series]]:
+        signals: Dict[str, Dict[str, pd.Series]] = {}
+        min_periods = max(self.ema_slow, self.macd_slow, self.rsi_period, self.atr_period) + 2
+
+        for symbol in data:
+            signals[symbol] = {}
+            for timeframe, df in data[symbol].items():
+                if df is None or len(df) < min_periods:
+                    signals[symbol][timeframe] = pd.Series(['HOLD'] * len(df), index=df.index)
+                    continue
+
+                close_prices = df['close']
+                rsi_values = rsi(close_prices, self.rsi_period)
+                ema_fast_values = ema(close_prices, self.ema_fast)
+                ema_slow_values = ema(close_prices, self.ema_slow)
+                macd_line, macd_signal_line, _ = macd(
+                    close_prices,
+                    fast_period=self.macd_fast,
+                    slow_period=self.macd_slow,
+                    signal_period=self.macd_signal
+                )
+                atr_values = atr(df['high'], df['low'], close_prices, period=self.atr_period)
+
+                rsi_signal = np.where(rsi_values < self.rsi_oversold, 1.0,
+                             np.where(rsi_values > self.rsi_overbought, -1.0, 0.0))
+                ema_signal = np.where((ema_fast_values > ema_slow_values) & (ema_fast_values.shift(1) <= ema_slow_values.shift(1)), 1.0,
+                             np.where((ema_fast_values < ema_slow_values) & (ema_fast_values.shift(1) >= ema_slow_values.shift(1)), -1.0, 0.0))
+                macd_signal_value = np.where((macd_line > macd_signal_line) & (macd_line.shift(1) <= macd_signal_line.shift(1)), 1.0,
+                                     np.where((macd_line < macd_signal_line) & (macd_line.shift(1) >= macd_signal_line.shift(1)), -1.0, 0.0))
+
+                weighted_signal = (
+                    rsi_signal * self.rsi_weight +
+                    ema_signal * self.ema_weight +
+                    macd_signal_value * self.macd_weight
+                )
+
+                position_key = (symbol, timeframe)
+                position = self._position_state.get(position_key)
+                signals_list = []
+
+                for idx in range(len(df)):
+                    close_val = close_prices.iloc[idx]
+                    atr_val = atr_values.iloc[idx]
+                    weight_val = weighted_signal[idx]
+
+                    if position:
+                        if not position.get('is_short', False):
+                            if close_val <= position['stop_loss'] or close_val >= position['take_profit']:
+                                position = None
+                                signals_list.append('CLOSE_LONG')
+                                continue
+                            if weight_val < 0:
+                                position = None
+                                signals_list.append('CLOSE_LONG')
+                                continue
+                        else:
+                            if close_val >= position['stop_loss'] or close_val <= position['take_profit']:
+                                position = None
+                                signals_list.append('CLOSE_SHORT')
+                                continue
+                            if weight_val > 0:
+                                position = None
+                                signals_list.append('CLOSE_SHORT')
+                                continue
+
+                    if weight_val >= self.signal_threshold:
+                        position = {
+                            'is_short': False,
+                            'stop_loss': close_val - (atr_val * self.stop_loss_atr),
+                            'take_profit': close_val + (atr_val * self.take_profit_atr)
+                        }
+                        signals_list.append('OPEN_LONG')
+                        continue
+
+                    if weight_val <= -self.signal_threshold:
+                        position = {
+                            'is_short': True,
+                            'stop_loss': close_val + (atr_val * self.stop_loss_atr),
+                            'take_profit': close_val - (atr_val * self.take_profit_atr)
+                        }
+                        signals_list.append('OPEN_SHORT')
+                        continue
+
+                    signals_list.append('HOLD')
+
+                if position is None:
+                    self._position_state.pop(position_key, None)
+                else:
+                    self._position_state[position_key] = position
+
+                signals[symbol][timeframe] = pd.Series(signals_list, index=df.index)
 
         return signals
 

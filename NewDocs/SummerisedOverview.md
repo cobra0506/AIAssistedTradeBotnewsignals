@@ -1,38 +1,27 @@
-Nutshell Feature Summary (from code)
+Nutshell Feature Summary (Code-Verified)
 
-    Config-driven multi-symbol & multi-interval data collection: The data collection config defines the symbol list and timeframes (intervals), along with collection options like historical depth, WebSocket enablement, and minimum candles for indicators.
+- Config-driven multi-symbol & multi-interval data collection: `DataCollectionConfig` defines symbols, timeframes, historical depth, and WebSocket enablement.
+- Hybrid data collection: historical fetch + optional live WebSocket streaming for the same symbol/timeframe matrix.
+- WebSocket subscriptions: built from configured timeframes and symbols (kline.{interval}.{symbol}).
+- Backtester loads CSVs via `DataFeeder`, precalculates indicators, and generates signals (builder rules or `generate_signals_vectorized` when available).
+- Paper trader loads a strategy from the registry and generates signals per symbol; uses shared WebSocket data when available and CSV fallback otherwise.
 
-    Historical data fetcher + live WebSocket stream: The hybrid collector uses the config’s symbols/timeframes, can fetch all Bybit symbols when enabled, fetches historical data, and (optionally) starts WebSocket live updates for the same symbols/timeframes in a non-blocking way.
+Data Pipeline (Current)
 
-    WebSocket subscriptions honor config intervals/symbols: The WebSocket handler subscribes to kline.{interval}.{symbol} pairs using config.TIMEFRAMES and the configured symbols list (or fetched list).
+1) Config defines symbols/timeframes + collection mode.
+2) Hybrid collector fetches historical data and optionally starts WebSocket streaming.
+3) WebSocket handler subscribes to the symbol/timeframe matrix and writes candles to CSV.
+4) `DataFeeder` loads CSVs for backtesting.
+5) Paper trader consumes live data (shared WebSocket) or CSV fallback.
 
-    Backtester consumes collected CSVs for symbols/timeframes: The backtester uses DataFeeder to load symbol/timeframe CSVs, precalculates indicators, then generates signals from the strategy (or builder rules).
+Strategy Builder + Signals/Indicators
 
-    Paper trader uses shared data access for live/latest candles: Paper trading initializes shared data access and pulls latest data (from CSVs produced by data collection), then generates signals via the selected strategy implementation.
-
-How the Data Pipeline Works (Code-Based)
-
-    Config defines symbols/timeframes + collection mode.
-    DataCollectionConfig holds SYMBOLS, TIMEFRAMES, DAYS_TO_FETCH, and ENABLE_WEBSOCKET (plus other collection controls).
-
-    Hybrid collector orchestrates both historical + live data.
-    HybridTradingSystem.fetch_data_hybrid() uses config values, optionally fetches all Bybit symbols, starts WebSocket streaming, then fetches historical data for the symbol/timeframe matrix.
-
-    WebSocket handler subscribes to the configured symbol/timeframe matrix.
-    The WebSocket handler builds kline.{interval}.{symbol} subscriptions from config.TIMEFRAMES and the symbol list, then streams and processes live candles.
-
-Strategy Builder + Signals/Indicators Libraries
-
-    Strategy Builder: Provides a clean API to register indicators and signal rules, with validation of indicator references and rule params (e.g., for RSI or MACD rules).
-
-    Indicators Library: Contains the actual indicator functions (SMA, EMA, RSI, Stochastic, etc.) used by strategies and the builder.
-
-    Signals Library: Contains signal-processing functions that return trading actions (OPEN_LONG, OPEN_SHORT, CLOSE_LONG, CLOSE_SHORT, HOLD), ensuring compatibility with the paper trader and other execution components.
+- Strategy Builder: Available but has known limitations around indicator injection and signal parameter passing.
+- Indicators Library: Core indicator functions used by strategies (SMA, EMA, RSI, etc.).
+- Signals Library: Contains multiple signal helpers with mixed return types (string vs numeric). Use with care or normalize outputs.
 
 Shared Strategy Interface (Backtester + Paper Trader)
 
-    StrategyBase defines the common interface (generate_signals) and shared behavior/metadata, ensuring a consistent strategy contract for both backtesting and paper trading (and future real trading).
-
-    Backtester executes strategies by calling generate_signals or builder rules on precalculated indicator data.
-
-    Paper trader loads a strategy from the registry and generates signals via strategy.generate_signals(...), using shared data access to supply live/latest data.
+- `StrategyBase` defines the common interface (`generate_signals`) for strategies.
+- Backtester uses `generate_signals_vectorized` when available for speed.
+- Paper trader uses `generate_signals_vectorized` when available, otherwise falls back to `generate_signals`.

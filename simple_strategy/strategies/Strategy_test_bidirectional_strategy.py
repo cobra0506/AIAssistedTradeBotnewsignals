@@ -107,6 +107,72 @@ class TestBidirectionalStrategy(StrategyBase):
 
         return signals
 
+    def generate_signals_vectorized(self, data: Dict[str, Dict[str, pd.DataFrame]]) -> Dict[str, Dict[str, pd.Series]]:
+        signals: Dict[str, Dict[str, pd.Series]] = {}
+
+        for symbol in data:
+            signals[symbol] = {}
+            for timeframe, df in data[symbol].items():
+                if df is None or len(df) < 2:
+                    signals[symbol][timeframe] = pd.Series(['HOLD'] * len(df), index=df.index)
+                    continue
+
+                if not self.test_mode:
+                    signals[symbol][timeframe] = pd.Series(['HOLD'] * len(df), index=df.index)
+                    continue
+
+                position_key = (symbol, timeframe)
+                position = self._position_state.get(position_key)
+                toggle = self._toggle_state.get(position_key, False)
+
+                signals_list = []
+                for _ in range(len(df)):
+                    if position is None:
+                        raw_signal = 'OPEN_LONG'
+                    elif not position.get('is_short', False):
+                        raw_signal = 'CLOSE_LONG' if not toggle else 'OPEN_SHORT'
+                    else:
+                        raw_signal = 'CLOSE_SHORT' if not toggle else 'OPEN_LONG'
+
+                    toggle = not toggle
+
+                    if raw_signal == 'OPEN_LONG':
+                        if position is None:
+                            position = {'is_short': False}
+                            signals_list.append('OPEN_LONG')
+                        else:
+                            signals_list.append('HOLD')
+                    elif raw_signal == 'OPEN_SHORT':
+                        if position is None:
+                            position = {'is_short': True}
+                            signals_list.append('OPEN_SHORT')
+                        else:
+                            signals_list.append('HOLD')
+                    elif raw_signal == 'CLOSE_LONG':
+                        if position is not None and not position.get('is_short', False):
+                            position = None
+                            signals_list.append('CLOSE_LONG')
+                        else:
+                            signals_list.append('HOLD')
+                    elif raw_signal == 'CLOSE_SHORT':
+                        if position is not None and position.get('is_short', False):
+                            position = None
+                            signals_list.append('CLOSE_SHORT')
+                        else:
+                            signals_list.append('HOLD')
+                    else:
+                        signals_list.append('HOLD')
+
+                self._toggle_state[position_key] = toggle
+                if position is None:
+                    self._position_state.pop(position_key, None)
+                else:
+                    self._position_state[position_key] = position
+
+                signals[symbol][timeframe] = pd.Series(signals_list, index=df.index)
+
+        return signals
+
 
 def create_strategy(symbols=None, timeframes=None, **params):
     if symbols is None or len(symbols) == 0:

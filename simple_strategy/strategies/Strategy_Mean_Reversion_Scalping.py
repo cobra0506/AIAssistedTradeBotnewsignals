@@ -216,6 +216,74 @@ class MeanReversionScalpingStrategy(StrategyBase):
 
         return signals
 
+    def generate_signals_vectorized(self, data: Dict[str, Dict[str, pd.DataFrame]]) -> Dict[str, Dict[str, pd.Series]]:
+        signals: Dict[str, Dict[str, pd.Series]] = {}
+        min_periods = max(self.rsi_period, self.bb_period, self.atr_period, self.volume_sma_period) + 1
+
+        for symbol in data:
+            signals[symbol] = {}
+            for timeframe, df in data[symbol].items():
+                if df is None or len(df) < min_periods:
+                    signals[symbol][timeframe] = pd.Series(['HOLD'] * len(df), index=df.index)
+                    continue
+
+                close = df['close']
+                volume = df['volume']
+
+                rsi_series = rsi(close, period=self.rsi_period)
+                bb_upper, bb_middle, bb_lower = bollinger_bands(close, period=self.bb_period, std_dev=self.bb_std_dev)
+                volume_sma_series = volume_sma(volume, period=self.volume_sma_period)
+
+                volume_confirmed = volume > (volume_sma_series * 0.8)
+
+                raw_open_short = (rsi_series > self.rsi_overbought) & (close > bb_upper) & volume_confirmed
+                raw_open_long = (rsi_series < self.rsi_oversold) & (close < bb_lower) & volume_confirmed
+                raw_close_short = (rsi_series < self.rsi_exit_level) | (close <= bb_middle)
+                raw_close_long = (rsi_series > self.rsi_exit_level) | (close >= bb_middle)
+
+                position_key = (symbol, timeframe)
+                position = self._position_state.get(position_key)
+                signals_list = []
+
+                for idx in range(len(df)):
+                    if bool(raw_open_short.iloc[idx]):
+                        if position is None:
+                            position = {'is_short': True}
+                            signals_list.append('OPEN_SHORT')
+                        else:
+                            signals_list.append('HOLD')
+                        continue
+
+                    if bool(raw_open_long.iloc[idx]):
+                        if position is None:
+                            position = {'is_short': False}
+                            signals_list.append('OPEN_LONG')
+                        else:
+                            signals_list.append('HOLD')
+                        continue
+
+                    if position is not None and position.get('is_short', False):
+                        if bool(raw_close_short.iloc[idx]):
+                            position = None
+                            signals_list.append('CLOSE_SHORT')
+                            continue
+                    if position is not None and not position.get('is_short', False):
+                        if bool(raw_close_long.iloc[idx]):
+                            position = None
+                            signals_list.append('CLOSE_LONG')
+                            continue
+
+                    signals_list.append('HOLD')
+
+                if position is None:
+                    self._position_state.pop(position_key, None)
+                else:
+                    self._position_state[position_key] = position
+
+                signals[symbol][timeframe] = pd.Series(signals_list, index=df.index)
+
+        return signals
+
 
 def create_strategy(symbols=None, timeframes=None, **params):
     if symbols is None or len(symbols) == 0:

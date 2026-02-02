@@ -16,6 +16,7 @@ import logging
 from typing import Dict, List, Any
 
 import pandas as pd
+import numpy as np
 
 from simple_strategy.shared.strategy_base import StrategyBase
 from simple_strategy.strategies.indicators_library import ema, rsi
@@ -194,6 +195,84 @@ class ImprovedSimpleMACrossoverStrategy(StrategyBase):
                     raw_signal = 'HOLD'
 
                 signals[symbol][timeframe] = self._apply_position_rules(position_key, raw_signal)
+
+        return signals
+
+    def generate_signals_vectorized(self, data: Dict[str, Dict[str, pd.DataFrame]]) -> Dict[str, Dict[str, pd.Series]]:
+        signals: Dict[str, Dict[str, pd.Series]] = {}
+        min_periods = max(self.slow_ma_period, self.rsi_period, self.trend_ma_period) + 2
+
+        for symbol in data:
+            signals[symbol] = {}
+            for timeframe, df in data[symbol].items():
+                if df is None or len(df) < min_periods:
+                    signals[symbol][timeframe] = pd.Series(['HOLD'] * len(df), index=df.index)
+                    continue
+
+                if timeframe != self.entry_timeframe:
+                    signals[symbol][timeframe] = pd.Series(['HOLD'] * len(df), index=df.index)
+                    continue
+
+                close = df['close']
+                ema_fast = ema(close, period=self.fast_ma_period)
+                ema_slow = ema(close, period=self.slow_ma_period)
+                rsi_series = rsi(close, period=self.rsi_period)
+
+                trend_df = data.get(symbol, {}).get(self.trend_timeframe)
+                if trend_df is not None and len(trend_df) >= self.trend_ma_period + 1:
+                    trend_close = trend_df['close']
+                    trend_ema = ema(trend_close, period=self.trend_ma_period)
+                    trend_bool = trend_close > trend_ema
+                    bullish_trend = trend_bool.reindex(df.index, method='ffill').fillna(True)
+                else:
+                    bullish_trend = pd.Series(True, index=df.index)
+
+                bullish_setup = (ema_fast > ema_slow) & (ema_fast.shift(1) <= ema_slow.shift(1)) & (rsi_series > self.rsi_bullish_threshold)
+                bearish_setup = (ema_fast < ema_slow) & (ema_fast.shift(1) >= ema_slow.shift(1)) & (rsi_series < self.rsi_bearish_threshold)
+
+                raw = np.where(bullish_trend & bullish_setup, 'OPEN_LONG',
+                      np.where((~bullish_trend) & bearish_setup, 'OPEN_SHORT',
+                      np.where(bearish_setup, 'CLOSE_LONG',
+                      np.where(bullish_setup, 'CLOSE_SHORT', 'HOLD'))))
+
+                position_key = (symbol, timeframe)
+                position = self._position_state.get(position_key)
+                signals_list = []
+
+                for raw_signal in raw:
+                    if raw_signal == 'OPEN_LONG':
+                        if position is None:
+                            position = {'is_short': False}
+                            signals_list.append('OPEN_LONG')
+                        else:
+                            signals_list.append('HOLD')
+                    elif raw_signal == 'OPEN_SHORT':
+                        if position is None:
+                            position = {'is_short': True}
+                            signals_list.append('OPEN_SHORT')
+                        else:
+                            signals_list.append('HOLD')
+                    elif raw_signal == 'CLOSE_LONG':
+                        if position is not None and not position.get('is_short', False):
+                            position = None
+                            signals_list.append('CLOSE_LONG')
+                        else:
+                            signals_list.append('HOLD')
+                    elif raw_signal == 'CLOSE_SHORT':
+                        if position is not None and position.get('is_short', False):
+                            position = None
+                            signals_list.append('CLOSE_SHORT')
+                        else:
+                            signals_list.append('HOLD')
+                    else:
+                        signals_list.append('HOLD')
+
+                if position is None:
+                    self._position_state.pop(position_key, None)
+                else:
+                    self._position_state[position_key] = position
+
+                signals[symbol][timeframe] = pd.Series(signals_list, index=df.index)
 
         return signals
 

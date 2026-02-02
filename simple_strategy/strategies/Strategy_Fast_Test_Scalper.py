@@ -17,6 +17,7 @@ import sys
 from typing import Dict, List, Any
 
 import pandas as pd
+import numpy as np
 
 from simple_strategy.shared.strategy_base import StrategyBase
 
@@ -88,6 +89,48 @@ class FastTestScalperStrategy(StrategyBase):
                     raw_signal = 'HOLD'
 
                 signals[symbol][timeframe] = self._apply_position_rules(position_key, raw_signal)
+
+        return signals
+
+    def generate_signals_vectorized(self, data: Dict[str, Dict[str, pd.DataFrame]]) -> Dict[str, Dict[str, pd.Series]]:
+        signals: Dict[str, Dict[str, pd.Series]] = {}
+        for symbol in data:
+            signals[symbol] = {}
+            for timeframe, df in data[symbol].items():
+                if df is None or len(df) < self.min_periods:
+                    signals[symbol][timeframe] = pd.Series(['HOLD'] * len(df), index=df.index)
+                    continue
+
+                close = df['close']
+                raw = np.where(close > close.shift(1), 'OPEN_LONG',
+                      np.where(close < close.shift(1), 'CLOSE_LONG', 'HOLD'))
+
+                position_key = (symbol, timeframe)
+                position = self._position_state.get(position_key)
+                signals_list = []
+
+                for raw_signal in raw:
+                    if raw_signal == 'OPEN_LONG':
+                        if position is None:
+                            position = {'is_short': False}
+                            signals_list.append('OPEN_LONG')
+                        else:
+                            signals_list.append('HOLD')
+                    elif raw_signal == 'CLOSE_LONG':
+                        if position is not None and not position.get('is_short', False):
+                            position = None
+                            signals_list.append('CLOSE_LONG')
+                        else:
+                            signals_list.append('HOLD')
+                    else:
+                        signals_list.append('HOLD')
+
+                if position is None:
+                    self._position_state.pop(position_key, None)
+                else:
+                    self._position_state[position_key] = position
+
+                signals[symbol][timeframe] = pd.Series(signals_list, index=df.index)
 
         return signals
 

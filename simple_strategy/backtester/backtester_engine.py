@@ -17,6 +17,7 @@ from pathlib import Path
 import sys
 # Fix import paths - shared is a sibling directory, not a subdirectory
 import os
+import json
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from shared.data_feeder import DataFeeder
 from shared.strategy_base import StrategyBase
@@ -76,6 +77,7 @@ class BacktesterEngine:
         self.peak_equity = 0.0
         self.max_drawdown = 0.0
         self._debug_count = []
+        self.debug_signals = self.config.get('debug_signals', False)
         
         # Configuration
         self.processing_mode = self.config.get('processing_mode', 'sequential')  # 'sequential' or 'parallel'
@@ -216,6 +218,12 @@ class BacktesterEngine:
                             signals_series = strategy.builder._execute_signal_rules(df)
                         except Exception:
                             signals_series = None
+                    elif hasattr(strategy, 'generate_signals_vectorized'):
+                        try:
+                            signals_map = strategy.generate_signals_vectorized({symbol: {timeframe: df}})
+                            signals_series = signals_map.get(symbol, {}).get(timeframe)
+                        except Exception:
+                            signals_series = None
 
                     
                     # Find the first row where indicators are valid
@@ -247,7 +255,7 @@ class BacktesterEngine:
                                     signal = 'HOLD'
                         else:
                             # Get data up to this timestamp
-                            current_data = {symbol: {timeframe: df.iloc[:i+1].copy()}}
+                            current_data = {symbol: {timeframe: df.iloc[:i+1]}}
                             # Generate signal
                             signals = strategy.generate_signals(current_data)
                             signal = signals[symbol][timeframe]
@@ -257,7 +265,8 @@ class BacktesterEngine:
                         signal_history[symbol][timeframe].append((timestamp, signal))
                         
                         # Debug all trading signals
-                        self._debug_signal(symbol, timeframe, timestamp, signal, df.iloc[:i+1], signal_history[symbol][timeframe][-5:]) 
+                        if self.debug_signals:
+                            self._debug_signal(symbol, timeframe, timestamp, signal, df.iloc[i], signal_history[symbol][timeframe][-5:]) 
 
                         current_price = df.iloc[i]['close']
                         
@@ -270,14 +279,17 @@ class BacktesterEngine:
                                     # Check if we ever had an OPEN signal for this symbol
                                     recent_signals = [s[1] for s in signal_history[symbol][timeframe][-10:]]
                                     has_open_signal = any(s in ['OPEN_LONG', 'OPEN_SHORT'] for s in recent_signals)
-                                    print(f"  Recent signals: {recent_signals}")
-                                    print(f"  Had OPEN signal recently: {has_open_signal}")
+                                    if self.debug_signals:
+                                        print(f"  Recent signals: {recent_signals}")
+                                        print(f"  Had OPEN signal recently: {has_open_signal}")
                                     continue
                                 if signal == 'CLOSE_LONG' and self.positions[symbol].get('is_short', False):
-                                    print(f"⚠️ WARNING: CLOSE_LONG signal for {symbol} but position is SHORT. Skipping.")
+                                    if self.debug_signals:
+                                        print(f"⚠️ WARNING: CLOSE_LONG signal for {symbol} but position is SHORT. Skipping.")
                                     continue
                                 if signal == 'CLOSE_SHORT' and not self.positions[symbol].get('is_short', False):
-                                    print(f"⚠️ WARNING: CLOSE_SHORT signal for {symbol} but position is LONG. Skipping.")
+                                    if self.debug_signals:
+                                        print(f"⚠️ WARNING: CLOSE_SHORT signal for {symbol} but position is LONG. Skipping.")
                                     continue
                             
                             if signal == 'OPEN_LONG':
@@ -391,6 +403,21 @@ class BacktesterEngine:
             seconds = total_seconds % 60
             duration_str = f"{hours}h {minutes}m {seconds:.2f}s"
             
+            # === SAVE BACKTEST RESULTS ===
+            try:
+                strategy_name = strategy.name if hasattr(strategy, 'name') else strategy.__class__.__name__
+                self._save_backtest_results(
+                    strategy_name=strategy_name,
+                    symbols=symbols or strategy.symbols,
+                    timeframes=timeframes or strategy.timeframes,
+                    start_date=start_date,
+                    end_date=end_date,
+                    metrics=metrics,
+                    duration=duration_str
+                )
+            except Exception:
+                pass
+
             # === RETURN METRICS ===
             return {
                 'win_rate': metrics['win_rate_pct'],
@@ -675,6 +702,50 @@ class BacktesterEngine:
         logger.info(f"DEBUG: Calculated metrics: {metrics}")
         return metrics
 
+    def _save_backtest_results(self, strategy_name, symbols, timeframes, start_date, end_date, metrics, duration):
+        results_path = os.path.join(os.path.dirname(__file__), '..', 'optimization_results', 'backtest_results.json')
+        os.makedirs(os.path.dirname(results_path), exist_ok=True)
+
+        def _as_str(value):
+            try:
+                return value.strftime('%Y-%m-%d')
+            except Exception:
+                return str(value)
+
+        try:
+            if os.path.exists(results_path):
+                with open(results_path, 'r') as f:
+                    data = json.load(f)
+            else:
+                data = {}
+        except Exception:
+            data = {}
+
+        total_return_pct = metrics.get('total_return_pct', 0.0)
+        initial_balance = float(getattr(self, 'initial_balance', 0.0))
+        net_profit_loss = (initial_balance * total_return_pct / 100.0) if initial_balance else 0.0
+
+        data[strategy_name] = {
+            'last_backtest': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'symbols': list(symbols) if symbols is not None else [],
+            'timeframes': list(timeframes) if timeframes is not None else [],
+            'start_date': _as_str(start_date),
+            'end_date': _as_str(end_date),
+            'duration': duration,
+            'initial_balance': initial_balance,
+            'net_profit_loss': net_profit_loss,
+            'metrics': {
+                'win_rate': metrics.get('win_rate_pct', 0.0),
+                'sharpe_ratio': metrics.get('sharpe_ratio', 0.0),
+                'max_drawdown': metrics.get('max_drawdown_pct', 0.0),
+                'total_return': metrics.get('total_return_pct', 0.0),
+                'total_trades': metrics.get('total_trades', 0)
+            }
+        }
+
+        with open(results_path, 'w') as f:
+            json.dump(data, f, indent=4)
+
     def _display_results(self, metrics):
         """Display backtest results"""
         print("=" * 50)
@@ -744,17 +815,17 @@ class BacktesterEngine:
         
         return enhanced_data
 
-    def _debug_signal(self, symbol, timeframe, timestamp, signal, df, recent_signals=None):
+    def _debug_signal(self, symbol, timeframe, timestamp, signal, row, recent_signals=None):
         """Debug method to check what signals are being generated - optimized version"""
         # Only debug for the first symbol and only trading signals
         if symbol != 'BNBUSDT' or signal == 'HOLD':
             return
         
         # Debug all trading signals with recent history
-        if f'ema_fast_{timeframe}' in df.columns:
-            fast_ema = df[f'ema_fast_{timeframe}'].iloc[-1]
-            slow_ema = df[f'ema_slow_{timeframe}'].iloc[-1]
-            rsi = df[f'rsi_{timeframe}'].iloc[-1]
+        if f'ema_fast_{timeframe}' in row.index:
+            fast_ema = row.get(f'ema_fast_{timeframe}')
+            slow_ema = row.get(f'ema_slow_{timeframe}')
+            rsi = row.get(f'rsi_{timeframe}')
             
             print(f"\n=== TRADING SIGNAL: {symbol} {timeframe} at {timestamp} ===")
             print(f"Signal: {signal}")

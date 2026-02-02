@@ -45,7 +45,7 @@ def main():
     )
     
     # Run optimization
-    best_params, best_score = optimizer.optimize(
+    best_params, best_score, optimization_duration_sec = optimizer.optimize(
         strategy_name='Strategy_1_Trend_Following',  # <-- CHANGED TO THIS
         parameter_space=param_space,
         symbols=['BTCUSDT'],
@@ -57,6 +57,7 @@ def main():
     
     print(f"Best parameters: {best_params}")
     print(f"Best Sharpe ratio: {best_score}")
+    print(f"Optimization duration (sec): {optimization_duration_sec}")
     
     # Get optimization history
     history = optimizer.get_optimization_history()

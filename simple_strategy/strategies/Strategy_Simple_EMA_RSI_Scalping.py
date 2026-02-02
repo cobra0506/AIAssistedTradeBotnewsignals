@@ -151,12 +151,43 @@ def create_strategy(symbols=None, timeframes=None, **params):
         
         # Build and return the strategy
         strategy = strategy_builder.build()
+
+        def generate_signals_vectorized_with_trend(data):
+            vector_signals = {}
+            for symbol in data:
+                vector_signals[symbol] = {}
+                for timeframe in data[symbol]:
+                    df = data[symbol][timeframe]
+                    if len(df) < max(slow_ema_period, rsi_period) + 1:
+                        vector_signals[symbol][timeframe] = pd.Series(['HOLD'] * len(df), index=df.index)
+                        continue
+
+                    ema_fast_series = ema(df['close'], period=fast_ema_period)
+                    ema_slow_series = ema(df['close'], period=slow_ema_period)
+                    rsi_series = rsi(df['close'], period=rsi_period)
+
+                    is_uptrend = ema_fast_series > ema_slow_series
+                    is_downtrend = ema_fast_series < ema_slow_series
+
+                    rsi_cross_above_oversold = (rsi_series.shift(1) <= rsi_oversold) & (rsi_series > rsi_oversold)
+                    rsi_cross_below_overbought = (rsi_series.shift(1) >= rsi_overbought) & (rsi_series < rsi_overbought)
+                    rsi_cross_above_overbought = (rsi_series.shift(1) <= rsi_overbought) & (rsi_series > rsi_overbought)
+
+                    raw = np.where(is_uptrend & rsi_cross_above_oversold, 'OPEN_LONG',
+                          np.where(is_uptrend & rsi_cross_below_overbought, 'CLOSE_LONG',
+                          np.where(is_downtrend & rsi_cross_below_overbought, 'OPEN_SHORT',
+                          np.where(is_downtrend & rsi_cross_above_oversold, 'CLOSE_SHORT', 'HOLD'))))
+
+                    vector_signals[symbol][timeframe] = pd.Series(raw, index=df.index)
+
+            return vector_signals
         
         logger.info(f"✅ RSI Mean Reversion with EMA Trend Filter strategy created successfully!")
         logger.info(f" - Strategy Name: {strategy.name}")
         logger.info(f" - Strategy Symbols: {strategy.symbols}")
         logger.info(f" - Strategy Timeframes: {strategy.timeframes}")
-        
+
+        strategy.generate_signals_vectorized = generate_signals_vectorized_with_trend
         return strategy
         
     except Exception as e:
@@ -268,10 +299,41 @@ class RSIMeanReversionEMATrendStrategy(StrategyBase):
                     return 'CLOSE_SHORT'  # RSI crossed up through oversold level
             
             return 'HOLD'
-            
+
         except Exception as e:
             logger.error(f"Error generating signal for {symbol} {timeframe}: {e}")
             return 'HOLD'
+
+    def generate_signals_vectorized(self, data: Dict[str, Dict[str, pd.DataFrame]]) -> Dict[str, Dict[str, pd.Series]]:
+        signals = {}
+        min_periods = max(self.slow_ema_period, self.rsi_period) + 1
+
+        for symbol in data:
+            signals[symbol] = {}
+            for timeframe, df in data[symbol].items():
+                if df is None or len(df) < min_periods:
+                    signals[symbol][timeframe] = pd.Series(['HOLD'] * len(df), index=df.index)
+                    continue
+
+                ema_fast_series = ema(df['close'], period=self.fast_ema_period)
+                ema_slow_series = ema(df['close'], period=self.slow_ema_period)
+                rsi_series = rsi(df['close'], period=self.rsi_period)
+
+                is_uptrend = ema_fast_series > ema_slow_series
+                is_downtrend = ema_fast_series < ema_slow_series
+
+                rsi_cross_above_oversold = (rsi_series.shift(1) <= self.rsi_oversold) & (rsi_series > self.rsi_oversold)
+                rsi_cross_below_overbought = (rsi_series.shift(1) >= self.rsi_overbought) & (rsi_series < self.rsi_overbought)
+                rsi_cross_above_overbought = (rsi_series.shift(1) <= self.rsi_overbought) & (rsi_series > self.rsi_overbought)
+
+                raw = np.where(is_uptrend & rsi_cross_above_oversold, 'OPEN_LONG',
+                      np.where(is_uptrend & rsi_cross_below_overbought, 'CLOSE_LONG',
+                      np.where(is_downtrend & rsi_cross_below_overbought, 'OPEN_SHORT',
+                      np.where(is_downtrend & rsi_cross_above_oversold, 'CLOSE_SHORT', 'HOLD'))))
+
+                signals[symbol][timeframe] = pd.Series(raw, index=df.index)
+
+        return signals
 
 def create_rsi_ema_trend_strategy_instance(symbols=None, timeframes=None, **params):
     """Create RSI Mean Reversion with EMA Trend Filter strategy instance"""

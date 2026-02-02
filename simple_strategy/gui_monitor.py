@@ -304,7 +304,7 @@ class SimpleStrategyGUI:
                     opt_window.update_idletasks()
 
                 
-                best_params, best_score = optimizer.optimize(
+                best_params, best_score, optimization_duration_sec = optimizer.optimize(
                     strategy_name=strategy_name,
                     parameter_space=param_space,
                     symbols=symbols_list,
@@ -329,7 +329,11 @@ class SimpleStrategyGUI:
                 # FIXED: Safe string building without f-strings
                 result_msg = "🎉 Optimization Complete!\n\n"
                 result_msg += "📊 Strategy: " + str(strategy_name) + "\n"
-                result_msg += "📈 Best Sharpe Ratio: " + score_text + "\n\n"
+                result_msg += "📈 Best Sharpe Ratio: " + score_text + "\n"
+                if optimization_duration_sec is not None:
+                    result_msg += "⏱️ Optimization Duration (sec): " + str(optimization_duration_sec) + "\n\n"
+                else:
+                    result_msg += "\n"
                 result_msg += "⚙️ Best Parameters:\n"
                 for param, value in best_params.items():
                     result_msg += "   " + str(param) + ": " + str(value) + "\n"

@@ -57,43 +57,12 @@ def ema(data: pd.Series, period: int = 20) -> pd.Series:
         EMA series
     """
     try:
-        # Handle edge case: period larger than data length
-        if period > len(data):
+        # Handle edge cases
+        if period <= 0 or period > len(data):
             return pd.Series([np.nan] * len(data), index=data.index, dtype=float)
-        
-        # Handle edge case: period <= 0
-        if period <= 0:
-            return pd.Series([np.nan] * len(data), index=data.index, dtype=float)
-        
-        # Initialize result series with NaN values
-        ema_series = pd.Series([np.nan] * len(data), index=data.index, dtype=float)
-        
-        # Find the first 'period' non-NaN values
-        non_nan_indices = []
-        non_nan_values = []
-        for i, val in enumerate(data):
-            if not pd.isna(val):
-                non_nan_indices.append(i)
-                non_nan_values.append(val)
-                if len(non_nan_values) >= period:
-                    break
-        
-        # If we don't have enough non-NaN values, return all NaN
-        if len(non_nan_values) < period:
-            return ema_series
-        
-        # First EMA value is the SMA of the first 'period' non-NaN values
-        first_ema = sum(non_nan_values) / period
-        ema_series.iloc[non_nan_indices[-1]] = first_ema
-        
-        # Calculate smoothing factor
-        smoothing = 2 / (period + 1)
-        
-        # Calculate subsequent EMA values
-        for i in range(non_nan_indices[-1] + 1, len(data)):
-            if not pd.isna(data.iloc[i]):
-                ema_series.iloc[i] = smoothing * data.iloc[i] + (1 - smoothing) * ema_series.iloc[i - 1]
-        
+
+        series = data.astype(float)
+        ema_series = series.ewm(span=period, adjust=False, min_periods=period).mean()
         return ema_series
     except Exception as e:
         logger.error(f"Error calculating EMA: {e}")

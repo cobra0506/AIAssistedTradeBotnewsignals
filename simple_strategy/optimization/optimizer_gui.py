@@ -104,7 +104,7 @@ class OptimizerGUI:
             )
             
             # Run optimization - FIX THIS LINE
-            best_params, best_score = optimizer.optimize(
+            best_params, best_score, optimization_duration_sec = optimizer.optimize(
                 strategy_name='Strategy_1_Trend_Following',  # <-- CHANGED FROM strategy_builder_class
                 parameter_space=param_space,
                 symbols=[symbol],
@@ -119,6 +119,7 @@ class OptimizerGUI:
     🎉 OPTIMIZATION COMPLETE! 🎉
 
     📈 Best Sharpe Ratio: {best_score:.4f}
+    ⏱️ Optimization Duration (sec): {optimization_duration_sec}
 
     ⚙️ Best Parameters:
     """

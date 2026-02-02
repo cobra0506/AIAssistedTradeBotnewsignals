@@ -18,6 +18,7 @@ import logging
 from typing import Dict, List, Any
 
 import pandas as pd
+import numpy as np
 
 from simple_strategy.shared.strategy_base import StrategyBase
 from simple_strategy.strategies.indicators_library import rsi, ema
@@ -119,6 +120,73 @@ class RSIEMATrendFilterStrategy(StrategyBase):
 
                 position_key = (symbol, timeframe)
                 signals[symbol][timeframe] = self._apply_position_rules(position_key, raw_signal)
+
+        return signals
+
+    def generate_signals_vectorized(self, data: Dict[str, Dict[str, pd.DataFrame]]) -> Dict[str, Dict[str, pd.Series]]:
+        signals: Dict[str, Dict[str, pd.Series]] = {}
+        min_periods = max(self.rsi_period, self.ema_fast_period, self.ema_slow_period) + 1
+
+        for symbol in data:
+            signals[symbol] = {}
+            for timeframe, df in data[symbol].items():
+                if df is None or len(df) < min_periods:
+                    signals[symbol][timeframe] = pd.Series(['HOLD'] * len(df), index=df.index)
+                    continue
+
+                rsi_series = rsi(df['close'], period=self.rsi_period)
+                ema_fast = ema(df['close'], period=self.ema_fast_period)
+                ema_slow = ema(df['close'], period=self.ema_slow_period)
+
+                uptrend = ema_fast > ema_slow
+                downtrend = ema_fast < ema_slow
+
+                os_cross = oversold_cross(rsi_series, self.rsi_oversold)
+                ob_cross = overbought_cross(rsi_series, self.rsi_overbought)
+
+                raw = np.where(uptrend & os_cross, 'OPEN_LONG',
+                      np.where(uptrend & ob_cross, 'CLOSE_LONG',
+                      np.where(downtrend & ob_cross, 'OPEN_SHORT',
+                      np.where(downtrend & os_cross, 'CLOSE_SHORT', 'HOLD'))))
+
+                position_key = (symbol, timeframe)
+                position = self._position_state.get(position_key)
+                signals_list = []
+
+                for raw_signal in raw:
+                    if raw_signal == 'OPEN_LONG':
+                        if position is None:
+                            position = {'is_short': False}
+                            signals_list.append('OPEN_LONG')
+                        else:
+                            signals_list.append('HOLD')
+                    elif raw_signal == 'OPEN_SHORT':
+                        if position is None:
+                            position = {'is_short': True}
+                            signals_list.append('OPEN_SHORT')
+                        else:
+                            signals_list.append('HOLD')
+                    elif raw_signal == 'CLOSE_LONG':
+                        if position is not None and not position.get('is_short', False):
+                            position = None
+                            signals_list.append('CLOSE_LONG')
+                        else:
+                            signals_list.append('HOLD')
+                    elif raw_signal == 'CLOSE_SHORT':
+                        if position is not None and position.get('is_short', False):
+                            position = None
+                            signals_list.append('CLOSE_SHORT')
+                        else:
+                            signals_list.append('HOLD')
+                    else:
+                        signals_list.append('HOLD')
+
+                if position is None:
+                    self._position_state.pop(position_key, None)
+                else:
+                    self._position_state[position_key] = position
+
+                signals[symbol][timeframe] = pd.Series(signals_list, index=df.index)
 
         return signals
 

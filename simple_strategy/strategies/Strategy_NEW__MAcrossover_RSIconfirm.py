@@ -191,9 +191,36 @@ def create_strategy(symbols=None, timeframes=None, **params):
                         confirmed_signals[symbol][timeframe] = original_signal
             
             return confirmed_signals
+
+        def generate_signals_vectorized_with_rsi_confirmation(data):
+            vector_signals = {}
+            for symbol in data:
+                vector_signals[symbol] = {}
+                for timeframe in data[symbol]:
+                    df = data[symbol][timeframe]
+                    if len(df) < slow_ma_period + 1:
+                        vector_signals[symbol][timeframe] = pd.Series(['HOLD'] * len(df), index=df.index)
+                        continue
+
+                    ema_fast_series = ema(df['close'], period=fast_ma_period)
+                    ema_slow_series = ema(df['close'], period=slow_ma_period)
+                    rsi_series = rsi(df['close'], period=rsi_period)
+
+                    cross_above = (ema_fast_series > ema_slow_series) & (ema_fast_series.shift(1) <= ema_slow_series.shift(1))
+                    cross_below = (ema_fast_series < ema_slow_series) & (ema_fast_series.shift(1) >= ema_slow_series.shift(1))
+
+                    raw = np.where(cross_above & (rsi_series < rsi_overbought), 'OPEN_LONG',
+                          np.where(cross_below & (rsi_series > rsi_oversold), 'OPEN_SHORT',
+                          np.where(cross_below, 'CLOSE_LONG',
+                          np.where(cross_above, 'CLOSE_SHORT', 'HOLD'))))
+
+                    vector_signals[symbol][timeframe] = pd.Series(raw, index=df.index)
+
+            return vector_signals
         
         # Replace the generate_signals method
         strategy.generate_signals = generate_signals_with_rsi_confirmation
+        strategy.generate_signals_vectorized = generate_signals_vectorized_with_rsi_confirmation
         
         logger.info(f"✅ Moving Average Crossover with RSI Confirmation strategy created successfully!")
         logger.info(f" - Strategy Name: {strategy.name}")
@@ -306,6 +333,33 @@ class MACrossoverRSIConfirmationStrategy(StrategyBase):
         except Exception as e:
             logger.error(f"Error generating signal for {symbol} {timeframe}: {e}")
             return 'HOLD'
+
+    def generate_signals_vectorized(self, data: Dict[str, Dict[str, pd.DataFrame]]) -> Dict[str, Dict[str, pd.Series]]:
+        signals = {}
+        min_periods = max(self.slow_ma_period, self.rsi_period) + 1
+
+        for symbol in data:
+            signals[symbol] = {}
+            for timeframe, df in data[symbol].items():
+                if df is None or len(df) < min_periods:
+                    signals[symbol][timeframe] = pd.Series(['HOLD'] * len(df), index=df.index)
+                    continue
+
+                ema_fast_series = ema(df['close'], period=self.fast_ma_period)
+                ema_slow_series = ema(df['close'], period=self.slow_ma_period)
+                rsi_series = rsi(df['close'], period=self.rsi_period)
+
+                cross_above = (ema_fast_series > ema_slow_series) & (ema_fast_series.shift(1) <= ema_slow_series.shift(1))
+                cross_below = (ema_fast_series < ema_slow_series) & (ema_fast_series.shift(1) >= ema_slow_series.shift(1))
+
+                raw = np.where(cross_above & (rsi_series < self.rsi_overbought), 'OPEN_LONG',
+                      np.where(cross_below & (rsi_series > self.rsi_oversold), 'OPEN_SHORT',
+                      np.where(cross_below, 'CLOSE_LONG',
+                      np.where(cross_above, 'CLOSE_SHORT', 'HOLD'))))
+
+                signals[symbol][timeframe] = pd.Series(raw, index=df.index)
+
+        return signals
 
 def create_ma_rsi_strategy_instance(symbols=None, timeframes=None, **params):
     """Create Moving Average Crossover with RSI Confirmation strategy instance"""

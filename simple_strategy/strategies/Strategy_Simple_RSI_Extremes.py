@@ -17,6 +17,7 @@ import logging
 from typing import Dict, List, Any
 
 import pandas as pd
+import numpy as np
 
 from simple_strategy.shared.strategy_base import StrategyBase
 from simple_strategy.strategies.indicators_library import rsi, sma, volume_sma
@@ -170,6 +171,72 @@ class ImprovedSimpleRSIExtremesStrategy(StrategyBase):
                     raw_signal = 'HOLD'
 
                 signals[symbol][timeframe] = self._apply_position_rules(position_key, raw_signal)
+
+        return signals
+
+    def generate_signals_vectorized(self, data: Dict[str, Dict[str, pd.DataFrame]]) -> Dict[str, Dict[str, pd.Series]]:
+        signals: Dict[str, Dict[str, pd.Series]] = {}
+        min_periods = max(self.rsi_period, self.trend_sma_period, self.volume_sma_period) + 1
+
+        for symbol in data:
+            signals[symbol] = {}
+            for timeframe, df in data[symbol].items():
+                if df is None or len(df) < min_periods:
+                    signals[symbol][timeframe] = pd.Series(['HOLD'] * len(df), index=df.index)
+                    continue
+
+                close = df['close']
+                volume = df['volume']
+
+                rsi_series = rsi(close, period=self.rsi_period)
+                trend_sma = sma(close, period=self.trend_sma_period)
+                volume_sma_series = volume_sma(volume, period=self.volume_sma_period)
+
+                volume_confirmed = volume > (volume_sma_series * self.volume_multiplier)
+                bullish_trend = close > trend_sma
+                bearish_trend = close < trend_sma
+
+                open_long = (rsi_series <= self.rsi_oversold) & bullish_trend & volume_confirmed
+                open_short = (rsi_series >= self.rsi_overbought) & bearish_trend & volume_confirmed
+                close_long = rsi_series >= self.rsi_overbought
+                close_short = rsi_series <= self.rsi_oversold
+
+                position_key = (symbol, timeframe)
+                position = self._position_state.get(position_key)
+                signals_list = []
+
+                for idx in range(len(df)):
+                    if bool(open_long.iloc[idx]):
+                        if position is None:
+                            position = {'is_short': False}
+                            signals_list.append('OPEN_LONG')
+                        else:
+                            signals_list.append('HOLD')
+                        continue
+                    if bool(open_short.iloc[idx]):
+                        if position is None:
+                            position = {'is_short': True}
+                            signals_list.append('OPEN_SHORT')
+                        else:
+                            signals_list.append('HOLD')
+                        continue
+                    if position and not position.get('is_short', False) and bool(close_long.iloc[idx]):
+                        position = None
+                        signals_list.append('CLOSE_LONG')
+                        continue
+                    if position and position.get('is_short', False) and bool(close_short.iloc[idx]):
+                        position = None
+                        signals_list.append('CLOSE_SHORT')
+                        continue
+
+                    signals_list.append('HOLD')
+
+                if position is None:
+                    self._position_state.pop(position_key, None)
+                else:
+                    self._position_state[position_key] = position
+
+                signals[symbol][timeframe] = pd.Series(signals_list, index=df.index)
 
         return signals
 
