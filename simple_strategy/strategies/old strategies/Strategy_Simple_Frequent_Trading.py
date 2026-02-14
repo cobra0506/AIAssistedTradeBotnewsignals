@@ -7,14 +7,12 @@ Generates frequent buy/sell signals using:
 - RSI extremes with relaxed thresholds
 - Small price movement detection
 - Multiple timeframe confirmation
-
 Strategy Logic:
-1. Fast MA (3) crosses above Slow MA (8) = BUY signal
-2. Fast MA crosses below Slow MA = SELL signal  
-3. RSI < 40 (oversold) = Additional BUY signal
-4. RSI > 60 (overbought) = Additional SELL signal
+1. Fast MA (3) crosses above Slow MA (8) = OPEN_LONG signal
+2. Fast MA crosses below Slow MA = CLOSE_LONG signal  
+3. RSI < 40 (oversold) = Additional OPEN_LONG signal
+4. RSI > 60 (overbought) = Additional CLOSE_LONG signal
 5. Price change > 0.1% = Directional signal
-
 Best for: Testing bot functionality with high trade frequency
 Author: AI Assisted TradeBot Team
 Date: 2025
@@ -25,22 +23,18 @@ import pandas as pd
 import numpy as np
 import logging
 from typing import Dict, List, Any, Optional
-
 # Add parent directories to path for proper imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir)
-
 # Import required components
 from simple_strategy.strategies.strategy_builder import StrategyBuilder
 from simple_strategy.strategies.indicators_library import sma, rsi
 from simple_strategy.strategies.signals_library import ma_crossover, overbought_oversold
 from simple_strategy.shared.strategy_base import StrategyBase
-
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 # CRITICAL: STRATEGY_PARAMETERS for GUI Configuration
 STRATEGY_PARAMETERS = {
     # Fast MA for entries
@@ -97,7 +91,6 @@ STRATEGY_PARAMETERS = {
         'gui_hint': 'Lower = more frequent signals'
     }
 }
-
 def create_strategy(symbols=None, timeframes=None, **params):
     """CREATE STRATEGY FUNCTION - Required by GUI"""
     logger.info(f"🔧 create_strategy called with:")
@@ -163,8 +156,6 @@ def create_strategy(symbols=None, timeframes=None, **params):
     except Exception as e:
         logger.error(f"❌ Error creating Simple Frequent Trading strategy: {e}")
         raise
-
-
 class SimpleFrequentTradingStrategy(StrategyBase):
     """Simple Frequent Trading Strategy Class"""
     def __init__(self, symbols: List[str], timeframes: List[str], config: Dict[str, Any]):

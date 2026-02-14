@@ -1,45 +1,37 @@
 """
 Improved Simple RSI Extremes Strategy
 ====================================
-
 An improved mean reversion strategy with better filters:
 - Uses more extreme RSI levels for higher quality signals
 - Adds trend filter (200 SMA) to trade with the trend
 - Adds volume filter to confirm signal strength
 - No multi-timeframe complexity
-
 Strategy Logic:
-1. OVERSOLD: RSI < 25 AND price > 200 SMA AND volume > average = BUY
-2. OVERBOUGHT: RSI > 75 AND price < 200 SMA AND volume > average = SELL
+1. OVERSOLD: RSI < 25 AND price > 200 SMA AND volume > average = OPEN_LONG
+2. OVERBOUGHT: RSI > 75 AND price < 200 SMA AND volume > average = CLOSE_LONG
 3. EXIT: Opposite RSI extreme
-
 Best for: Trending markets with mean reversion opportunities
 Author: AI Assisted TradeBot Team
 Date: 2025
 """
-
 import sys
 import os
 import pandas as pd
 import numpy as np
 import logging
 from typing import Dict, List, Any, Optional
-
 # Add parent directories to path for proper imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir)
-
 # Import required components
 from simple_strategy.strategies.strategy_builder import StrategyBuilder
 from simple_strategy.strategies.indicators_library import rsi, sma, volume_sma
 from simple_strategy.strategies.signals_library import overbought_oversold
 from simple_strategy.shared.strategy_base import StrategyBase
-
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 # CRITICAL: STRATEGY_PARAMETERS for GUI Configuration
 STRATEGY_PARAMETERS = {
     # RSI for mean reversion signals
@@ -96,7 +88,6 @@ STRATEGY_PARAMETERS = {
         'gui_hint': 'Higher = stronger volume confirmation required'
     }
 }
-
 def create_strategy(symbols=None, timeframes=None, **params):
     """CREATE STRATEGY FUNCTION - Required by GUI"""
     logger.info(f"🔧 create_strategy called with:")
@@ -154,7 +145,6 @@ def create_strategy(symbols=None, timeframes=None, **params):
     except Exception as e:
         logger.error(f"❌ Error creating Improved Simple RSI Extremes strategy: {e}")
         raise
-
 class ImprovedSimpleRSIExtremesStrategy(StrategyBase):
     """Improved Simple RSI Extremes Strategy Class"""
     
@@ -225,18 +215,17 @@ class ImprovedSimpleRSIExtremesStrategy(StrategyBase):
             
             # Bullish setup: RSI oversold AND price above trend SMA AND volume confirmed
             if current_rsi <= self.rsi_oversold and current_close > trend_sma and volume_confirmed:
-                return 'BUY'
+                return 'OPEN_LONG'
             
             # Bearish setup: RSI overbought AND price below trend SMA AND volume confirmed
             elif current_rsi >= self.rsi_overbought and current_close < trend_sma and volume_confirmed:
-                return 'SELL'
+                return 'CLOSE_LONG'
             
             return 'HOLD'
             
         except Exception as e:
             logger.error(f"Error generating signal for {symbol} {timeframe}: {e}")
             return 'HOLD'
-
 def create_improved_simple_rsi_extremes_instance(symbols=None, timeframes=None, **params):
     try:
         if symbols is None:
@@ -250,7 +239,6 @@ def create_improved_simple_rsi_extremes_instance(symbols=None, timeframes=None, 
     except Exception as e:
         logger.error(f"Error creating strategy: {e}")
         raise
-
 def simple_test():
     try:
         strategy = create_strategy(
@@ -270,6 +258,5 @@ def simple_test():
     except Exception as e:
         print(f"❌ Error testing Improved Simple RSI Extremes strategy: {e}")
         return False
-
 if __name__ == "__main__":
     simple_test()

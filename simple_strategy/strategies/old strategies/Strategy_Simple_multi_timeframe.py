@@ -1,44 +1,36 @@
 """
 Simple Multi-Timeframe Strategy
 ==============================
-
 Uses 1m for entries and 5m for trend confirmation:
 - 1m: Fast EMA crossover for entry signals
 - 5m: Slow EMA for trend direction
 - Simple logic that actually works
-
 Strategy Logic:
 1. TREND (5m): Price above 50 EMA = Bullish trend
-2. ENTRY (1m): Fast EMA crosses above Slow EMA = BUY
-3. EXIT (1m): Fast EMA crosses below Slow EMA = SELL
-
+2. ENTRY (1m): Fast EMA crosses above Slow EMA = OPEN_LONG
+3. EXIT (1m): Fast EMA crosses below Slow EMA = CLOSE_LONG
 Best for: Trending markets with multiple timeframe confirmation
 Author: AI Assisted TradeBot Team
 Date: 2025
 """
-
 import sys
 import os
 import pandas as pd
 import numpy as np
 import logging
 from typing import Dict, List, Any, Optional
-
 # Add parent directories to path for proper imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir)
-
 # Import required components
 from simple_strategy.strategies.strategy_builder import StrategyBuilder
 from simple_strategy.strategies.indicators_library import ema
 from simple_strategy.strategies.signals_library import ma_crossover
 from simple_strategy.shared.strategy_base import StrategyBase
-
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 # CRITICAL: STRATEGY_PARAMETERS for GUI Configuration
 STRATEGY_PARAMETERS = {
     # Fast EMA for entries (1m)
@@ -69,7 +61,6 @@ STRATEGY_PARAMETERS = {
         'gui_hint': 'For 5m timeframe. Higher = longer term trend'
     }
 }
-
 def create_strategy(symbols=None, timeframes=None, **params):
     """CREATE STRATEGY FUNCTION - Required by GUI"""
     logger.info(f"🔧 create_strategy called with:")
@@ -130,7 +121,6 @@ def create_strategy(symbols=None, timeframes=None, **params):
     except Exception as e:
         logger.error(f"❌ Error creating Simple Multi-Timeframe strategy: {e}")
         raise
-
 class SimpleMultiTimeframeStrategy(StrategyBase):
     """Simple Multi-Timeframe Strategy Class"""
     
@@ -199,16 +189,15 @@ class SimpleMultiTimeframeStrategy(StrategyBase):
             
             # Simple logic
             if ema_fast > ema_slow and bullish_trend:
-                return 'BUY'
+                return 'OPEN_LONG'
             elif ema_fast < ema_slow and not bullish_trend:
-                return 'SELL'
+                return 'CLOSE_LONG'
             
             return 'HOLD'
             
         except Exception as e:
             logger.error(f"Error generating signal for {symbol} {timeframe}: {e}")
             return 'HOLD'
-
 def create_simple_multi_timeframe_instance(symbols=None, timeframes=None, **params):
     try:
         if symbols is None:
@@ -222,7 +211,6 @@ def create_simple_multi_timeframe_instance(symbols=None, timeframes=None, **para
     except Exception as e:
         logger.error(f"Error creating strategy: {e}")
         raise
-
 def simple_test():
     try:
         strategy = create_strategy(
@@ -239,6 +227,5 @@ def simple_test():
     except Exception as e:
         print(f"❌ Error testing Simple Multi-Timeframe strategy: {e}")
         return False
-
 if __name__ == "__main__":
     simple_test()

@@ -1,5 +1,4 @@
 #paper_trading_engine.py
-
 import os
 import json
 import time
@@ -19,7 +18,6 @@ MIN_CANDLES = DataCollectionConfig.MIN_CANDLES  # Get from config
 import asyncio
 #from shared_modules.data_collection.hybrid_system import HybridTradingSystem
 #from shared_modules.data_collection.config import DataCollectionConfig
-
 class PaperTradingEngine:
     def __init__(self, api_account, strategy_name, initial_balance=1000, log_callback=None, status_callback=None, performance_callback=None, max_positions=2000, stop_trading_at_percentage=None):
         self.api_account = api_account
@@ -62,12 +60,10 @@ class PaperTradingEngine:
         # NEW: Use shared data access instead of creating new data collection
         # Initialize this later to avoid recursion issues
         self.shared_data_access = None
-
         # Add these missing attributes
         self.data_system_initialized = False
         self.is_running = False
         self.trading_loop_active = False
-
         # Initialize symbol information cache
         self.symbol_info_cache = {}
         
@@ -123,7 +119,6 @@ class PaperTradingEngine:
         except Exception as e:
             self.log_message(f"❌ Error getting symbols info: {e}")
             return False
-
     def get_trading_rules(self, symbol):
         """Get trading rules for a specific symbol"""
         if symbol not in self.symbol_info_cache:
@@ -146,7 +141,6 @@ class PaperTradingEngine:
         }
         
         return rules
-
     def format_quantity(self, quantity, qty_step):
         """Format quantity according to the symbol's requirements"""
         if qty_step <= 0:
@@ -160,7 +154,6 @@ class PaperTradingEngine:
         
         # Round to the correct number of decimal places
         return round(quantity, decimal_places)
-
     def calculate_valid_quantity(self, symbol, current_price, position_value):
         """Calculate a valid quantity for a symbol based on trading rules"""
         # Get trading rules for the symbol
@@ -202,7 +195,6 @@ class PaperTradingEngine:
         self.log_message(f"   Final order value: ${formatted_quantity * current_price:.2f}")
         
         return formatted_quantity
-
     def set_leverage(self, symbol):
         """Set appropriate leverage for a symbol"""
         try:
@@ -239,7 +231,6 @@ class PaperTradingEngine:
         except Exception as e:
             self.log_message(f"❌ Error setting leverage for {symbol}: {e}")
             return False
-
     def get_working_capital(self):
         """Get current working capital for position sizing"""
         # Calculate the value of all open positions
@@ -288,18 +279,15 @@ class PaperTradingEngine:
                 self.execute_close_long(symbol)
             elif self.current_positions[symbol]['type'] == 'SHORT':
                 self.execute_close_short(symbol)
-
     def update_working_capital_after_trade(self, trade_pnl):
         """Update working capital after a trade"""
         # Adjust working capital by the P&L of the trade
         self.working_capital += trade_pnl
-
     def log_message(self, message):
         """Log message to both console and GUI if available"""
         print(message)  # Use print instead of self.log_message()
         if self.log_callback:
             self.log_callback(message)
-
     def initialize_shared_data_access(self):
         """Initialize shared data access safely"""
         try:
@@ -443,7 +431,6 @@ class PaperTradingEngine:
     def get_balance(self):
         """Get current simulated balance (for compatibility)"""
         return self.get_display_balance()
-
     def get_real_balance(self):
         """Get actual available and margin balances from Bybit"""
         try:
@@ -468,7 +455,6 @@ class PaperTradingEngine:
         except Exception as e:
             self.log_message(f"❌ Error getting real balance: {e}")
             return {'available_balance': 0.0, 'margin_balance': 0.0}
-
     def get_display_balance(self):
         """Get the simulated balance for display"""
         return self.simulated_balance
@@ -486,7 +472,6 @@ class PaperTradingEngine:
             if error:
                 self.log_message(f"⚠️ Could not sync positions: {error}")
                 return
-
             if result and 'list' in result:
                 synced_count = 0
                 for pos in result['list']:
@@ -494,14 +479,12 @@ class PaperTradingEngine:
                     size = float(pos.get('size', 0))
                     if size <= 0:
                         continue
-
                     symbol = pos.get('symbol')
                     side = pos.get('side') # 'Buy' or 'Sell'
                     entry_price = float(pos.get('avgPrice', 0))
                     
                     if entry_price == 0:
                         continue
-
                     # Determine position type based on side
                     pos_type = 'LONG' if side == 'Buy' else 'SHORT'
                     
@@ -513,7 +496,6 @@ class PaperTradingEngine:
                     leverage_filter = symbol_info.get('leverageFilter', {})
                     leverage = float(leverage_filter.get('maxLeverage', 5))
                     margin_used = cost / leverage
-
                     # Update internal state
                     self.current_positions[symbol] = {
                         'type': pos_type,
@@ -527,7 +509,6 @@ class PaperTradingEngine:
                     
                     synced_count += 1
                     self.log_message(f"✅ Recovered {pos_type} position for {symbol} (Size: {size})")
-
                 if synced_count > 0:
                     self.open_trades_count = len(self.current_positions)
                     self.log_message(f"✅ Sync complete. Recovered {synced_count} open positions.")
@@ -589,7 +570,6 @@ class PaperTradingEngine:
             
             # Set leverage before placing the order
             self.set_leverage(symbol)
-
             # Get current price
             current_price = self.get_current_price_from_api(symbol)
             if current_price <= 0:
@@ -663,11 +643,11 @@ class PaperTradingEngine:
                 "timeInForce": "GTC"
             }
             
-            self.log_message(f"📈 Placing BUY order for {final_quantity} {symbol} (value: ${actual_position_cost:.2f}, margin: ${margin_needed:.2f})...")
+            self.log_message(f"📈 Placing OPEN_LONG order for {final_quantity} {symbol} (value: ${actual_position_cost:.2f}, margin: ${margin_needed:.2f})...")
             result, error = self.make_request("POST", "/v5/order/create", data=order_data)
             
             if error:
-                self.log_message(f"❌ Buy order failed: {error}")
+                self.log_message(f"❌ OPEN_LONG order failed: {error}")
                 return None
             
             # FIX: Update simulated balance directly with margin cost, not based on real balance
@@ -676,10 +656,10 @@ class PaperTradingEngine:
             
             # Add this logging
             self.log_message(f"🔍 DEBUG: Old simulated balance: ${old_simulated_balance:.2f}")
-            self.log_message(f"🔍 DEBUG: New simulated balance after buy: ${self.simulated_balance:.2f}")
+            self.log_message(f"🔍 DEBUG: New simulated balance after open long: ${self.simulated_balance:.2f}")
             self.log_message(f"🔍 DEBUG: Margin deducted: ${margin_needed:.2f}")
             
-            self.log_message(f"💰 Simulated balance after buy: ${self.simulated_balance:.2f} (margin used: ${margin_needed:.2f})")
+            self.log_message(f"💰 Simulated balance after open long: ${self.simulated_balance:.2f} (margin used: ${margin_needed:.2f})")
             
             # Record the trade
             trade = {
@@ -695,7 +675,6 @@ class PaperTradingEngine:
                 'position_value': actual_position_cost,
                 'margin_used': margin_needed
             }
-
             self.log_trade_to_csv(trade)
             
             self.trades.append(trade)
@@ -725,7 +704,6 @@ class PaperTradingEngine:
         except Exception as e:
             self.log_message(f"❌ Error executing buy order: {e}")
             return None
-
     def execute_close_long(self, symbol, quantity=None):
         """Execute a long position closing"""
         if symbol not in self.current_positions:
@@ -766,11 +744,11 @@ class PaperTradingEngine:
                 "timeInForce": "GTC"
             }
             
-            self.log_message(f"📉 Placing SELL order for {final_quantity} {symbol}...")
+            self.log_message(f"📉 Placing CLOSE_LONG order for {final_quantity} {symbol}...")
             result, error = self.make_request("POST", "/v5/order/create", data=order_data)
             
             if error:
-                self.log_message(f"❌ Sell order failed: {error}")
+                self.log_message(f"❌ CLOSE_LONG order failed: {error}")
                 return None
             
             # Get current real balance BEFORE closing position
@@ -829,7 +807,6 @@ class PaperTradingEngine:
                 'original_cost': original_cost,
                 'margin_returned': margin_used
             }
-
             self.log_trade_to_csv(trade)
             
             self.trades.append(trade)
@@ -853,7 +830,6 @@ class PaperTradingEngine:
         except Exception as e:
             self.log_message(f"❌ Error executing sell order: {e}")
             return None
-
     def execute_open_short(self, symbol, quantity=None):
         """Execute a short position opening"""
         try:
@@ -862,7 +838,6 @@ class PaperTradingEngine:
             
             # Set leverage before placing the order
             self.set_leverage(symbol)
-
             # Get current price
             current_price = self.get_current_price_from_api(symbol)
             if current_price <= 0:
@@ -936,11 +911,11 @@ class PaperTradingEngine:
                 "timeInForce": "GTC"
             }
             
-            self.log_message(f"📉 Placing SELL order for {final_quantity} {symbol} (value: ${actual_position_cost:.2f}, margin: ${margin_needed:.2f})...")
+            self.log_message(f"📉 Placing OPEN_SHORT order for {final_quantity} {symbol} (value: ${actual_position_cost:.2f}, margin: ${margin_needed:.2f})...")
             result, error = self.make_request("POST", "/v5/order/create", data=order_data)
             
             if error:
-                self.log_message(f"❌ Sell order failed: {error}")
+                self.log_message(f"❌ OPEN_SHORT order failed: {error}")
                 return None
             
             # FIX: Update simulated balance directly with margin cost, not based on real balance
@@ -949,10 +924,10 @@ class PaperTradingEngine:
             
             # Add this logging
             self.log_message(f"🔍 DEBUG: Old simulated balance: ${old_simulated_balance:.2f}")
-            self.log_message(f"🔍 DEBUG: New simulated balance after sell: ${self.simulated_balance:.2f}")
+            self.log_message(f"🔍 DEBUG: New simulated balance after open short: ${self.simulated_balance:.2f}")
             self.log_message(f"🔍 DEBUG: Margin deducted: ${margin_needed:.2f}")
             
-            self.log_message(f"💰 Simulated balance after sell: ${self.simulated_balance:.2f} (margin used: ${margin_needed:.2f})")
+            self.log_message(f"💰 Simulated balance after open short: ${self.simulated_balance:.2f} (margin used: ${margin_needed:.2f})")
             
             # Record the trade
             trade = {
@@ -968,7 +943,6 @@ class PaperTradingEngine:
                 'position_value': actual_position_cost,
                 'margin_used': margin_needed
             }
-
             self.log_trade_to_csv(trade)
             
             self.trades.append(trade)
@@ -998,7 +972,6 @@ class PaperTradingEngine:
         except Exception as e:
             self.log_message(f"❌ Error executing sell order: {e}")
             return None
-
     def execute_close_short(self, symbol, quantity=None):
         """Execute a short position closing"""
         if symbol not in self.current_positions:
@@ -1039,11 +1012,11 @@ class PaperTradingEngine:
                 "timeInForce": "GTC"
             }
             
-            self.log_message(f"📈 Placing BUY order for {final_quantity} {symbol}...")
+            self.log_message(f"📈 Placing CLOSE_SHORT order for {final_quantity} {symbol}...")
             result, error = self.make_request("POST", "/v5/order/create", data=order_data)
             
             if error:
-                self.log_message(f"❌ Buy order failed: {error}")
+                self.log_message(f"❌ CLOSE_SHORT order failed: {error}")
                 return None
             
             # Get current real balance BEFORE closing position
@@ -1102,7 +1075,6 @@ class PaperTradingEngine:
                 'original_cost': original_cost,
                 'margin_returned': margin_used
             }
-
             self.log_trade_to_csv(trade)
             
             self.trades.append(trade)
@@ -1171,7 +1143,6 @@ class PaperTradingEngine:
                     trade.get('margin_returned', ''), trade.get('pnl', ''), 
                     trade.get('position_duration', ''), trade['balance_before'], trade['balance_after']
                 ])
-
     def should_continue_trading(self):
         """Check if trading should continue based on balance and optional settings"""
         # Check if we've reached the maximum number of open positions
@@ -1188,7 +1159,6 @@ class PaperTradingEngine:
                 return False
         
         return True
-
     def calculate_position_size(self, symbol):
         """Calculate position size based on working capital"""
         try:
@@ -1281,9 +1251,17 @@ class PaperTradingEngine:
             if self.strategy and hasattr(self.strategy, 'generate_signals'):
                 signal = self.generate_strategy_signal(symbol)
                 
-                if signal == 'SELL' and symbol not in self.current_positions:
-                    self.log_message(f"⚠️ SELL signal for {symbol} but no position open, changing to HOLD")
-                    return 'HOLD'
+                if signal in ('CLOSE_LONG', 'CLOSE_SHORT'):
+                    position = self.current_positions.get(symbol)
+                    if not position:
+                        self.log_message(f"⚠️ {signal} for {symbol} but no position open, changing to HOLD")
+                        return 'HOLD'
+                    if signal == 'CLOSE_LONG' and position.get('type') == 'SHORT':
+                        self.log_message(f"⚠️ CLOSE_LONG for {symbol} but position is SHORT, changing to HOLD")
+                        return 'HOLD'
+                    if signal == 'CLOSE_SHORT' and position.get('type') == 'LONG':
+                        self.log_message(f"⚠️ CLOSE_SHORT for {symbol} but position is LONG, changing to HOLD")
+                        return 'HOLD'
                 
                 return signal
             
@@ -1362,11 +1340,9 @@ class PaperTradingEngine:
             import traceback
             self.log_message(f"Traceback: {traceback.format_exc()}")
             return 'HOLD'
-
     def get_historical_data_for_symbol(self, symbol):
         """Get historical data for a symbol by loading directly from CSV."""
         return self.load_csv_data(symbol)
-
     def load_csv_data(self, symbol):
         """Load data directly from CSV file as fallback"""
         try:
@@ -1415,14 +1391,12 @@ class PaperTradingEngine:
         """Update simulated balance after trade"""
         self.simulated_balance += pnl_amount
         self.log_message(f"💰 Balance updated: ${self.simulated_balance:.2f} (P&L: ${pnl_amount:.2f})")
-
     def get_balance_info(self):
         """Get complete balance information"""
         # Calculate value of open positions
         open_positions_value = 0.0
         liquidation_value = self.simulated_balance
         unrealized_pnl_total = 0.0
-
         for symbol, position in self.current_positions.items():
             try:
                 current_price = self.get_current_price_from_api(symbol)
@@ -1437,20 +1411,16 @@ class PaperTradingEngine:
                         unrealized_pnl = (current_price - entry_price) * qty
                     liquidation_value += margin_used + unrealized_pnl
                     unrealized_pnl_total += unrealized_pnl
-
             except Exception as e:
                 self.log_message(f"⚠️ Could not get price for {symbol}: {e}")
-
         
         # Calculate total account value
         account_value = self.simulated_balance + open_positions_value
-
         # Calculate realized PnL from closed trades
         realized_pnl_total = 0.0
         for trade in self.trades:
             if trade.get('type') in ('CLOSE_LONG', 'CLOSE_SHORT') and 'pnl' in trade:
                 realized_pnl_total += trade['pnl']
-
         
         return {
             'simulated_balance': self.simulated_balance,
@@ -1467,8 +1437,6 @@ class PaperTradingEngine:
             'open_trades_count': self.open_trades_count,
             'closed_trades_count': self.closed_trades_count
         }
-
-
     
     def start_trading(self):
         """Start paper trading with real API calls"""
@@ -1489,7 +1457,6 @@ class PaperTradingEngine:
         symbols_to_monitor, available_intervals = self.get_symbols_and_intervals_from_data_dir()
         #symbols_to_monitor = ['BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'DOTUSDT', 'ATOMUSDT', 'ALGOUSDT', 'VETUSDT', 'ICPUSDT', 'FILUSDT', 'AAVEUSDT', 'COMPUSDT', 'CRVUSDT', 'SNXUSDT', 'SUSHIUSDT', 'ARBUSDT', 'OPUSDT', 'NEARUSDT', 'GRTUSDT']
         #available_intervals = ['1', '5', '15', '60']  # We'll use 1-minute for trading
-
         # For now, let's just use the 1-minute interval
         if '1' not in available_intervals:
             self.log_message("❌ No 1-minute interval data found. Cannot start.")
@@ -1499,14 +1466,12 @@ class PaperTradingEngine:
         
         # Main CSV-based trading loop
         loop_count = 0
-
         while self.is_running:
             loop_count += 1
             self.log_message(f"\n=== Trading Loop #{loop_count} ===")
         
             # Check for position timeouts
             self.check_position_timeouts()
-
             # Process each symbol by reading from the latest CSV data
             for symbol in symbols_to_monitor:
                 try:
@@ -1571,7 +1536,6 @@ class PaperTradingEngine:
                                 self.log_message(f"⚠️ CLOSE_SHORT signal for {symbol} but no short position open, skipping")
                         
                         # No need to log 'HOLD' to keep the log cleaner
-
                 except Exception as e:
                     self.log_message(f"❌ Error processing {symbol}: {e}")
                     continue
@@ -1581,7 +1545,6 @@ class PaperTradingEngine:
             if self.is_running:
                 self.log_message("✅ Cycle complete. Waiting for the next minute...")
                 time.sleep(60) # Wait 60 seconds before the next cycle
-
         self.log_message("🛑 Trading loop ended")
     
     def update_performance(self):
@@ -1640,7 +1603,6 @@ class PaperTradingEngine:
             
             self.perf_text.delete(1.0, "end")
             self.perf_text.insert(1.0, error_text)
-
     def get_current_price_from_api(self, symbol):
         """Fallback method to get price from API"""
         try:
@@ -1678,7 +1640,6 @@ class PaperTradingEngine:
                 'realized_pnl': balance_info.get('realized_pnl', 0.0),
                 'unrealized_pnl': balance_info.get('unrealized_pnl', 0.0),
                 'total_trades': self.closed_trades_count,
-
                 'open_trades': self.open_trades_count,
                 'closed_trades': self.closed_trades_count,
                 'win_rate': win_rate,
@@ -1699,7 +1660,6 @@ class PaperTradingEngine:
         self.is_running = False
         self.trading_loop_active = False
         self.log_message("🛑 Paper trading stopped by user")
-
     def update_performance_display(self):
         """
         Update performance display by delegating to get_performance_summary.
@@ -1721,7 +1681,6 @@ class PaperTradingEngine:
                 f"Realized: ${performance.get('realized_pnl', 0.0):.2f} | "
                 f"Unrealized: ${performance.get('unrealized_pnl', 0.0):.2f} | "
                 f"WinRate: {performance['win_rate']:.1f}% | "
-
                 f"Trades: {performance['total_trades']}"
             )
                 
@@ -1738,13 +1697,10 @@ class PaperTradingEngine:
         # Get the absolute path to the project's root 'data' folder
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         data_dir = os.path.join(project_root, 'data')
-
         symbols = set()
         intervals = set()
         file_count = 0
-
         self.log_message(f"🔍 Scanning for symbols in {data_dir}...")
-
         try:
             for filename in os.listdir(data_dir):
                 if filename.endswith('.csv'):
@@ -1759,15 +1715,11 @@ class PaperTradingEngine:
         except FileNotFoundError:
             self.log_message(f"❌ Error: Data directory not found at {data_dir}")
             return [], []
-
         end_time = time.time()
         duration = end_time - start_time
-
         # Log the statistics
         self.log_message(f"✅ Scan complete in {duration:.2f} seconds.")
         self.log_message(f"📊 Found {file_count} data files.")
         self.log_message(f"📈 Found {len(symbols)} unique symbols: {', '.join(list(symbols)[:10])}...")
         self.log_message(f"⏱️ Found {len(intervals)} unique intervals: {', '.join(sorted(list(intervals)))}")
-
         return sorted(list(symbols)), sorted(list(intervals))
-

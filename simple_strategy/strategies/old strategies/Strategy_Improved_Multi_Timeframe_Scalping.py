@@ -1,45 +1,37 @@
 """
 Improved Multi-Timeframe Scalping Strategy
 ========================================
-
 A refined scalping strategy that addresses the issues with the original version:
 - Simplified signal logic with only 2 indicators (EMA + RSI)
 - Fixed stop-loss at 1x ATR and take-profit at 2x ATR
 - No position averaging - enter once, exit once
 - Better risk management with smaller position sizes
-
 Strategy Logic:
 1. TREND FILTER (Higher Timeframe): Price above/below EMAs determines overall trend
 2. ENTRY SIGNAL (1m): EMA crossover with RSI confirmation
 3. RISK MANAGEMENT: Fixed ATR-based stops and profit targets
-
 Best for: Quick trades on 1m-5m charts with strict risk management
 Author: AI Assisted TradeBot Team
 Date: 2025
 """
-
 import sys
 import os
 import pandas as pd
 import numpy as np
 import logging
 from typing import Dict, List, Any, Optional
-
 # Add parent directories to path for proper imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir)
-
 # Import required components
 from simple_strategy.strategies.strategy_builder import StrategyBuilder
 from simple_strategy.strategies.indicators_library import ema, rsi, atr, volume_sma
 from simple_strategy.strategies.signals_library import ma_crossover, overbought_oversold
 from simple_strategy.shared.strategy_base import StrategyBase
-
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 # CRITICAL: STRATEGY_PARAMETERS for GUI Configuration
 STRATEGY_PARAMETERS = {
     # Fast EMA for entry signals
@@ -148,7 +140,6 @@ STRATEGY_PARAMETERS = {
         'gui_hint': 'Lower = more conservative. Recommended: 0.5-1.0%'
     }
 }
-
 def create_strategy(symbols=None, timeframes=None, **params):
     """
     CREATE STRATEGY FUNCTION - Required by GUI
@@ -263,7 +254,6 @@ def create_strategy(symbols=None, timeframes=None, **params):
         import traceback
         traceback.print_exc()
         raise
-
 class ImprovedMultiTimeframeScalpingStrategy(StrategyBase):
     """
     Improved Multi-Timeframe Scalping Strategy Class
@@ -457,7 +447,7 @@ class ImprovedMultiTimeframeScalpingStrategy(StrategyBase):
                 rsi_not_overbought = current_rsi < self.rsi_overbought
                 
                 if price_above_emas and rsi_not_overbought and volume_confirmed:
-                    return 'BUY'
+                    return 'OPEN_LONG'
             
             # Bearish setup
             elif trend_signal == 'BEARISH':
@@ -470,14 +460,13 @@ class ImprovedMultiTimeframeScalpingStrategy(StrategyBase):
                 rsi_not_oversold = current_rsi > self.rsi_oversold
                 
                 if price_below_emas and rsi_not_oversold and volume_confirmed:
-                    return 'SELL'
+                    return 'CLOSE_LONG'
             
             return 'HOLD'
             
         except Exception as e:
             logger.error(f"Error generating entry signal: {e}")
             return 'HOLD'
-
 def create_improved_multi_timeframe_scalping_instance(symbols=None, timeframes=None, **params):
     """
     Create improved multi-timeframe scalping strategy instance
@@ -494,7 +483,6 @@ def create_improved_multi_timeframe_scalping_instance(symbols=None, timeframes=N
     except Exception as e:
         logger.error(f"Error creating strategy: {e}")
         raise
-
 def simple_test():
     """
     Simple test to verify the strategy works - MUST EXIST
@@ -527,7 +515,6 @@ def simple_test():
     except Exception as e:
         print(f"❌ Error testing Improved Multi-Timeframe Scalping strategy: {e}")
         return False
-
 # For testing - MUST EXIST
 if __name__ == "__main__":
     simple_test()

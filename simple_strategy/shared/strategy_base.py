@@ -5,11 +5,9 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Any, Optional, Union
 from datetime import datetime
 import logging
-
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 class StrategyBase(ABC):
     """
     Abstract base class for all trading strategies.
@@ -40,7 +38,6 @@ class StrategyBase(ABC):
         self.trades = []
         self.equity_curve = []
         logger.info(f"Strategy {name} initialized with symbols: {symbols}, timeframes: {timeframes}")
-
     @abstractmethod
     def generate_signals(self, data: Dict[str, Dict[str, pd.DataFrame]]) -> Dict[str, Dict[str, str]]:
         """
@@ -49,10 +46,10 @@ class StrategyBase(ABC):
         Args:
             data: Nested dictionary {symbol: {timeframe: DataFrame}}
         Returns:
-            Dictionary {symbol: {timeframe: signal}} where signal is 'BUY', 'SELL', or 'HOLD'
+            Dictionary {symbol: {timeframe: signal}} where signal is
+            'OPEN_LONG', 'CLOSE_LONG', 'OPEN_SHORT', 'CLOSE_SHORT', or 'HOLD'
         """
         pass
-
     def calculate_position_size(self, symbol: str, current_price: float = None, signal_strength: float = 1.0) -> float:
         """
         Calculate position size based on risk management rules.
@@ -95,13 +92,12 @@ class StrategyBase(ABC):
             position_size = round(position_size, 2)  # Other assets
         
         return position_size
-
     def validate_signal(self, symbol: str, signal: str, data: Dict[str, pd.DataFrame]) -> bool:
         """
         Validate signal against risk management rules.
         Args:
             symbol: Trading symbol
-            signal: Trading signal ('BUY', 'SELL', 'HOLD')
+            signal: Trading signal ('OPEN_LONG', 'CLOSE_LONG', 'OPEN_SHORT', 'CLOSE_SHORT', 'HOLD')
             data: Current market data
         Returns:
             True if signal is valid, False otherwise
@@ -109,21 +105,32 @@ class StrategyBase(ABC):
         if signal == 'HOLD':
             return True
         # Check if we already have maximum positions
-        if signal == 'BUY' and len(self.positions) >= self.max_positions:
+        if signal in ('OPEN_LONG', 'OPEN_SHORT') and len(self.positions) >= self.max_positions:
             logger.warning(f"Signal validation failed: Maximum positions reached ({len(self.positions)}/{self.max_positions})")
             return False
-        # Check portfolio risk
-        if signal == 'BUY':
+        # Check portfolio risk for opens
+        if signal in ('OPEN_LONG', 'OPEN_SHORT'):
             portfolio_risk = self._calculate_portfolio_risk()
             if portfolio_risk >= self.max_portfolio_risk:
                 logger.warning(f"Signal validation failed: Maximum portfolio risk reached ({portfolio_risk:.2%})")
                 return False
-        # Check if we have position to sell
-        if signal == 'SELL' and symbol not in self.positions:
-            logger.warning(f"Signal validation failed: No position to sell for {symbol}")
-            return False
+            if symbol in self.positions:
+                logger.warning(f"Signal validation failed: Position already open for {symbol}")
+                return False
+        # Check if we have position to close
+        if signal in ('CLOSE_LONG', 'CLOSE_SHORT'):
+            if symbol not in self.positions:
+                logger.warning(f"Signal validation failed: No position to close for {symbol}")
+                return False
+            pos = self.positions.get(symbol, {})
+            is_short = pos.get('is_short', False) or pos.get('type') == 'SHORT'
+            if signal == 'CLOSE_LONG' and is_short:
+                logger.warning(f"Signal validation failed: Cannot CLOSE_LONG for short position {symbol}")
+                return False
+            if signal == 'CLOSE_SHORT' and not is_short:
+                logger.warning(f"Signal validation failed: Cannot CLOSE_SHORT for long position {symbol}")
+                return False
         return True
-
     def get_strategy_state(self) -> Dict[str, Any]:
         """
         Get current strategy state for logging and monitoring.
@@ -141,7 +148,6 @@ class StrategyBase(ABC):
             'timeframes': self.timeframes,
             'config': self.config
         }
-
     def _get_current_price(self, symbol: str) -> float:
         """
         Get current price for a symbol.
@@ -154,7 +160,6 @@ class StrategyBase(ABC):
         # This is a placeholder - in practice, this would come from the data feeder
         logger.warning(f"Using placeholder price for {symbol}")
         return 50000.0  # Placeholder price
-
     def _calculate_portfolio_risk(self) -> float:
         """
         Calculate current portfolio risk.
@@ -164,30 +169,24 @@ class StrategyBase(ABC):
         # Simple calculation - in practice, this would be more sophisticated
         total_position_value = sum(pos.get('value', 0) for pos in self.positions.values())
         return total_position_value / self.balance if self.balance > 0 else 0
-
     # ============================================================================
     # INDICATOR METHODS (make functions accessible as methods)
     # ============================================================================
     def calculate_rsi(self, data: pd.Series, period: int = 14) -> pd.Series:
         """Calculate RSI - wrapper for the standalone function"""
         return calculate_rsi_func(data, period)
-
     def calculate_sma(self, data: pd.Series, period: int) -> pd.Series:
         """Calculate SMA - wrapper for the standalone function"""
         return calculate_sma_func(data, period)
-
     def calculate_ema(self, data: pd.Series, period: int) -> pd.Series:
         """Calculate EMA - wrapper for the standalone function"""
         return calculate_ema_func(data, period)
-
     def calculate_stochastic(self, data: pd.DataFrame, k_period: int = 14, d_period: int = 3) -> tuple:
         """Calculate Stochastic - wrapper for the standalone function"""
         return calculate_stochastic_func(data, k_period, d_period)
-
     def calculate_srsi(self, data: pd.Series, period: int = 14) -> pd.Series:
         """Calculate SRSI - wrapper for the standalone function"""
         return calculate_srsi_func(data, period)
-
 # ============================================================================
 # INDICATOR BUILDING BLOCKS (renamed to avoid naming conflicts)
 # ============================================================================
@@ -206,7 +205,6 @@ def calculate_rsi_func(data: pd.Series, period: int = 14) -> pd.Series:
     rs = gain / loss
     rsi = 100 - (100 / (1 + rs))
     return rsi
-
 def calculate_sma_func(data: pd.Series, period: int) -> pd.Series:
     """
     Calculate Simple Moving Average (SMA).
@@ -217,7 +215,6 @@ def calculate_sma_func(data: pd.Series, period: int) -> pd.Series:
         SMA values as pandas Series
     """
     return data.rolling(window=period).mean()
-
 def calculate_ema_func(data: pd.Series, period: int) -> pd.Series:
     """
     Calculate Exponential Moving Average (EMA).
@@ -228,7 +225,6 @@ def calculate_ema_func(data: pd.Series, period: int) -> pd.Series:
         EMA values as pandas Series
     """
     return data.ewm(span=period, adjust=False).mean()
-
 def calculate_stochastic_func(data: pd.DataFrame, k_period: int = 14, d_period: int = 3) -> tuple:
     """
     Calculate Stochastic Oscillator.
@@ -244,7 +240,6 @@ def calculate_stochastic_func(data: pd.DataFrame, k_period: int = 14, d_period: 
     k_percent = 100 * ((data['close'] - low_min) / (high_max - low_min))
     d_percent = k_percent.rolling(window=d_period).mean()
     return k_percent, d_percent
-
 def calculate_srsi_func(data: pd.Series, period: int = 14) -> pd.Series:
     """
     Calculate Stochastic RSI.
@@ -264,7 +259,6 @@ def calculate_srsi_func(data: pd.Series, period: int = 14) -> pd.Series:
     # FIXED: Use k_period instead of period
     k_percent, d_percent = calculate_stochastic_func(stochastic_data, k_period=period, d_period=3)
     return k_percent
-
 # ============================================================================
 # SIGNAL BUILDING BLOCKS
 # ============================================================================
@@ -278,7 +272,6 @@ def check_oversold(indicator_value: pd.Series, threshold: float = 20) -> pd.Seri
         Boolean series indicating oversold condition
     """
     return indicator_value <= threshold
-
 def check_overbought(indicator_value: pd.Series, threshold: float = 80) -> pd.Series:
     """
     Check if indicator is in overbought territory.
@@ -289,7 +282,6 @@ def check_overbought(indicator_value: pd.Series, threshold: float = 80) -> pd.Se
         Boolean series indicating overbought condition
     """
     return indicator_value >= threshold
-
 def check_crossover(fast_ma: pd.Series, slow_ma: pd.Series) -> pd.Series:
     """
     Check for moving average crossover.
@@ -307,7 +299,6 @@ def check_crossover(fast_ma: pd.Series, slow_ma: pd.Series) -> pd.Series:
     # First value can never be a crossover (no previous data)
     crossover.iloc[0] = False
     return crossover
-
 def check_crossunder(fast_ma: pd.Series, slow_ma: pd.Series) -> pd.Series:
     """
     Check for moving average crossunder.
@@ -325,7 +316,6 @@ def check_crossunder(fast_ma: pd.Series, slow_ma: pd.Series) -> pd.Series:
     # First value can never be a crossunder (no previous data)
     crossunder.iloc[0] = False
     return crossunder
-
 # ============================================================================
 # UTILITY FUNCTIONS
 # ============================================================================
@@ -339,7 +329,6 @@ def validate_data_format(data: pd.DataFrame) -> bool:
     """
     required_columns = ['open', 'high', 'low', 'close', 'volume']
     return all(col in data.columns for col in required_columns)
-
 def align_multi_timeframe_data(data_dict: Dict[str, Dict[str, pd.DataFrame]]) -> Dict[str, Dict[str, pd.DataFrame]]:
     """
     Align multi-timeframe data to ensure consistent timestamps.
@@ -357,4 +346,3 @@ def align_multi_timeframe_data(data_dict: Dict[str, Dict[str, pd.DataFrame]]) ->
                 df['datetime'] = pd.to_datetime(df['timestamp'], unit='ms')
             aligned_data[symbol][timeframe] = df
     return aligned_data
-

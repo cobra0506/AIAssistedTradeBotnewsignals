@@ -1,5 +1,4 @@
 #paper_trading_launcher.py
-
 import tkinter as tk
 from tkinter import ttk, messagebox
 import sys
@@ -7,11 +6,9 @@ import os
 import json
 import random
 from datetime import datetime
-
 # Add project root to Python path
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, project_root)
-
 class PaperTradingLauncher:
     def __init__(self, api_account=None, strategy_name=None, simulated_balance=None):
         # If parameters not provided, get from command line arguments
@@ -26,7 +23,6 @@ class PaperTradingLauncher:
                 api_account = "Demo Account 1"
                 strategy_name = "Strategy_Simple_RSI"
                 simulated_balance = "1000"
-
         self.api_account = api_account
         self.strategy_name = strategy_name
         self.simulated_balance = float(simulated_balance)  # Convert to float
@@ -83,43 +79,35 @@ class PaperTradingLauncher:
         # Performance display in header (split into two columns)
         perf_header_frame = ttk.LabelFrame(right_frame, text="Performance", padding=5)
         perf_header_frame.pack(side="right", padx=10)
-
         left_perf_frame = ttk.Frame(perf_header_frame)
         left_perf_frame.pack(side="left", padx=5)
-
         right_perf_frame = ttk.Frame(perf_header_frame)
         right_perf_frame.pack(side="left", padx=5)
-
         self.perf_header_labels = {}
-
         left_items = [
             ("Account Value:", "account_value", "$1000.00"),
             ("If Close Now:", "liquidation_value", "$1000.00"),
             ("Available Bal:", "available_balance", "$1000.00"),
             ("Open:", "open_positions", "0")
         ]
-
         right_items = [
             ("Realized P&L:", "realized_pnl", "$0.00"),
             ("Unrealized P&L:", "unrealized_pnl", "$0.00"),
             ("Total Trades:", "total_trades", "0"),
             ("Win Rate:", "win_rate", "0.0%")
         ]
-
         for i, (label_text, key, default) in enumerate(left_items):
             label = ttk.Label(left_perf_frame, text=label_text)
             label.grid(row=i, column=0, sticky="e", padx=2)
             value_label = ttk.Label(left_perf_frame, text=default, font=("Arial", 10, "bold"))
             value_label.grid(row=i, column=1, sticky="w", padx=2)
             self.perf_header_labels[key] = value_label
-
         for i, (label_text, key, default) in enumerate(right_items):
             label = ttk.Label(right_perf_frame, text=label_text)
             label.grid(row=i, column=0, sticky="e", padx=2)
             value_label = ttk.Label(right_perf_frame, text=default, font=("Arial", 10, "bold"))
             value_label.grid(row=i, column=1, sticky="w", padx=2)
             self.perf_header_labels[key] = value_label
-
         
         # Control buttons and status
         control_frame = ttk.Frame(self.root)
@@ -177,7 +165,6 @@ class PaperTradingLauncher:
         
         self.log_message("Paper trading window initialized")
         self.update_performance()
-
     def update_status(self, status):
         """Update status display with appropriate colors"""
         self.status_var.set(status)
@@ -187,7 +174,6 @@ class PaperTradingLauncher:
             self.status_label.config(foreground="green")
         else:
             self.status_label.config(foreground="black")
-
     def stop_trading(self):
         """Stop paper trading"""
         if self.trading_engine:
@@ -197,7 +183,6 @@ class PaperTradingLauncher:
         self.update_status("🔴 STOPPED")  # Use the update_status method instead
         self.start_btn.config(state="normal")
         self.stop_btn.config(state="disabled")
-
     def update_performance_header(self, performance_data):
         """Update performance display in header"""
         try:
@@ -213,17 +198,12 @@ class PaperTradingLauncher:
                         self.perf_header_labels['account_value'].config(text=account_text, foreground="red")
                     else:
                         self.perf_header_labels['account_value'].config(text=account_text, foreground="black")
-
                 if 'liquidation_value' in performance_data:
                     self.perf_header_labels['liquidation_value'].config(text=f"${performance_data['liquidation_value']:.2f}")
-
                 if 'realized_pnl' in performance_data:
                     self.perf_header_labels['realized_pnl'].config(text=f"${performance_data['realized_pnl']:.2f}")
-
                 if 'unrealized_pnl' in performance_data:
                     self.perf_header_labels['unrealized_pnl'].config(text=f"${performance_data['unrealized_pnl']:.2f}")
-
-
                 if 'open_positions' in performance_data:
                     self.perf_header_labels['open_positions'].config(text=str(performance_data['open_positions']))
                 
@@ -235,14 +215,12 @@ class PaperTradingLauncher:
                     
         except Exception as e:
             print(f"Error updating performance header: {e}")
-
     def toggle_percentage_entry(self):
         """Enable/disable the percentage entry based on checkbox state"""
         if self.stop_at_percentage_var.get():
             self.stop_percentage_spinbox.config(state="normal")
         else:
             self.stop_percentage_spinbox.config(state="disabled")
-
     def start_trading(self):
         """Start paper trading"""
         try:
@@ -289,7 +267,6 @@ class PaperTradingLauncher:
             
             # Initialize shared data access after engine creation
             self.trading_engine.initialize_shared_data_access()
-
             # Start performance update timer
             self.update_performance_timer()
             
@@ -305,7 +282,6 @@ class PaperTradingLauncher:
         except Exception as e:
             self.log_message(f"Error starting trading: {e}")
             messagebox.showerror("Error", f"Failed to start trading: {e}")
-
     def check_should_continue_trading(self, max_positions, stop_trading_at_percentage):
         """Check if trading should continue based on balance and optional settings"""
         # Check if we've reached the maximum number of open positions
@@ -321,7 +297,6 @@ class PaperTradingLauncher:
                 return False
         
         return True
-
     def start_real_trading(self):
         """Start REAL trading using the trading engine"""
         import threading
@@ -348,7 +323,6 @@ class PaperTradingLauncher:
         self.root.after(1000, lambda: setattr(self.trading_engine, 'should_continue_trading', 
             lambda: self.check_should_continue_trading(self.max_positions_var.get(), 
                 self.stop_percentage_value.get() if self.stop_at_percentage_var.get() else None)))
-
     def check_should_continue_trading(self, max_positions, stop_trading_at_percentage):
         """Check if trading should continue based on balance and optional settings"""
         # Check if we've reached the maximum number of open positions
@@ -364,7 +338,6 @@ class PaperTradingLauncher:
                 return False
         
         return True
-
     def check_should_continue_trading(self, max_positions, stop_trading_at_percentage):
         """Check if trading should continue based on balance and optional settings"""
         # Check if we've reached the maximum number of open positions
@@ -386,7 +359,6 @@ class PaperTradingLauncher:
         timestamp = datetime.now().strftime("%H:%M:%S")
         self.log_text.insert("end", f"[{timestamp}] {message}\n")
         self.log_text.see("end")
-
     def update_status(self, status):
         """Update status display"""
         self.status_var.set(status)
@@ -425,7 +397,6 @@ class PaperTradingLauncher:
             
             # Initialize shared data access after engine creation
             self.trading_engine.initialize_shared_data_access()
-
             # Start performance update timer
             self.update_performance_timer()
             
@@ -498,7 +469,6 @@ class PaperTradingLauncher:
                 
                 # Show both realized and unrealized P&L if available
                 pnl_text = f"Realized: ${realized_pnl:.2f}, Unrealized: ${unrealized_pnl:.2f}"
-
                     
                 # Log to the trading log instead of a separate widget
                 self.log_message(f"Performance Update:")
@@ -526,7 +496,6 @@ class PaperTradingLauncher:
     def run(self):
         """Run the paper trading window"""
         self.root.mainloop()
-
     def get_real_time_performance(self):
         """Get real-time performance data from trading engine"""
         try:
@@ -542,10 +511,10 @@ class PaperTradingLauncher:
                 open_positions = len(self.trading_engine.current_positions) if hasattr(self.trading_engine, 'current_positions') else 0
                 
                 # Calculate completed trades (sells)
-                completed_trades = sum(1 for trade in self.trading_engine.trades if trade['type'] == 'SELL') if hasattr(self.trading_engine, 'trades') else 0
+                completed_trades = sum(1 for trade in self.trading_engine.trades if trade['type'] in ('CLOSE_LONG', 'CLOSE_SHORT')) if hasattr(self.trading_engine, 'trades') else 0
                 
                 # Calculate win rate
-                winning_trades = sum(1 for trade in self.trading_engine.trades if trade['type'] == 'SELL' and trade.get('pnl', 0) > 0) if hasattr(self.trading_engine, 'trades') else 0
+                winning_trades = sum(1 for trade in self.trading_engine.trades if trade['type'] in ('CLOSE_LONG', 'CLOSE_SHORT') and trade.get('pnl', 0) > 0) if hasattr(self.trading_engine, 'trades') else 0
                 win_rate = (winning_trades / completed_trades * 100) if completed_trades > 0 else 0
                 
                 return {
@@ -562,7 +531,6 @@ class PaperTradingLauncher:
         except Exception as e:
             print(f"Error getting real-time performance: {e}")
             return None
-
     def update_performance_timer(self):
         """Update performance display every 5 seconds"""
         try:
@@ -601,7 +569,6 @@ class PaperTradingLauncher:
                 self.perf_text.insert(1.0, perf_text)
             else:
                 self.log_message("Performance timer updated (no perf_text widget).")
-
             
             # Schedule next update
             self.root.after(5000, self.update_performance_timer)
@@ -609,7 +576,6 @@ class PaperTradingLauncher:
             print(f"Error in performance timer: {e}")
             # Schedule next update even if there's an error
             self.root.after(5000, self.update_performance_timer)
-
             
 if __name__ == "__main__":
     # Get parameters from command line or use defaults

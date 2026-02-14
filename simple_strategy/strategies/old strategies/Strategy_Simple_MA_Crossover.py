@@ -1,45 +1,37 @@
 """
 Improved Simple MA Crossover Strategy
 ======================================
-
 An improved trend-following strategy with better responsiveness:
 - Uses faster MAs for more responsive signals
 - Adds RSI confirmation for better timing
 - Uses multiple timeframes (1m for entries, 5m for trend)
 - No complex filters
-
 Strategy Logic:
 1. TREND (5m): Price above 50 EMA = Bullish trend
-2. ENTRY (1m): Fast EMA (5) crosses above Slow EMA (15) AND RSI confirms = BUY
-3. EXIT (1m): Fast EMA crosses below Slow EMA AND RSI confirms = SELL
-
+2. ENTRY (1m): Fast EMA (5) crosses above Slow EMA (15) AND RSI confirms = OPEN_LONG
+3. EXIT (1m): Fast EMA crosses below Slow EMA AND RSI confirms = CLOSE_LONG
 Best for: Trending markets with multiple timeframe confirmation
 Author: AI Assisted TradeBot Team
 Date: 2025
 """
-
 import sys
 import os
 import pandas as pd
 import numpy as np
 import logging
 from typing import Dict, List, Any, Optional
-
 # Add parent directories to path for proper imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir)
-
 # Import required components
 from simple_strategy.strategies.strategy_builder import StrategyBuilder
 from simple_strategy.strategies.indicators_library import ema, rsi
 from simple_strategy.strategies.signals_library import ma_crossover, overbought_oversold
 from simple_strategy.shared.strategy_base import StrategyBase
-
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 # CRITICAL: STRATEGY_PARAMETERS for GUI Configuration
 STRATEGY_PARAMETERS = {
     # Fast MA for entries (1m)
@@ -96,7 +88,6 @@ STRATEGY_PARAMETERS = {
         'gui_hint': 'Below this level confirms bearish signals'
     }
 }
-
 def create_strategy(symbols=None, timeframes=None, **params):
     """CREATE STRATEGY FUNCTION - Required by GUI"""
     logger.info(f"🔧 create_strategy called with:")
@@ -167,7 +158,6 @@ def create_strategy(symbols=None, timeframes=None, **params):
     except Exception as e:
         logger.error(f"❌ Error creating Improved Simple MA Crossover strategy: {e}")
         raise
-
 class ImprovedSimpleMACrossoverStrategy(StrategyBase):
     """Improved Simple MA Crossover Strategy Class"""
     
@@ -243,18 +233,17 @@ class ImprovedSimpleMACrossoverStrategy(StrategyBase):
             
             # Bullish: Fast MA above Slow MA AND RSI above threshold AND bullish trend
             if fast_ma > slow_ma and current_rsi > self.rsi_bullish_threshold and bullish_trend:
-                return 'BUY'
+                return 'OPEN_LONG'
             
             # Bearish: Fast MA below Slow MA AND RSI below threshold AND not bullish trend
             elif fast_ma < slow_ma and current_rsi < self.rsi_bearish_threshold and not bullish_trend:
-                return 'SELL'
+                return 'CLOSE_LONG'
             
             return 'HOLD'
             
         except Exception as e:
             logger.error(f"Error generating signal for {symbol} {timeframe}: {e}")
             return 'HOLD'
-
 def create_improved_simple_ma_crossover_instance(symbols=None, timeframes=None, **params):
     try:
         if symbols is None:
@@ -268,7 +257,6 @@ def create_improved_simple_ma_crossover_instance(symbols=None, timeframes=None, 
     except Exception as e:
         logger.error(f"Error creating strategy: {e}")
         raise
-
 def simple_test():
     try:
         strategy = create_strategy(
@@ -288,6 +276,5 @@ def simple_test():
     except Exception as e:
         print(f"❌ Error testing Improved Simple MA Crossover strategy: {e}")
         return False
-
 if __name__ == "__main__":
     simple_test()

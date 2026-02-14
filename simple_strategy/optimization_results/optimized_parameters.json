@@ -1,44 +1,18 @@
 {
-    "Strategy_2_mean_reversion": {
-        "rsi_period": 48,
-        "rsi_overbought": 69,
-        "rsi_oversold": 12,
-        "trend_fast_ema": 44,
-        "trend_slow_ema": 145,
-        "bidirectional": 71,
-        "last_optimized": "2026-02-02"
-    },
     "Strategy_1_Trend_Following": {
-        "fast_period": 41,
-        "slow_period": 41,
-        "ma_type": "ema",
-        "last_optimized": "2026-02-02"
+        "fast_period": 27,
+        "slow_period": 100,
+        "ma_type": "sma",
+        "last_optimized": "2026-02-09"
     },
-    "Strategy_RSI_EMA_Trend_Filter": {
-        "rsi_period": 20,
-        "rsi_overbought": 75,
-        "rsi_oversold": 20,
-        "ema_fast_period": 48,
-        "ema_slow_period": 99,
-        "last_optimized": "2026-02-02"
-    },
-    "Strategy_Simple_EMA_RSI_Scalping": {
-        "fast_ema_period": 41,
-        "slow_ema_period": 36,
-        "rsi_period": 14,
-        "rsi_overbought": 74,
-        "rsi_oversold": 20,
-        "last_optimized": "2026-02-02"
-    },
-    "Strategy_Fast_Test_Scalper": {
-        "min_periods": 5,
-        "last_optimized": "2026-02-02"
-    },
-    "Strategy_Mean_Reversion": {
-        "lookback_period": 99,
-        "entry_threshold": 1.0116377241400436,
-        "exit_threshold": 1.967259376156563,
-        "last_optimized": "2026-02-02"
+    "Strategy_2_mean_reversion": {
+        "rsi_period": 18,
+        "rsi_overbought": 80,
+        "rsi_oversold": 18,
+        "trend_fast_ema": 12,
+        "trend_slow_ema": 167,
+        "bidirectional": true,
+        "last_optimized": "2026-02-10"
     },
     "Strategy_Breakout_Scalping": {
         "atr_period": 14,
@@ -51,7 +25,11 @@
         "atr_take_profit": 2.73235229154987,
         "breakout_threshold": 0.14016725176148134,
         "risk_per_trade": 0.737265320016441,
-        "last_optimized": "2026-02-02"
+        "last_optimized": "2026-02-09"
+    },
+    "Strategy_Fast_Test_Scalper": {
+        "min_periods": 5,
+        "last_optimized": "2026-02-09"
     },
     "Strategy_Improved_Multi_Timeframe_Scalping": {
         "fast_ema_period": 10,
@@ -66,21 +44,27 @@
         "trend_timeframe": "30m",
         "min_atr_threshold": 0.4245991883601898,
         "risk_per_trade": 0.5034443102887247,
-        "last_optimized": "2026-02-02"
+        "last_optimized": "2026-02-09"
+    },
+    "Strategy_Mean_Reversion": {
+        "lookback_period": 72,
+        "entry_threshold": 1.041168988591605,
+        "exit_threshold": 1.9428287191077893,
+        "last_optimized": "2026-02-10"
     },
     "Strategy_Mean_Reversion_Scalping": {
-        "rsi_period": 21,
-        "rsi_overbought": 78,
-        "rsi_oversold": 23,
-        "bb_period": 17,
-        "bb_std_dev": 1.8332734846880319,
-        "atr_period": 12,
-        "atr_stop_loss": 0.5829181279653138,
-        "atr_take_profit": 0.7860290007874635,
-        "volume_sma_period": 15,
-        "rsi_exit_level": 47,
-        "risk_per_trade": 0.2635788790052684,
-        "last_optimized": "2026-02-02"
+        "rsi_period": 18,
+        "rsi_overbought": 75,
+        "rsi_oversold": 33,
+        "bb_period": 30,
+        "bb_std_dev": 2.424240993040569,
+        "atr_period": 15,
+        "atr_stop_loss": 0.9318871133835473,
+        "atr_take_profit": 1.4279075485545176,
+        "volume_sma_period": 17,
+        "rsi_exit_level": 50,
+        "risk_per_trade": 0.4810629646153632,
+        "last_optimized": "2026-02-10"
     },
     "Strategy_Multi_Timeframe_Scalping": {
         "fast_ema_period": 10,
@@ -96,15 +80,15 @@
         "volume_sma_period": 10,
         "trend_timeframe": "5m",
         "min_atr_threshold": 0.13182123524319528,
-        "last_optimized": "2026-02-02"
+        "last_optimized": "2026-02-09"
     },
     "Strategy_multi_timeframe_srsi": {
-        "oversold_threshold": 9,
-        "overbought_threshold": 71,
-        "rsi_period": 19,
+        "oversold_threshold": 14,
+        "overbought_threshold": 94,
+        "rsi_period": 17,
         "sma_fast_period": 20,
-        "sma_slow_period": 39,
-        "last_optimized": "2026-02-02"
+        "sma_slow_period": 16,
+        "last_optimized": "2026-02-09"
     },
     "Strategy_NEW__MAcrossover_RSIconfirm": {
         "fast_ma_period": 10,
@@ -112,45 +96,61 @@
         "rsi_period": 17,
         "rsi_overbought": 74,
         "rsi_oversold": 22,
-        "last_optimized": "2026-02-02"
+        "last_optimized": "2026-02-09"
+    },
+    "Strategy_RSI_EMA_Trend_Filter": {
+        "rsi_period": 12,
+        "rsi_overbought": 80,
+        "rsi_oversold": 28,
+        "ema_fast_period": 34,
+        "ema_slow_period": 32,
+        "last_optimized": "2026-02-09"
     },
     "Strategy_Scalping_MultiIndicator": {
-        "rsi_period": 16,
-        "rsi_overbought": 71,
-        "rsi_oversold": 25,
+        "rsi_period": 11,
+        "rsi_overbought": 84,
+        "rsi_oversold": 30,
         "ema_fast": 7,
         "ema_slow": 10,
-        "macd_fast": 8,
-        "macd_slow": 19,
+        "macd_fast": 3,
+        "macd_slow": 9,
         "macd_signal": 9,
-        "stop_loss_atr": 2.737068376069122,
-        "take_profit_atr": 3.3915999152443406,
-        "atr_period": 20,
-        "rsi_weight": 0.14424625102595975,
-        "ema_weight": 0.1979914312095726,
-        "macd_weight": 0.12261364445526904,
-        "signal_threshold": 0.36026426461061145,
-        "last_optimized": "2026-02-02"
+        "stop_loss_atr": 2.002787529358022,
+        "take_profit_atr": 3.832290311184182,
+        "atr_period": 7,
+        "rsi_weight": 0.5849549260809972,
+        "ema_weight": 0.5162213204002108,
+        "macd_weight": 0.20616955533913808,
+        "signal_threshold": 0.24545997376568052,
+        "last_optimized": "2026-02-09"
+    },
+    "Strategy_Simple_EMA_RSI_Scalping": {
+        "fast_ema_period": 22,
+        "slow_ema_period": 97,
+        "rsi_period": 17,
+        "rsi_overbought": 74,
+        "rsi_oversold": 22,
+        "last_optimized": "2026-02-09"
     },
     "Strategy_Simple_Frequent_Trading": {
-        "fast_ma_period": 10,
-        "slow_ma_period": 15,
-        "rsi_period": 5,
-        "rsi_overbought": 62,
-        "rsi_oversold": 38,
-        "price_change_threshold": 0.0005132835269957491,
-        "last_optimized": "2026-02-02"
+        "fast_ma_period": 5,
+        "slow_ma_period": 20,
+        "rsi_period": 11,
+        "rsi_overbought": 64,
+        "rsi_oversold": 32,
+        "price_change_threshold": 0.001201975341512912,
+        "last_optimized": "2026-02-09"
     },
     "Strategy_Simple_MA_Crossover": {
-        "fast_ma_period": 9,
-        "slow_ma_period": 14,
-        "trend_ma_period": 34,
-        "rsi_period": 9,
-        "rsi_bullish_threshold": 53,
-        "rsi_bearish_threshold": 45,
-        "trend_timeframe": "30m",
+        "fast_ma_period": 5,
+        "slow_ma_period": 29,
+        "trend_ma_period": 79,
+        "rsi_period": 15,
+        "rsi_bullish_threshold": 51,
+        "rsi_bearish_threshold": 41,
+        "trend_timeframe": "15m",
         "entry_timeframe": "5m",
-        "last_optimized": "2026-02-02"
+        "last_optimized": "2026-02-09"
     },
     "Strategy_Simple_multi_timeframe": {
         "fast_ema_period": 10,
@@ -158,19 +158,19 @@
         "trend_ema_period": 79,
         "trend_timeframe": "5m",
         "entry_timeframe": "3m",
-        "last_optimized": "2026-02-02"
+        "last_optimized": "2026-02-09"
     },
     "Strategy_Simple_RSI_Extremes": {
-        "rsi_period": 17,
-        "rsi_overbought": 74,
-        "rsi_oversold": 21,
-        "trend_sma_period": 53,
-        "volume_sma_period": 27,
-        "volume_multiplier": 1.338260635795269,
-        "last_optimized": "2026-02-02"
+        "rsi_period": 12,
+        "rsi_overbought": 80,
+        "rsi_oversold": 28,
+        "trend_sma_period": 200,
+        "volume_sma_period": 16,
+        "volume_multiplier": 1.1559945203362028,
+        "last_optimized": "2026-02-09"
     },
     "Strategy_test_bidirectional_strategy": {
-        "test_mode": 38,
-        "last_optimized": "2026-02-02"
+        "test_mode": false,
+        "last_optimized": "2026-02-09"
     }
 }

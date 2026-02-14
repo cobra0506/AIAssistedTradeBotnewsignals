@@ -35,7 +35,7 @@ class DataCollectionConfig:
     RUN_GAP_FILLING = False  # Disabled for speed
     
     # Fetch settings
-    DAYS_TO_FETCH = 90 #365
+    DAYS_TO_FETCH = 385
     BULK_BATCH_SIZE = 20         # Number of concurrent requests to make at once 50, 20, 10
     BULK_REQUEST_DELAY_MS = 10  # Delay between requests in milliseconds (100 = 0.1 seconds) 50, 10, 200
     BULK_MAX_RETRIES = 5

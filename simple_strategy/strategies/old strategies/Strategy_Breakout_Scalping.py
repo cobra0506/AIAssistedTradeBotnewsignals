@@ -1,46 +1,38 @@
 """
 Breakout Scalping Strategy
 ==========================
-
 A scalping strategy that capitalizes on volatility breakouts:
 - Identifies consolidation periods with low ATR
 - Enters on strong breakouts with volume confirmation
 - Quick profit targets with tight stops
 - Pure momentum following - no mean reversion
-
 Strategy Logic:
 1. CONSOLIDATION: Low ATR and tight price range
 2. BREAKOUT: Price breaks range with high volume
 3. ENTRY: In direction of breakout
 4. EXIT: Quick profit target at 1.5x ATR
-
 Best for: Trending markets with clear breakouts
 Author: AI Assisted TradeBot Team
 Date: 2025
 """
-
 import sys
 import os
 import pandas as pd
 import numpy as np
 import logging
 from typing import Dict, List, Any, Optional
-
 # Add parent directories to path for proper imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir)
-
 # Import required components
 from simple_strategy.strategies.strategy_builder import StrategyBuilder
 from simple_strategy.strategies.indicators_library import atr, ema, volume_sma, highest, lowest
 from simple_strategy.strategies.signals_library import ma_crossover
 from simple_strategy.shared.strategy_base import StrategyBase
-
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 # CRITICAL: STRATEGY_PARAMETERS for GUI Configuration
 STRATEGY_PARAMETERS = {
     # ATR for consolidation detection
@@ -133,7 +125,6 @@ STRATEGY_PARAMETERS = {
         'gui_hint': 'Lower = more conservative. Recommended: 0.5%'
     }
 }
-
 def create_strategy(symbols=None, timeframes=None, **params):
     """
     CREATE STRATEGY FUNCTION - Required by GUI
@@ -235,7 +226,6 @@ def create_strategy(symbols=None, timeframes=None, **params):
         import traceback
         traceback.print_exc()
         raise
-
 class BreakoutScalpingStrategy(StrategyBase):
     """
     Breakout Scalping Strategy Class
@@ -384,14 +374,14 @@ class BreakoutScalpingStrategy(StrategyBase):
                     # Exit if take profit or stop loss hit
                     if current_close >= position['take_profit'] or current_close <= position['stop_loss']:
                         del self.positions[symbol]  # Remove position
-                        return 'SELL'
+                        return 'CLOSE_LONG'
                 
                 # For short positions
                 elif position['type'] == 'SHORT':
                     # Exit if take profit or stop loss hit
                     if current_close <= position['take_profit'] or current_close >= position['stop_loss']:
                         del self.positions[symbol]  # Remove position
-                        return 'BUY'
+                        return 'OPEN_LONG'
             
             # New entry signals
             elif in_consolidation and volume_confirmed:
@@ -409,7 +399,7 @@ class BreakoutScalpingStrategy(StrategyBase):
                         'take_profit': take_profit
                     }
                     
-                    return 'BUY'
+                    return 'OPEN_LONG'
                 
                 # Bearish breakout
                 elif current_close < breakout_low and current_close < current_ema:
@@ -425,14 +415,13 @@ class BreakoutScalpingStrategy(StrategyBase):
                         'take_profit': take_profit
                     }
                     
-                    return 'SELL'
+                    return 'CLOSE_LONG'
             
             return 'HOLD'
             
         except Exception as e:
             logger.error(f"Error generating signal for {symbol} {timeframe}: {e}")
             return 'HOLD'
-
 def create_breakout_scalping_instance(symbols=None, timeframes=None, **params):
     """
     Create breakout scalping strategy instance
@@ -449,7 +438,6 @@ def create_breakout_scalping_instance(symbols=None, timeframes=None, **params):
     except Exception as e:
         logger.error(f"Error creating strategy: {e}")
         raise
-
 def simple_test():
     """
     Simple test to verify the strategy works - MUST EXIST
@@ -480,7 +468,6 @@ def simple_test():
     except Exception as e:
         print(f"❌ Error testing Breakout Scalping strategy: {e}")
         return False
-
 # For testing - MUST EXIST
 if __name__ == "__main__":
     simple_test()

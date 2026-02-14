@@ -1,34 +1,26 @@
 """
 Building Block Indicators Library
 =================================
-
 This library contains ALL technical indicators that can be used in strategy building.
 Each indicator is a standalone function that can be called independently.
-
 Author: AI Assisted TradeBot Team
 Date: 2025
 """
-
 import pandas as pd
 import numpy as np
 from typing import Union, Tuple, Optional
 import logging
-
 logger = logging.getLogger(__name__)
-
-
 # === TREND INDICATORS ===
-
 def trend_signal(ema_fast, ema_slow):
     """
-    Simple trend filter: BUY only if fast EMA > slow EMA,
-    SELL only if fast EMA < slow EMA, else HOLD.
+    Simple trend filter: OPEN_LONG only if fast EMA > slow EMA,
+    OPEN_SHORT only if fast EMA < slow EMA, else HOLD.
     """
     signals = pd.Series('HOLD', index=ema_fast.index)
-    signals[ema_fast > ema_slow] = 'BUY'
-    signals[ema_fast < ema_slow] = 'SELL'
+    signals[ema_fast > ema_slow] = 'OPEN_LONG'
+    signals[ema_fast < ema_slow] = 'OPEN_SHORT'
     return signals
-
 def sma(data: pd.Series, period: int = 20) -> pd.Series:
     """
     Simple Moving Average
@@ -45,8 +37,6 @@ def sma(data: pd.Series, period: int = 20) -> pd.Series:
     except Exception as e:
         logger.error(f"Error calculating SMA: {e}")
         return pd.Series(index=data.index, dtype=float)
-
-
 def ema(data: pd.Series, period: int = 20) -> pd.Series:
     """
     Exponential Moving Average
@@ -60,15 +50,12 @@ def ema(data: pd.Series, period: int = 20) -> pd.Series:
         # Handle edge cases
         if period <= 0 or period > len(data):
             return pd.Series([np.nan] * len(data), index=data.index, dtype=float)
-
         series = data.astype(float)
         ema_series = series.ewm(span=period, adjust=False, min_periods=period).mean()
         return ema_series
     except Exception as e:
         logger.error(f"Error calculating EMA: {e}")
         return pd.Series(index=data.index, dtype=float)
-
-
 def wma(data: pd.Series, period: int = 20) -> pd.Series:
     """
     Weighted Moving Average
@@ -87,8 +74,6 @@ def wma(data: pd.Series, period: int = 20) -> pd.Series:
     except Exception as e:
         logger.error(f"Error calculating WMA: {e}")
         return pd.Series(index=data.index, dtype=float)
-
-
 def dema(data: pd.Series, period: int = 20) -> pd.Series:
     """
     Double Exponential Moving Average
@@ -107,8 +92,6 @@ def dema(data: pd.Series, period: int = 20) -> pd.Series:
     except Exception as e:
         logger.error(f"Error calculating DEMA: {e}")
         return pd.Series(index=data.index, dtype=float)
-
-
 def tema(data: pd.Series, period: int = 20) -> pd.Series:
     """
     Triple Exponential Moving Average
@@ -128,10 +111,7 @@ def tema(data: pd.Series, period: int = 20) -> pd.Series:
     except Exception as e:
         logger.error(f"Error calculating TEMA: {e}")
         return pd.Series(index=data.index, dtype=float)
-
-
 # === MOMENTUM INDICATORS ===
-
 def rsi(data: pd.Series, period: int = 14) -> pd.Series:
     """
     Relative Strength Index
@@ -152,8 +132,6 @@ def rsi(data: pd.Series, period: int = 14) -> pd.Series:
     except Exception as e:
         logger.error(f"Error calculating RSI: {e}")
         return pd.Series(index=data.index, dtype=float)
-
-
 def stochastic(high: pd.Series, low: pd.Series, close: pd.Series, 
               k_period: int = 14, d_period: int = 3) -> Tuple[pd.Series, pd.Series]:
     """
@@ -178,8 +156,6 @@ def stochastic(high: pd.Series, low: pd.Series, close: pd.Series,
     except Exception as e:
         logger.error(f"Error calculating Stochastic: {e}")
         return pd.Series(index=close.index, dtype=float), pd.Series(index=close.index, dtype=float)
-
-
 def srsi(data: pd.Series, period: int = 14, d_period: int = 3) -> Tuple[pd.Series, pd.Series]:
     """
     Stochastic RSI
@@ -202,8 +178,6 @@ def srsi(data: pd.Series, period: int = 14, d_period: int = 3) -> Tuple[pd.Serie
     except Exception as e:
         logger.error(f"Error calculating SRSI: {e}")
         return pd.Series(index=data.index, dtype=float), pd.Series(index=data.index, dtype=float)
-
-
 def macd(data: pd.Series, fast_period: int = 12, slow_period: int = 26, 
          signal_period: int = 9) -> Tuple[pd.Series, pd.Series, pd.Series]:
     """
@@ -230,8 +204,6 @@ def macd(data: pd.Series, fast_period: int = 12, slow_period: int = 26,
         return (pd.Series(index=data.index, dtype=float), 
                 pd.Series(index=data.index, dtype=float), 
                 pd.Series(index=data.index, dtype=float))
-
-
 def cci(high: pd.Series, low: pd.Series, close: pd.Series, period: int = 20) -> pd.Series:
     """
     Commodity Channel Index
@@ -254,7 +226,6 @@ def cci(high: pd.Series, low: pd.Series, close: pd.Series, period: int = 20) -> 
     except Exception as e:
         logger.error(f"Error calculating CCI: {e}")
         return pd.Series(index=close.index, dtype=float)
-
 def williams_r(high_prices: pd.Series, low_prices: pd.Series, close_prices: pd.Series, period: int = 14) -> pd.Series:
     """
     Williams %R Indicator
@@ -298,9 +269,7 @@ def williams_r(high_prices: pd.Series, low_prices: pd.Series, close_prices: pd.S
     except Exception as e:
         logger.error(f"Error calculating Williams %R: {e}")
         return pd.Series(index=high_prices.index, dtype=float)
-
 # === VOLATILITY INDICATORS ===
-
 def bollinger_bands(data: pd.Series, period: int = 20, std_dev: float = 2.0) -> Tuple[pd.Series, pd.Series, pd.Series]:
     """
     Bollinger Bands
@@ -336,8 +305,6 @@ def bollinger_bands(data: pd.Series, period: int = 20, std_dev: float = 2.0) -> 
         logger.error(f"Error calculating Bollinger Bands: {e}")
         nan_series = pd.Series([np.nan] * len(data), index=data.index, dtype=float)
         return nan_series, nan_series, nan_series
-
-
 def atr(high: pd.Series, low: pd.Series, close: pd.Series, period: int = 14) -> pd.Series:
     """
     Average True Range
@@ -360,10 +327,7 @@ def atr(high: pd.Series, low: pd.Series, close: pd.Series, period: int = 14) -> 
     except Exception as e:
         logger.error(f"Error calculating ATR: {e}")
         return pd.Series(index=close.index, dtype=float)
-
-
 # === VOLUME INDICATORS ===
-
 def volume_sma(volume_data: pd.Series, period: int = 20) -> pd.Series:
     """
     Volume Simple Moving Average
@@ -396,8 +360,6 @@ def volume_sma(volume_data: pd.Series, period: int = 20) -> pd.Series:
     except Exception as e:
         logger.error(f"Error calculating Volume SMA: {e}")
         return pd.Series(index=volume_data.index, dtype=float)
-
-
 def on_balance_volume(close_prices: pd.Series, volume_data: pd.Series) -> pd.Series:
     """
     On Balance Volume (OBV)
@@ -450,10 +412,7 @@ def on_balance_volume(close_prices: pd.Series, volume_data: pd.Series) -> pd.Ser
     except Exception as e:
         logger.error(f"Error calculating On Balance Volume: {e}")
         return pd.Series(index=close_prices.index, dtype=float)
-
-
 # === UTILITY FUNCTIONS ===
-
 def crossover(series1: pd.Series, series2: pd.Series) -> pd.Series:
     """
     Crossover Signal Generator
@@ -503,8 +462,6 @@ def crossover(series1: pd.Series, series2: pd.Series) -> pd.Series:
     except Exception as e:
         logger.error(f"Error calculating crossover signals: {e}")
         return pd.Series(dtype=float)
-
-
 def crossunder(series1: pd.Series, series2: pd.Series) -> pd.Series:
     """
     Crossunder Signal Generator
@@ -554,8 +511,6 @@ def crossunder(series1: pd.Series, series2: pd.Series) -> pd.Series:
     except Exception as e:
         logger.error(f"Error calculating crossunder signals: {e}")
         return pd.Series(dtype=float)
-
-
 def highest(data: pd.Series, period: int = 20) -> pd.Series:
     """
     Highest Value Over Period
@@ -588,8 +543,6 @@ def highest(data: pd.Series, period: int = 20) -> pd.Series:
     except Exception as e:
         logger.error(f"Error calculating highest values: {e}")
         return pd.Series(index=data.index, dtype=float)
-
-
 def lowest(data: pd.Series, period: int = 20) -> pd.Series:
     """
     Lowest Value Over Period
@@ -622,11 +575,8 @@ def lowest(data: pd.Series, period: int = 20) -> pd.Series:
     except Exception as e:
         logger.error(f"Error calculating lowest values: {e}")
         return pd.Series(index=data.index, dtype=float)
-
-
 # === INDICATOR REGISTRY ===
 # This makes it easy to get all available indicators
-
 INDICATOR_REGISTRY = {
     'sma': sma,
     'ema': ema,
@@ -648,8 +598,6 @@ INDICATOR_REGISTRY = {
     'highest': highest,
     'lowest': lowest,
 }
-
-
 def get_indicator(name: str):
     """
     Get indicator function by name
@@ -664,8 +612,6 @@ def get_indicator(name: str):
         return INDICATOR_REGISTRY[name]
     else:
         raise ValueError(f"Indicator '{name}' not found. Available indicators: {list(INDICATOR_REGISTRY.keys())}")
-
-
 def list_indicators() -> list:
     """
     List all available indicators
@@ -674,27 +620,21 @@ def list_indicators() -> list:
         List of indicator names
     """
     return list(INDICATOR_REGISTRY.keys())
-
-
 if __name__ == "__main__":
     # Example usage
     print("📊 Available Indicators:")
     for indicator in list_indicators():
         print(f"  - {indicator}")
-
 '''Signals Library Functions Summary 
 Trend Indicators 
-
-     trend_signal - Generates BUY/SELL/HOLD signals based on EMA crossover
+     trend_signal - Generates OPEN_LONG/OPEN_SHORT/HOLD signals based on EMA crossover
      sma - Calculates Simple Moving Average
      ema - Calculates Exponential Moving Average
      wma - Calculates Weighted Moving Average
      dema - Calculates Double Exponential Moving Average
      tema - Calculates Triple Exponential Moving Average
      
-
 Momentum Indicators 
-
      rsi - Calculates Relative Strength Index
      stochastic - Calculates Stochastic Oscillator (%K and %D)
      srsi - Calculates Stochastic RSI
@@ -702,29 +642,21 @@ Momentum Indicators
      cci - Calculates Commodity Channel Index
      williams_r - Calculates Williams %R momentum indicator
      
-
 Volatility Indicators 
-
      bollinger_bands - Calculates Bollinger Bands (upper, middle, lower)
      atr - Calculates Average True Range
      
-
 Volume Indicators 
-
      volume_sma - Calculates Simple Moving Average of volume
      on_balance_volume - Calculates On Balance Volume (OBV)
      
-
 Utility Functions 
-
      crossover - Detects when series1 crosses above series2
      crossunder - Detects when series1 crosses below series2
      highest - Finds highest value over a period
      lowest - Finds lowest value over a period
      
-
 Registry Functions 
-
      get_indicator - Gets indicator function by name
      list_indicators - Lists all available indicators
      '''

@@ -18,20 +18,26 @@ class DataFeeder:
     Supports multiple symbols, timeframes, and memory management.
     """
     
-    def __init__(self, data_dir: str = 'data', memory_limit_percent: float = 90):
+    def __init__(self, data_dir: str = 'data', memory_limit_percent: float = 90, debug: bool = False):
         """
         Initialize data feeder with memory management.
         
         Args:
             data_dir: Directory containing CSV data files
             memory_limit_percent: Maximum memory usage percentage (0-100)
+            debug: Enable limited debug logging
         """
         self.data_dir = Path(data_dir)
         self.memory_limit_percent = memory_limit_percent
         self.data_cache: Dict[str, Dict[str, pd.DataFrame]] = {}  # {symbol: {timeframe: DataFrame}}
         self.metadata_cache: Dict[str, Dict[str, Dict]] = {}  # {symbol: {timeframe: metadata}}
+        self.debug = bool(debug)
         
         logger.info(f"DataFeeder initialized with data_dir={data_dir}, memory_limit={memory_limit_percent}%")
+
+    def _debug_log(self, message: str) -> None:
+        if self.debug:
+            logger.info(message)
     
     def _check_memory_usage(self) -> bool:
         """
@@ -98,8 +104,11 @@ class DataFeeder:
     
     def get_data_for_symbols(self, symbols, timeframes, start_date, end_date):
         """Return cached data for multiple symbols/timeframes, filtered by date range"""
-        print(f"🔧 DEBUG: get_data_for_symbols called with symbols={symbols}, timeframes={timeframes}")
-        print(f"🔧 DEBUG: Date range: {start_date} to {end_date}")
+        total_pairs = len(symbols) * len(timeframes)
+        cache_hits = 0
+        file_loads = 0
+        missing = 0
+        self._debug_log(f"DataFeeder get_data_for_symbols: symbols={len(symbols)}, timeframes={len(timeframes)}, range={start_date} to {end_date}")
         
         # Convert string dates to datetime if needed
         if isinstance(start_date, str):
@@ -111,31 +120,24 @@ class DataFeeder:
         for symbol in symbols:
             result[symbol] = {}
             for timeframe in timeframes:
-                print(f"🔧 DEBUG: Processing {symbol} {timeframe}")
-                
                 # Check if data is in cache
                 if symbol in self.data_cache and timeframe in self.data_cache[symbol]:
-                    print(f"🔧 DEBUG: Found data in cache for {symbol} {timeframe}")
                     df = self.data_cache[symbol][timeframe].copy()
-                    print(f"🔧 DEBUG: Original data shape: {df.shape}")
-                    print(f"🔧 DEBUG: Original data date range: {df.index.min()} to {df.index.max()}")
                     
                     # Filter by date range
                     mask = (df.index >= start_date) & (df.index <= end_date)
                     filtered_df = df[mask]
-                    print(f"🔧 DEBUG: Filtered data shape: {filtered_df.shape}")
+                    cache_hits += 1
                     
                     result[symbol][timeframe] = filtered_df
                 else:
-                    print(f"🔧 DEBUG: No data in cache for {symbol} {timeframe}")
                     # Try to load data directly if not in cache
                     df = self._load_csv_file(symbol, timeframe)
                     if df is not None:
-                        print(f"🔧 DEBUG: Loaded data from file for {symbol} {timeframe}")
                         # Filter by date range
                         mask = (df.index >= start_date) & (df.index <= end_date)
                         filtered_df = df[mask]
-                        print(f"🔧 DEBUG: Filtered data shape: {filtered_df.shape}")
+                        file_loads += 1
                         
                         # Store in cache for future use
                         if symbol not in self.data_cache:
@@ -144,11 +146,11 @@ class DataFeeder:
                         
                         result[symbol][timeframe] = filtered_df
                     else:
-                        print(f"🔧 DEBUG: Could not load data for {symbol} {timeframe}")
+                        missing += 1
                         # Return empty DataFrame with expected columns
                         result[symbol][timeframe] = pd.DataFrame(columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         
-        print(f"🔧 DEBUG: Returning data with keys: {list(result.keys())}")
+        self._debug_log(f"DataFeeder get_data_for_symbols: pairs={total_pairs}, cache_hits={cache_hits}, file_loads={file_loads}, missing={missing}")
         return result
     
     def load_data(self, symbols: List[str], timeframes: List[str], 

@@ -7,18 +7,14 @@ import sys
 import os
 import logging
 from typing import Dict, List, Any
-
 # Add parent directories to path for proper imports
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, parent_dir)
-
 from .strategy_builder import StrategyBuilder
 from .indicators_library import sma, ema, rsi
 from .signals_library import overbought_oversold, ma_crossover
-
 # Configure logging
 logger = logging.getLogger(__name__)
-
 # STRATEGY_PARAMETERS - GUI Configuration (AT TOP)
 # This defines what parameters appear in the GUI for users to configure
 STRATEGY_PARAMETERS = {
@@ -27,16 +23,16 @@ STRATEGY_PARAMETERS = {
         'default': 20,
         'min': 5,
         'max': 30,
-        'description': 'Stochastic RSI oversold level (BUY signal)',
-        'gui_hint': 'Lower values = more conservative BUY signals. Recommended: 20'
+        'description': 'Stochastic RSI oversold level (OPEN_LONG signal)',
+        'gui_hint': 'Lower values = more conservative OPEN_LONG signals. Recommended: 20'
     },
     'overbought_threshold': {
         'type': 'int',
         'default': 80,
         'min': 70,
         'max': 95,
-        'description': 'Stochastic RSI overbought level (SELL signal)',
-        'gui_hint': 'Higher values = more conservative SELL signals. Recommended: 80'
+        'description': 'Stochastic RSI overbought level (CLOSE_LONG signal)',
+        'gui_hint': 'Higher values = more conservative CLOSE_LONG signals. Recommended: 80'
     },
     'rsi_period': {
         'type': 'int',
@@ -47,7 +43,6 @@ STRATEGY_PARAMETERS = {
         'gui_hint': 'Standard values: 14, 21. Lower = more sensitive'
     }
 }
-
 def create_strategy(symbols=None, timeframes=None, **params):
     """
     Create Multi-Timeframe Stochastic RSI Strategy
@@ -127,7 +122,6 @@ def create_strategy(symbols=None, timeframes=None, **params):
         import traceback
         traceback.print_exc()
         raise
-
 def simple_test():
     """Simple test to verify the strategy works"""
     try:
@@ -147,8 +141,6 @@ def simple_test():
     except Exception as e:
         print(f"❌ Error testing Multi-Timeframe SRSI strategy: {e}")
         return False
-
 # For testing
 if __name__ == "__main__":
     simple_test()
-

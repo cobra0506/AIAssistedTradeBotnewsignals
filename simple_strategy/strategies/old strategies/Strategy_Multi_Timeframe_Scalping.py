@@ -1,7 +1,6 @@
 """
 Multi-Timeframe Scalping Strategy with Volatility Breakout
 ========================================================
-
 A comprehensive scalping strategy designed for 1m and 5m charts that combines:
 - Multi-timeframe trend analysis (1m for entries, 5m/15m for trend confirmation)
 - Fast EMA crossovers for quick trend detection
@@ -9,39 +8,32 @@ A comprehensive scalping strategy designed for 1m and 5m charts that combines:
 - Momentum confirmation with RSI
 - Volume confirmation for breakouts
 - Dynamic risk management with ATR-based stops
-
 Strategy Logic:
 1. TREND FILTER (Higher Timeframe): Price above/below EMAs determines overall trend
 2. ENTRY SIGNAL (1m): Breakout confirmation with multiple indicators aligning
 3. RISK MANAGEMENT: Dynamic stop-loss and take-profit based on ATR
-
 Best for: Quick trades on 1m-5m charts with trend confirmation
 Author: AI Assisted TradeBot Team
 Date: 2025
 """
-
 import sys
 import os
 import pandas as pd
 import numpy as np
 import logging
 from typing import Dict, List, Any, Optional
-
 # Add parent directories to path for proper imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir)
-
 # Import required components
 from simple_strategy.strategies.strategy_builder import StrategyBuilder
 from simple_strategy.strategies.indicators_library import ema, rsi, atr, bollinger_bands, volume_sma, sma
 from simple_strategy.strategies.signals_library import ma_crossover, overbought_oversold, bollinger_bands_signals
 from simple_strategy.shared.strategy_base import StrategyBase
-
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 # CRITICAL: STRATEGY_PARAMETERS for GUI Configuration
 # This dictionary defines what parameters the GUI will show and allow users to configure
 STRATEGY_PARAMETERS = {
@@ -175,7 +167,6 @@ STRATEGY_PARAMETERS = {
         'gui_hint': 'Lower = tighter stops'
     }
 }
-
 def create_strategy(symbols=None, timeframes=None, **params):
     """
     CREATE STRATEGY FUNCTION - Required by GUI
@@ -225,7 +216,6 @@ def create_strategy(symbols=None, timeframes=None, **params):
     bb_std_dev = params.get('bb_std_dev', 2.0)
     volume_sma_period = params.get('volume_sma_period', 20)
     min_atr_threshold = params.get('min_atr_threshold', 0.1)
-
     # ADD THIS CODE AFTER getting parameters (around line 200):
     # Validate parameters before creating strategy
     def validate_parameters():
@@ -246,7 +236,6 @@ def create_strategy(symbols=None, timeframes=None, **params):
         # Check Bollinger Bands parameters
         if bb_std_dev <= 0:
             raise ValueError("Bollinger Bands standard deviation must be positive")
-
     try:
         validate_parameters()
         logger.info("✅ All parameters validated successfully")
@@ -329,7 +318,6 @@ def create_strategy(symbols=None, timeframes=None, **params):
         import traceback
         traceback.print_exc()
         raise
-
 class MultiTimeframeScalpingStrategy(StrategyBase):
     """
     Multi-Timeframe Scalping Strategy Class
@@ -540,7 +528,7 @@ class MultiTimeframeScalpingStrategy(StrategyBase):
                 
                 if (price_above_emas and rsi_not_overbought and 
                     (bb_breakout or bb_pullback) and volume_confirmed):
-                    return 'BUY'
+                    return 'OPEN_LONG'
             
             # Bearish setup
             elif trend_signal == 'BEARISH':
@@ -559,14 +547,13 @@ class MultiTimeframeScalpingStrategy(StrategyBase):
                 
                 if (price_below_emas and rsi_not_oversold and 
                     (bb_breakout or bb_pullback) and volume_confirmed):
-                    return 'SELL'
+                    return 'CLOSE_LONG'
             
             return 'HOLD'
             
         except Exception as e:
             logger.error(f"Error generating entry signal: {e}")
             return 'HOLD'
-
 def create_multi_timeframe_scalping_instance(symbols=None, timeframes=None, **params):
     """
     Create multi-timeframe scalping strategy instance - OPTIONAL but recommended
@@ -583,7 +570,6 @@ def create_multi_timeframe_scalping_instance(symbols=None, timeframes=None, **pa
     except Exception as e:
         logger.error(f"Error creating strategy: {e}")
         raise
-
 def simple_test():
     """
     Simple test to verify the strategy works - MUST EXIST
@@ -617,7 +603,6 @@ def simple_test():
     except Exception as e:
         print(f"❌ Error testing Multi-Timeframe Scalping strategy: {e}")
         return False
-
 # For testing - MUST EXIST
 if __name__ == "__main__":
     simple_test()

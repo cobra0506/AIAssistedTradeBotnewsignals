@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-
 def create_strategy(lookback_period=20, entry_threshold=2.0, exit_threshold=0.5):
     """
     Simple Mean Reversion Strategy
@@ -36,11 +35,11 @@ def create_strategy(lookback_period=20, entry_threshold=2.0, exit_threshold=0.5)
                 
                 # Buy signal: price below lower band
                 if latest['close'] < latest['lower_band']:
-                    signals[data.index[-1]] = 'BUY'
+                    signals[data.index[-1]] = 'OPEN_LONG'
                 
                 # Sell signal: price above upper band
                 elif latest['close'] > latest['upper_band']:
-                    signals[data.index[-1]] = 'SELL'
+                    signals[data.index[-1]] = 'CLOSE_LONG'
                 
                 # Exit long: price above exit lower band
                 elif prev['close'] < prev['exit_lower'] and latest['close'] > latest['exit_lower']:

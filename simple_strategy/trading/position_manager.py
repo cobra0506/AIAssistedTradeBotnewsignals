@@ -1,13 +1,11 @@
 """
 Position Manager - Handles all position-related operations
 """
-
 import os
 import time
 import pandas as pd
 from datetime import datetime
 from typing import Dict, Any, Optional
-
 class PositionManager:
     """Manages opening and closing positions for both long and short trades"""
     
@@ -28,7 +26,6 @@ class PositionManager:
             
             # Set leverage before placing the order
             self.set_leverage(symbol)
-
             # Get current price
             current_price = self.get_current_price_from_api(symbol)
             if current_price <= 0:
@@ -102,11 +99,11 @@ class PositionManager:
                 "timeInForce": "GTC"
             }
             
-            self.log_message(f"📈 Placing BUY order for {final_quantity} {symbol} (value: ${actual_position_cost:.2f}, margin: ${margin_needed:.2f})...")
+            self.log_message(f"📈 Placing OPEN_LONG order for {final_quantity} {symbol} (value: ${actual_position_cost:.2f}, margin: ${margin_needed:.2f})...")
             result, error = self.make_request("POST", "/v5/order/create", data=order_data)
             
             if error:
-                self.log_message(f"❌ Buy order failed: {error}")
+                self.log_message(f"❌ OPEN_LONG order failed: {error}")
                 return None
             
             # FIX: Update simulated balance directly with margin cost, not based on real balance
@@ -115,10 +112,10 @@ class PositionManager:
             
             # Add this logging
             self.log_message(f"🔍 DEBUG: Old simulated balance: ${old_simulated_balance:.2f}")
-            self.log_message(f"🔍 DEBUG: New simulated balance after buy: ${self.simulated_balance:.2f}")
+            self.log_message(f"🔍 DEBUG: New simulated balance after open long: ${self.simulated_balance:.2f}")
             self.log_message(f"🔍 DEBUG: Margin deducted: ${margin_needed:.2f}")
             
-            self.log_message(f"💰 Simulated balance after buy: ${self.simulated_balance:.2f} (margin used: ${margin_needed:.2f})")
+            self.log_message(f"💰 Simulated balance after open long: ${self.simulated_balance:.2f} (margin used: ${margin_needed:.2f})")
             
             # Record the trade
             trade = {
@@ -134,7 +131,6 @@ class PositionManager:
                 'position_value': actual_position_cost,
                 'margin_used': margin_needed
             }
-
             self.log_trade_to_csv(trade)
             
             self.trades.append(trade)
@@ -158,13 +154,12 @@ class PositionManager:
             # Update counters
             self.open_trades_count += 1
             
-            self.log_message(f"✅ Buy order successful! Order ID: {result.get('orderId')}")
+            self.log_message(f"✅ OPEN_LONG order successful! Order ID: {result.get('orderId')}")
             return trade
             
         except Exception as e:
-            self.log_message(f"❌ Error executing buy order: {e}")
+            self.log_message(f"❌ Error executing OPEN_LONG order: {e}")
             return None
-
     def execute_close_long(self, symbol, quantity=None):
         """Execute a long position closing"""
         if symbol not in self.current_positions:
@@ -205,11 +200,11 @@ class PositionManager:
                 "timeInForce": "GTC"
             }
             
-            self.log_message(f"📉 Placing SELL order for {final_quantity} {symbol}...")
+            self.log_message(f"📉 Placing CLOSE_LONG order for {final_quantity} {symbol}...")
             result, error = self.make_request("POST", "/v5/order/create", data=order_data)
             
             if error:
-                self.log_message(f"❌ Sell order failed: {error}")
+                self.log_message(f"❌ CLOSE_LONG order failed: {error}")
                 return None
             
             # Get current real balance BEFORE closing position
@@ -268,7 +263,6 @@ class PositionManager:
                 'original_cost': original_cost,
                 'margin_returned': margin_used
             }
-
             self.log_trade_to_csv(trade)
             
             self.trades.append(trade)
@@ -292,7 +286,6 @@ class PositionManager:
         except Exception as e:
             self.log_message(f"❌ Error executing sell order: {e}")
             return None
-
     def execute_open_short(self, symbol, quantity=None):
         """Execute a short position opening"""
         try:
@@ -301,7 +294,6 @@ class PositionManager:
             
             # Set leverage before placing the order
             self.set_leverage(symbol)
-
             # Get current price
             current_price = self.get_current_price_from_api(symbol)
             if current_price <= 0:
@@ -375,11 +367,11 @@ class PositionManager:
                 "timeInForce": "GTC"
             }
             
-            self.log_message(f"📉 Placing SELL order for {final_quantity} {symbol} (value: ${actual_position_cost:.2f}, margin: ${margin_needed:.2f})...")
+            self.log_message(f"📉 Placing OPEN_SHORT order for {final_quantity} {symbol} (value: ${actual_position_cost:.2f}, margin: ${margin_needed:.2f})...")
             result, error = self.make_request("POST", "/v5/order/create", data=order_data)
             
             if error:
-                self.log_message(f"❌ Sell order failed: {error}")
+                self.log_message(f"❌ OPEN_SHORT order failed: {error}")
                 return None
             
             # FIX: Update simulated balance directly with margin cost, not based on real balance
@@ -407,7 +399,6 @@ class PositionManager:
                 'position_value': actual_position_cost,
                 'margin_used': margin_needed
             }
-
             self.log_trade_to_csv(trade)
             
             self.trades.append(trade)
@@ -437,7 +428,6 @@ class PositionManager:
         except Exception as e:
             self.log_message(f"❌ Error executing sell order: {e}")
             return None
-
     def execute_close_short(self, symbol, quantity=None):
         """Execute a short position closing"""
         if symbol not in self.current_positions:
@@ -478,11 +468,11 @@ class PositionManager:
                 "timeInForce": "GTC"
             }
             
-            self.log_message(f"📈 Placing BUY order for {final_quantity} {symbol}...")
+            self.log_message(f"📈 Placing CLOSE_SHORT order for {final_quantity} {symbol}...")
             result, error = self.make_request("POST", "/v5/order/create", data=order_data)
             
             if error:
-                self.log_message(f"❌ Buy order failed: {error}")
+                self.log_message(f"❌ CLOSE_SHORT order failed: {error}")
                 return None
             
             # Get current real balance BEFORE closing position
@@ -541,7 +531,6 @@ class PositionManager:
                 'original_cost': original_cost,
                 'margin_returned': margin_used
             }
-
             self.log_trade_to_csv(trade)
             
             self.trades.append(trade)
@@ -592,14 +581,14 @@ class PositionManager:
                 writer.writerow(headers)
             
             # Extract data based on trade type
-            if trade['type'] == 'BUY':
+            if trade['type'] in ('OPEN_LONG', 'OPEN_SHORT'):
                 writer.writerow([
                     trade['timestamp'], trade['type'], trade['symbol'], trade['quantity'],
                     trade.get('entry_price', ''), '', trade.get('position_value', ''),
                     trade.get('margin_used', ''), trade.get('pnl', ''), '',
                     trade['balance_before'], trade['balance_after']
                 ])
-            else:  # SELL
+            else:  # CLOSE_LONG / CLOSE_SHORT
                 # Get exit price from current price
                 exit_price = self.get_current_price_from_api(trade['symbol'])
                 writer.writerow([
@@ -639,7 +628,6 @@ class PositionManager:
         """Update working capital after a trade"""
         # Adjust working capital by the P&L of the trade
         self.working_capital += trade_pnl
-
     def update_simulated_balance(self, new_balance):
         """Update the simulated balance from the main engine"""
         self.simulated_balance = new_balance

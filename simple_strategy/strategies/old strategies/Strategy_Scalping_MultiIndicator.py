@@ -3,7 +3,6 @@ Scalping Multi-Indicator Strategy - High-Frequency Trading Strategy
 ====================================================================
 Designed for scalping with quick entries/exits and high gain potential.
 Combines multiple indicators for high-probability trading signals.
-
 Strategy Features:
 - Fast timeframes (1m, 3m, 5m) for scalping
 - Multiple indicator confirmations (RSI, EMA, MACD)
@@ -17,22 +16,18 @@ import pandas as pd
 import numpy as np
 import logging
 from typing import Dict, List, Any, Optional
-
 # Add parent directories to path for proper imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir)
-
 # Import required components
 from simple_strategy.strategies.strategy_builder import StrategyBuilder
 from simple_strategy.strategies.indicators_library import rsi, ema, macd, atr
 from simple_strategy.strategies.signals_library import overbought_oversold, ma_crossover, macd_signals
 from simple_strategy.shared.strategy_base import StrategyBase
-
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 # CRITICAL: STRATEGY_PARAMETERS for GUI Configuration
 # This dictionary defines what parameters the GUI will show and allow users to configure
 STRATEGY_PARAMETERS = {
@@ -158,7 +153,6 @@ STRATEGY_PARAMETERS = {
         'gui_hint': 'Higher = more importance to momentum signals'
     }
 }
-
 def create_strategy(symbols=None, timeframes=None, **params):
     """
     CREATE STRATEGY FUNCTION - Required by GUI
@@ -279,7 +273,6 @@ def create_strategy(symbols=None, timeframes=None, **params):
         import traceback
         traceback.print_exc()
         raise
-
 class ScalpingMultiIndicatorStrategy(StrategyBase):
     """
     Scalping Multi-Indicator Strategy Class
@@ -429,21 +422,21 @@ class ScalpingMultiIndicatorStrategy(StrategyBase):
             # Generate individual signals
             rsi_signal = 0
             if current_rsi < self.rsi_oversold:
-                rsi_signal = 1  # BUY
+                rsi_signal = 1  # OPEN_LONG
             elif current_rsi > self.rsi_overbought:
-                rsi_signal = -1  # SELL
+                rsi_signal = -1  # CLOSE_LONG
             
             ema_signal = 0
             if ema_fast_values.iloc[-1] > ema_slow_values.iloc[-1] and ema_fast_values.iloc[-2] <= ema_slow_values.iloc[-2]:
-                ema_signal = 1  # BUY crossover
+                ema_signal = 1  # OPEN_LONG crossover
             elif ema_fast_values.iloc[-1] < ema_slow_values.iloc[-1] and ema_fast_values.iloc[-2] >= ema_slow_values.iloc[-2]:
-                ema_signal = -1  # SELL crossover
+                ema_signal = -1  # CLOSE_LONG crossover
             
             macd_signal = 0
             if macd_line.iloc[-1] > macd_signal_line.iloc[-1] and macd_line.iloc[-2] <= macd_signal_line.iloc[-2]:
-                macd_signal = 1  # BUY crossover
+                macd_signal = 1  # OPEN_LONG crossover
             elif macd_line.iloc[-1] < macd_signal_line.iloc[-1] and macd_line.iloc[-2] >= macd_signal_line.iloc[-2]:
-                macd_signal = -1  # SELL crossover
+                macd_signal = -1  # CLOSE_LONG crossover
             
             # Weighted signal combination
             weighted_signal = (
@@ -454,16 +447,15 @@ class ScalpingMultiIndicatorStrategy(StrategyBase):
             
             # Convert weighted signal to final decision
             if weighted_signal > 0.3:  # Strong buy signal
-                return 'BUY'
+                return 'OPEN_LONG'
             elif weighted_signal < -0.3:  # Strong sell signal
-                return 'SELL'
+                return 'CLOSE_LONG'
             else:
                 return 'HOLD'
                 
         except Exception as e:
             logger.error(f"Error generating signal for {symbol} {timeframe}: {e}")
             return 'HOLD'
-
 def create_scalping_multi_indicator_instance(symbols=None, timeframes=None, **params):
     """Create scalping multi-indicator strategy instance - OPTIONAL but recommended"""
     try:
@@ -479,7 +471,6 @@ def create_scalping_multi_indicator_instance(symbols=None, timeframes=None, **pa
     except Exception as e:
         logger.error(f"Error creating strategy: {e}")
         raise
-
 def simple_test():
     """Simple test to verify the strategy works - MUST EXIST"""
     try:
@@ -514,7 +505,6 @@ def simple_test():
     except Exception as e:
         print(f"❌ Error testing Scalping Multi-Indicator strategy: {e}")
         return False
-
 # For testing - MUST EXIST
 if __name__ == "__main__":
     simple_test()

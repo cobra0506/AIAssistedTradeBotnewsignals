@@ -2,7 +2,6 @@
 ULTIMATE STRATEGY TEMPLATE - Standardized Structure
 This is the CORRECT pattern that all strategies should follow.
 Combines the best of both approaches: Simple to use but powerful.
-
 🚫 IMPORTANT: Read the README_STRATEGY_CREATION_GUIDE.md before using this template!
 """
 import sys
@@ -10,22 +9,18 @@ import os
 import pandas as pd
 import logging
 from typing import Dict, List, Any, Optional
-
 # Add parent directories to path for proper imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir)
-
 # Import required components
 from simple_strategy.strategies.strategy_builder import StrategyBuilder
 from simple_strategy.strategies.indicators_library import rsi, sma, ema, macd
 from simple_strategy.strategies.signals_library import overbought_oversold, ma_crossover
 from simple_strategy.shared.strategy_base import StrategyBase
-
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 # CRITICAL: STRATEGY_PARAMETERS for GUI Configuration
 # This dictionary defines what parameters the GUI will show and allow users to configure
 STRATEGY_PARAMETERS = {
@@ -54,7 +49,6 @@ STRATEGY_PARAMETERS = {
         'gui_hint': 'Lower values = more conservative buys'
     }
 }
-
 def create_strategy(symbols=None, timeframes=None, **params):
     """
     CREATE STRATEGY FUNCTION - Required by GUI
@@ -141,7 +135,6 @@ def create_strategy(symbols=None, timeframes=None, **params):
         import traceback
         traceback.print_exc()
         raise
-
 class TemplateStrategy(StrategyBase):
     """
     Template Strategy Class - For complex custom logic
@@ -245,16 +238,15 @@ class TemplateStrategy(StrategyBase):
             
             # Generate signals
             if current_rsi < self.oversold_level:
-                return 'BUY'
+                return 'OPEN_LONG'
             elif current_rsi > self.overbought_level:
-                return 'SELL'
+                return 'CLOSE_LONG'
             else:
                 return 'HOLD'
                 
         except Exception as e:
             logger.error(f"Error generating signal for {symbol} {timeframe}: {e}")
             return 'HOLD'
-
 def create_template_instance(symbols=None, timeframes=None, **params):
     """Create template strategy instance - OPTIONAL but recommended"""
     try:
@@ -270,7 +262,6 @@ def create_template_instance(symbols=None, timeframes=None, **params):
     except Exception as e:
         logger.error(f"Error creating strategy: {e}")
         raise
-
 def simple_test():
     """Simple test to verify the strategy works - MUST EXIST"""
     try:
@@ -290,7 +281,6 @@ def simple_test():
     except Exception as e:
         print(f"❌ Error testing template strategy: {e}")
         return False
-
 # For testing - MUST EXIST
 if __name__ == "__main__":
     simple_test()

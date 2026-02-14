@@ -1,45 +1,37 @@
 """
 Mean Reversion Scalping Strategy
 ================================
-
 A scalping strategy that capitalizes on price deviations from the mean:
 - Uses RSI and Bollinger Bands to identify overbought/oversold conditions
 - Quick entries when price extremes are reached
 - Fast exits with tight stops
 - No trend following - pure mean reversion
-
 Strategy Logic:
-1. OVERBOUGHT: RSI > 70 AND price > upper Bollinger Band = SELL
-2. OVERSOLD: RSI < 30 AND price < lower Bollinger Band = BUY
+1. OVERBOUGHT: RSI > 70 AND price > upper Bollinger Band = CLOSE_LONG
+2. OVERSOLD: RSI < 30 AND price < lower Bollinger Band = OPEN_LONG
 3. EXIT: When price returns to middle Bollinger Band or RSI crosses 50
-
 Best for: Ranging markets with clear support/resistance levels
 Author: AI Assisted TradeBot Team
 Date: 2025
 """
-
 import sys
 import os
 import pandas as pd
 import numpy as np
 import logging
 from typing import Dict, List, Any, Optional
-
 # Add parent directories to path for proper imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir)
-
 # Import required components
 from simple_strategy.strategies.strategy_builder import StrategyBuilder
 from simple_strategy.strategies.indicators_library import rsi, bollinger_bands, atr, volume_sma
 from simple_strategy.strategies.signals_library import overbought_oversold, bollinger_bands_signals
 from simple_strategy.shared.strategy_base import StrategyBase
-
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 # CRITICAL: STRATEGY_PARAMETERS for GUI Configuration
 STRATEGY_PARAMETERS = {
     # RSI for mean reversion signals
@@ -139,7 +131,6 @@ STRATEGY_PARAMETERS = {
         'gui_hint': 'Lower = more conservative. Recommended: 0.5%'
     }
 }
-
 def create_strategy(symbols=None, timeframes=None, **params):
     """
     CREATE STRATEGY FUNCTION - Required by GUI
@@ -247,7 +238,6 @@ def create_strategy(symbols=None, timeframes=None, **params):
         import traceback
         traceback.print_exc()
         raise
-
 class MeanReversionScalpingStrategy(StrategyBase):
     """
     Mean Reversion Scalping Strategy Class
@@ -382,13 +372,13 @@ class MeanReversionScalpingStrategy(StrategyBase):
             
             # Mean reversion logic - more sensitive conditions
             
-            # OVERBOUGHT: RSI > overbought AND price > upper BB = SELL
+            # OVERBOUGHT: RSI > overbought AND price > upper BB = CLOSE_LONG
             if current_rsi > self.rsi_overbought and current_close > bb_upper and volume_confirmed:
-                return 'SELL'
+                return 'CLOSE_LONG'
             
-            # OVERSOLD: RSI < oversold AND price < lower BB = BUY
+            # OVERSOLD: RSI < oversold AND price < lower BB = OPEN_LONG
             elif current_rsi < self.rsi_oversold and current_close < bb_lower and volume_confirmed:
-                return 'BUY'
+                return 'OPEN_LONG'
             
             # EXIT: When price returns to mean (middle BB) or RSI crosses 50
             elif symbol in self.positions:
@@ -399,21 +389,20 @@ class MeanReversionScalpingStrategy(StrategyBase):
                     # Exit if RSI crosses above exit level or price reaches middle BB
                     if current_rsi > self.rsi_exit_level or current_close >= bb_middle:
                         del self.positions[symbol]  # Remove position
-                        return 'SELL'
+                        return 'CLOSE_LONG'
                 
                 # For short positions
                 elif position['type'] == 'SHORT':
                     # Exit if RSI crosses below exit level or price reaches middle BB
                     if current_rsi < self.rsi_exit_level or current_close <= bb_middle:
                         del self.positions[symbol]  # Remove position
-                        return 'BUY'
+                        return 'OPEN_LONG'
             
             return 'HOLD'
             
         except Exception as e:
             logger.error(f"Error generating signal for {symbol} {timeframe}: {e}")
             return 'HOLD'
-
 def create_mean_reversion_scalping_instance(symbols=None, timeframes=None, **params):
     """
     Create mean reversion scalping strategy instance
@@ -430,7 +419,6 @@ def create_mean_reversion_scalping_instance(symbols=None, timeframes=None, **par
     except Exception as e:
         logger.error(f"Error creating strategy: {e}")
         raise
-
 def simple_test():
     """
     Simple test to verify the strategy works - MUST EXIST
@@ -462,7 +450,6 @@ def simple_test():
     except Exception as e:
         print(f"❌ Error testing Mean Reversion Scalping strategy: {e}")
         return False
-
 # For testing - MUST EXIST
 if __name__ == "__main__":
     simple_test()
