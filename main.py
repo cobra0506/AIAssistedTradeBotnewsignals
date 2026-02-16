@@ -381,6 +381,29 @@ class TradingBotDashboard:
         return max(run_dirs, key=os.path.getmtime)
 
     @staticmethod
+    def _auto_evolve_run_is_complete(run_dir):
+        return (
+            os.path.exists(os.path.join(run_dir, "summary.txt"))
+            and os.path.exists(os.path.join(run_dir, "top_results.json"))
+        )
+
+    def _has_recent_unfinished_run(self, max_age_seconds=900):
+        latest_run_dir = self._auto_evolve_latest_run_dir()
+        if not latest_run_dir:
+            return False
+        if self._auto_evolve_run_is_complete(latest_run_dir):
+            return False
+
+        checkpoint_path = os.path.join(latest_run_dir, "checkpoints", "latest.json")
+        run_config_path = os.path.join(latest_run_dir, "run_config.resolved.json")
+        reference_path = checkpoint_path if os.path.exists(checkpoint_path) else run_config_path
+        if not os.path.exists(reference_path):
+            return False
+
+        last_update_age = max(0.0, time.time() - os.path.getmtime(reference_path))
+        return last_update_age <= float(max_age_seconds)
+
+    @staticmethod
     def _read_json_file(path):
         try:
             with open(path, "r", encoding="utf-8") as fh:
@@ -491,6 +514,22 @@ class TradingBotDashboard:
 
     def _launch_auto_evolve(self, extra_args):
         try:
+            if self.auto_evolve_process is not None and self.auto_evolve_process.poll() is not None:
+                self.auto_evolve_process = None
+
+            if self.auto_evolve_process is not None and self.auto_evolve_process.poll() is None:
+                messagebox.showinfo("Auto Evolve", "A run is already active. Wait for it to finish, or resume it.")
+                self.refresh_auto_evolve_status()
+                return
+
+            if self._has_recent_unfinished_run():
+                messagebox.showinfo(
+                    "Auto Evolve",
+                    "An unfinished recent run was detected. Use RESUME LAST RUN or wait before starting another run.",
+                )
+                self.refresh_auto_evolve_status()
+                return
+
             project_root = os.path.dirname(__file__)
             seed_args = self._get_auto_evolve_seed_args()
             if seed_args is None:

@@ -23,7 +23,7 @@
   "min_stress_return_pct": -10.0,
   "max_stress_drawdown_pct": 45.0,
   "workers": 4,
-  "checkpoint_every_generations": 2,
+  "checkpoint_every_generations": 1,
   "stress_fee_multiplier": 2.0,
   "stress_slippage_multiplier": 2.0,
   "output_dir": "simple_strategy/auto_evolve/runs",

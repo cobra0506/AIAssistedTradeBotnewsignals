@@ -111,7 +111,7 @@ DEFAULT_RUN_CONFIG: Dict[str, Any] = {
     "max_stress_drawdown_pct": 50.0,
     "max_active_signals": 3,
     "workers": 4,
-    "checkpoint_every_generations": 2,
+    "checkpoint_every_generations": 1,
     "stress_fee_multiplier": 1.5,
     "stress_slippage_multiplier": 1.5,
     "output_dir": "simple_strategy/auto_evolve/runs",
