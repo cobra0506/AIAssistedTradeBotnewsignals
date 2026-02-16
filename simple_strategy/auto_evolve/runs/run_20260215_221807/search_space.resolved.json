@@ -1,0 +1,124 @@
+{
+  "indicators": {
+    "rsi_main": {
+      "function": "rsi",
+      "params": {
+        "period": {
+          "type": "int",
+          "low": 7,
+          "high": 28,
+          "step": 1
+        }
+      }
+    },
+    "ema_fast": {
+      "function": "ema",
+      "params": {
+        "period": {
+          "type": "int",
+          "low": 5,
+          "high": 40,
+          "step": 1
+        }
+      }
+    },
+    "ema_slow": {
+      "function": "ema",
+      "params": {
+        "period": {
+          "type": "int",
+          "low": 20,
+          "high": 140,
+          "step": 1
+        }
+      }
+    },
+    "sma_fast": {
+      "function": "sma",
+      "params": {
+        "period": {
+          "type": "int",
+          "low": 5,
+          "high": 50,
+          "step": 1
+        }
+      }
+    },
+    "sma_slow": {
+      "function": "sma",
+      "params": {
+        "period": {
+          "type": "int",
+          "low": 20,
+          "high": 200,
+          "step": 1
+        }
+      }
+    }
+  },
+  "signals": {
+    "rsi_osob": {
+      "function": "overbought_oversold",
+      "inputs": {
+        "indicator": "rsi_main"
+      },
+      "params": {
+        "overbought": {
+          "type": "int",
+          "low": 65,
+          "high": 85,
+          "step": 1
+        },
+        "oversold": {
+          "type": "int",
+          "low": 15,
+          "high": 40,
+          "step": 1
+        }
+      }
+    },
+    "ema_cross": {
+      "function": "ma_crossover",
+      "inputs": {
+        "fast_ma": "ema_fast",
+        "slow_ma": "ema_slow"
+      },
+      "params": {}
+    },
+    "sma_cross": {
+      "function": "ma_crossover",
+      "inputs": {
+        "fast_ma": "sma_fast",
+        "slow_ma": "sma_slow"
+      },
+      "params": {}
+    },
+    "rsi_trend_combo": {
+      "function": "rsi_mean_reversion_with_trend",
+      "inputs": {
+        "rsi": "rsi_main",
+        "ema_fast": "ema_fast",
+        "ema_slow": "ema_slow"
+      },
+      "params": {
+        "overbought": {
+          "type": "int",
+          "low": 65,
+          "high": 85,
+          "step": 1
+        },
+        "oversold": {
+          "type": "int",
+          "low": 15,
+          "high": 40,
+          "step": 1
+        }
+      }
+    }
+  },
+  "signal_combination_methods": [
+    "majority_vote",
+    "and_signals",
+    "unanimous"
+  ]
+}

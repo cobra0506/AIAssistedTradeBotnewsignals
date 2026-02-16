@@ -1,0 +1,2618 @@
+{
+  "generation": 1,
+  "population": [
+    [
+      0,
+      0,
+      1,
+      0,
+      1,
+      21,
+      35,
+      103,
+      29,
+      73,
+      68,
+      30,
+      65,
+      27
+    ],
+    [
+      1,
+      0,
+      1,
+      1,
+      2,
+      14,
+      11,
+      135,
+      25,
+      27,
+      65,
+      15,
+      85,
+      32
+    ],
+    [
+      0,
+      1,
+      0,
+      1,
+      2,
+      7,
+      38,
+      48,
+      33,
+      146,
+      82,
+      22,
+      76,
+      22
+    ],
+    [
+      0,
+      1,
+      1,
+      0,
+      1,
+      24,
+      11,
+      43,
+      45,
+      95,
+      68,
+      38,
+      75,
+      38
+    ],
+    [
+      1,
+      0,
+      1,
+      1,
+      2,
+      22,
+      37,
+      70,
+      42,
+      28,
+      80,
+      22,
+      77,
+      28
+    ],
+    [
+      0,
+      1,
+      1,
+      0,
+      1,
+      28,
+      37,
+      33,
+      15,
+      153,
+      77,
+      26,
+      80,
+      38
+    ],
+    [
+      0,
+      1,
+      1,
+      0,
+      1,
+      24,
+      11,
+      43,
+      45,
+      95,
+      68,
+      38,
+      75,
+      38
+    ],
+    [
+      0,
+      1,
+      0,
+      1,
+      2,
+      7,
+      38,
+      48,
+      33,
+      146,
+      82,
+      22,
+      76,
+      22
+    ],
+    [
+      1,
+      0,
+      1,
+      1,
+      2,
+      22,
+      37,
+      70,
+      42,
+      28,
+      80,
+      22,
+      77,
+      28
+    ],
+    [
+      1,
+      1,
+      1,
+      0,
+      0,
+      16,
+      29,
+      48,
+      33,
+      68,
+      73,
+      18,
+      73,
+      38
+    ],
+    [
+      0,
+      0,
+      0,
+      1,
+      2,
+      7,
+      38,
+      63,
+      31,
+      147,
+      82,
+      21,
+      76,
+      22
+    ],
+    [
+      0,
+      0,
+      1,
+      0,
+      1,
+      18,
+      40,
+      45,
+      15,
+      153,
+      77,
+      26,
+      80,
+      38
+    ],
+    [
+      0,
+      1,
+      0,
+      0,
+      1,
+      28,
+      37,
+      33,
+      37,
+      125,
+      79,
+      25,
+      78,
+      26
+    ],
+    [
+      0,
+      1,
+      1,
+      0,
+      0,
+      24,
+      11,
+      43,
+      45,
+      94,
+      68,
+      38,
+      75,
+      38
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      15,
+      38,
+      41,
+      47,
+      89,
+      85,
+      36,
+      74,
+      28
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      2,
+      26,
+      29,
+      102,
+      15,
+      63,
+      81,
+      22,
+      65,
+      39
+    ]
+  ],
+  "all_results": [
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "sma_cross"
+        ],
+        "signal_combination": "and_signals",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 21
+          },
+          "ema_fast": {
+            "period": 35
+          },
+          "ema_slow": {
+            "period": 103
+          },
+          "sma_fast": {
+            "period": 29
+          },
+          "sma_slow": {
+            "period": 73
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 68,
+            "oversold": 30
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 65,
+            "oversold": 27
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0,
+        "start_time": "2026-02-15 22:47:02",
+        "end_time": "2026-02-15 22:50:00",
+        "duration": "0h 2m 58.31s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_trades_failed:0<40",
+      "generation": 0,
+      "index": 0
+    },
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "rsi_osob",
+          "sma_cross",
+          "rsi_trend_combo"
+        ],
+        "signal_combination": "unanimous",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 14
+          },
+          "ema_fast": {
+            "period": 11
+          },
+          "ema_slow": {
+            "period": 135
+          },
+          "sma_fast": {
+            "period": 25
+          },
+          "sma_slow": {
+            "period": 27
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 65,
+            "oversold": 15
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 85,
+            "oversold": 32
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0,
+        "start_time": "2026-02-15 22:53:34",
+        "end_time": "2026-02-15 22:57:13",
+        "duration": "0h 3m 38.81s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_trades_failed:0<40",
+      "generation": 0,
+      "index": 1
+    },
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "ema_cross",
+          "rsi_trend_combo"
+        ],
+        "signal_combination": "unanimous",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 7
+          },
+          "ema_fast": {
+            "period": 38
+          },
+          "ema_slow": {
+            "period": 48
+          },
+          "sma_fast": {
+            "period": 33
+          },
+          "sma_slow": {
+            "period": 146
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 82,
+            "oversold": 22
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 76,
+            "oversold": 22
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0,
+        "start_time": "2026-02-15 22:49:42",
+        "end_time": "2026-02-15 22:52:12",
+        "duration": "0h 2m 30.25s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_trades_failed:0<40",
+      "generation": 0,
+      "index": 2
+    },
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "ema_cross",
+          "sma_cross"
+        ],
+        "signal_combination": "and_signals",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 24
+          },
+          "ema_fast": {
+            "period": 11
+          },
+          "ema_slow": {
+            "period": 43
+          },
+          "sma_fast": {
+            "period": 45
+          },
+          "sma_slow": {
+            "period": 95
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 68,
+            "oversold": 38
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 75,
+            "oversold": 38
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0,
+        "start_time": "2026-02-15 22:48:23",
+        "end_time": "2026-02-15 22:51:09",
+        "duration": "0h 2m 45.65s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_trades_failed:0<40",
+      "generation": 0,
+      "index": 3
+    },
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "rsi_osob",
+          "sma_cross",
+          "rsi_trend_combo"
+        ],
+        "signal_combination": "unanimous",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 22
+          },
+          "ema_fast": {
+            "period": 37
+          },
+          "ema_slow": {
+            "period": 70
+          },
+          "sma_fast": {
+            "period": 42
+          },
+          "sma_slow": {
+            "period": 43
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 80,
+            "oversold": 22
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 77,
+            "oversold": 28
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0,
+        "start_time": "2026-02-15 23:26:31",
+        "end_time": "2026-02-15 23:29:30",
+        "duration": "0h 2m 59.51s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_trades_failed:0<40",
+      "generation": 0,
+      "index": 4
+    },
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "ema_cross",
+          "sma_cross"
+        ],
+        "signal_combination": "and_signals",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 28
+          },
+          "ema_fast": {
+            "period": 37
+          },
+          "ema_slow": {
+            "period": 38
+          },
+          "sma_fast": {
+            "period": 15
+          },
+          "sma_slow": {
+            "period": 153
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 77,
+            "oversold": 26
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 80,
+            "oversold": 38
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0,
+        "start_time": "2026-02-15 23:20:48",
+        "end_time": "2026-02-15 23:23:38",
+        "duration": "0h 2m 50.09s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_trades_failed:0<40",
+      "generation": 0,
+      "index": 5
+    },
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "ema_cross",
+          "rsi_trend_combo"
+        ],
+        "signal_combination": "unanimous",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 26
+          },
+          "ema_fast": {
+            "period": 30
+          },
+          "ema_slow": {
+            "period": 102
+          },
+          "sma_fast": {
+            "period": 15
+          },
+          "sma_slow": {
+            "period": 63
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 81,
+            "oversold": 22
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 65,
+            "oversold": 39
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0,
+        "start_time": "2026-02-15 23:23:32",
+        "end_time": "2026-02-15 23:26:25",
+        "duration": "0h 2m 52.91s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_trades_failed:0<40",
+      "generation": 0,
+      "index": 6
+    },
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "sma_cross",
+          "rsi_trend_combo"
+        ],
+        "signal_combination": "unanimous",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 18
+          },
+          "ema_fast": {
+            "period": 34
+          },
+          "ema_slow": {
+            "period": 136
+          },
+          "sma_fast": {
+            "period": 22
+          },
+          "sma_slow": {
+            "period": 188
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 82,
+            "oversold": 34
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 65,
+            "oversold": 27
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0,
+        "start_time": "2026-02-15 23:31:08",
+        "end_time": "2026-02-15 23:34:13",
+        "duration": "0h 3m 5.52s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_trades_failed:0<40",
+      "generation": 0,
+      "index": 7
+    },
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "sma_cross"
+        ],
+        "signal_combination": "and_signals",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 18
+          },
+          "ema_fast": {
+            "period": 40
+          },
+          "ema_slow": {
+            "period": 45
+          },
+          "sma_fast": {
+            "period": 37
+          },
+          "sma_slow": {
+            "period": 125
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 80,
+            "oversold": 26
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 78,
+            "oversold": 26
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0,
+        "start_time": "2026-02-15 23:47:00",
+        "end_time": "2026-02-15 23:48:57",
+        "duration": "0h 1m 56.87s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_trades_failed:0<40",
+      "generation": 0,
+      "index": 8
+    },
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "ema_cross",
+          "sma_cross"
+        ],
+        "signal_combination": "majority_vote",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 27
+          },
+          "ema_fast": {
+            "period": 19
+          },
+          "ema_slow": {
+            "period": 85
+          },
+          "sma_fast": {
+            "period": 24
+          },
+          "sma_slow": {
+            "period": 144
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 67,
+            "oversold": 40
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 82,
+            "oversold": 40
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 16.52173913043478,
+        "sharpe_ratio": -3.1238414758182724,
+        "max_drawdown": 69.61767262843357,
+        "total_return": -54.448948798975074,
+        "total_trades": 230,
+        "start_time": "2026-02-16 00:03:05",
+        "end_time": "2026-02-16 00:05:31",
+        "duration": "0h 2m 26.89s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_return_failed:-54.45<0.00",
+      "generation": 0,
+      "index": 9
+    },
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "rsi_osob"
+        ],
+        "signal_combination": "majority_vote",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 21
+          },
+          "ema_fast": {
+            "period": 5
+          },
+          "ema_slow": {
+            "period": 116
+          },
+          "sma_fast": {
+            "period": 22
+          },
+          "sma_slow": {
+            "period": 83
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 73,
+            "oversold": 18
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 84,
+            "oversold": 20
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 100.0,
+        "sharpe_ratio": 30.80790571456096,
+        "max_drawdown": 0.0,
+        "total_return": 98.39169088099352,
+        "total_trades": 3,
+        "start_time": "2026-02-15 23:51:21",
+        "end_time": "2026-02-15 23:53:00",
+        "duration": "0h 1m 38.78s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_trades_failed:3<40",
+      "generation": 0,
+      "index": 10
+    },
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "rsi_osob",
+          "ema_cross"
+        ],
+        "signal_combination": "majority_vote",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 7
+          },
+          "ema_fast": {
+            "period": 20
+          },
+          "ema_slow": {
+            "period": 107
+          },
+          "sma_fast": {
+            "period": 47
+          },
+          "sma_slow": {
+            "period": 89
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 71,
+            "oversold": 18
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 74,
+            "oversold": 29
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 44.173913043478265,
+        "sharpe_ratio": -1.3939164900281655,
+        "max_drawdown": 98.33202373464817,
+        "total_return": -71.57132087553784,
+        "total_trades": 1150,
+        "start_time": "2026-02-16 00:16:48",
+        "end_time": "2026-02-16 00:20:39",
+        "duration": "0h 3m 50.86s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_return_failed:-71.57<0.00",
+      "generation": 0,
+      "index": 11
+    },
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "rsi_osob",
+          "ema_cross",
+          "sma_cross"
+        ],
+        "signal_combination": "majority_vote",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 22
+          },
+          "ema_fast": {
+            "period": 39
+          },
+          "ema_slow": {
+            "period": 57
+          },
+          "sma_fast": {
+            "period": 45
+          },
+          "sma_slow": {
+            "period": 181
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 66,
+            "oversold": 16
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 73,
+            "oversold": 38
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 29.80726131779471,
+        "sharpe_ratio": -1.0901205903283195,
+        "max_drawdown": 100.14167535155538,
+        "total_return": -73.17306305028731,
+        "total_trades": 2231,
+        "start_time": "2026-02-16 00:32:43",
+        "end_time": "2026-02-16 00:33:26",
+        "duration": "0h 0m 42.75s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_return_failed:-73.17<0.00",
+      "generation": 0,
+      "index": 12
+    },
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "ema_cross"
+        ],
+        "signal_combination": "majority_vote",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 19
+          },
+          "ema_fast": {
+            "period": 14
+          },
+          "ema_slow": {
+            "period": 24
+          },
+          "sma_fast": {
+            "period": 15
+          },
+          "sma_slow": {
+            "period": 134
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 81,
+            "oversold": 36
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 78,
+            "oversold": 32
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0,
+        "start_time": "2026-02-16 00:09:18",
+        "end_time": "2026-02-16 00:11:32",
+        "duration": "0h 2m 14.07s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_trades_failed:0<40",
+      "generation": 0,
+      "index": 13
+    },
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "ema_cross"
+        ],
+        "signal_combination": "and_signals",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 28
+          },
+          "ema_fast": {
+            "period": 25
+          },
+          "ema_slow": {
+            "period": 104
+          },
+          "sma_fast": {
+            "period": 45
+          },
+          "sma_slow": {
+            "period": 129
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 66,
+            "oversold": 38
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 74,
+            "oversold": 19
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0,
+        "start_time": "2026-02-16 00:25:30",
+        "end_time": "2026-02-16 00:27:04",
+        "duration": "0h 1m 34.05s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_trades_failed:0<40",
+      "generation": 0,
+      "index": 14
+    },
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "sma_cross"
+        ],
+        "signal_combination": "majority_vote",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 16
+          },
+          "ema_fast": {
+            "period": 24
+          },
+          "ema_slow": {
+            "period": 115
+          },
+          "sma_fast": {
+            "period": 15
+          },
+          "sma_slow": {
+            "period": 126
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 83,
+            "oversold": 23
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 69,
+            "oversold": 15
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0,
+        "start_time": "2026-02-16 00:29:57",
+        "end_time": "2026-02-16 00:30:47",
+        "duration": "0h 0m 49.80s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_trades_failed:0<40",
+      "generation": 0,
+      "index": 15
+    },
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "sma_cross"
+        ],
+        "signal_combination": "and_signals",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 21
+          },
+          "ema_fast": {
+            "period": 35
+          },
+          "ema_slow": {
+            "period": 103
+          },
+          "sma_fast": {
+            "period": 29
+          },
+          "sma_slow": {
+            "period": 73
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 68,
+            "oversold": 30
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 65,
+            "oversold": 27
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0,
+        "start_time": "2026-02-16 01:02:11",
+        "end_time": "2026-02-16 01:05:10",
+        "duration": "0h 2m 59.22s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_trades_failed:0<40",
+      "generation": 1,
+      "index": 0
+    },
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "rsi_osob",
+          "sma_cross",
+          "rsi_trend_combo"
+        ],
+        "signal_combination": "unanimous",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 14
+          },
+          "ema_fast": {
+            "period": 11
+          },
+          "ema_slow": {
+            "period": 135
+          },
+          "sma_fast": {
+            "period": 25
+          },
+          "sma_slow": {
+            "period": 27
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 65,
+            "oversold": 15
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 85,
+            "oversold": 32
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0,
+        "start_time": "2026-02-16 01:08:18",
+        "end_time": "2026-02-16 01:10:58",
+        "duration": "0h 2m 39.70s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_trades_failed:0<40",
+      "generation": 1,
+      "index": 1
+    },
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "ema_cross",
+          "rsi_trend_combo"
+        ],
+        "signal_combination": "unanimous",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 7
+          },
+          "ema_fast": {
+            "period": 38
+          },
+          "ema_slow": {
+            "period": 48
+          },
+          "sma_fast": {
+            "period": 33
+          },
+          "sma_slow": {
+            "period": 146
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 82,
+            "oversold": 22
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 76,
+            "oversold": 22
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0,
+        "start_time": "2026-02-16 01:05:29",
+        "end_time": "2026-02-16 01:08:20",
+        "duration": "0h 2m 50.26s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_trades_failed:0<40",
+      "generation": 1,
+      "index": 2
+    },
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "ema_cross",
+          "sma_cross"
+        ],
+        "signal_combination": "and_signals",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 24
+          },
+          "ema_fast": {
+            "period": 11
+          },
+          "ema_slow": {
+            "period": 43
+          },
+          "sma_fast": {
+            "period": 45
+          },
+          "sma_slow": {
+            "period": 95
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 68,
+            "oversold": 38
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 75,
+            "oversold": 38
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0,
+        "start_time": "2026-02-16 01:05:35",
+        "end_time": "2026-02-16 01:08:29",
+        "duration": "0h 2m 54.07s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_trades_failed:0<40",
+      "generation": 1,
+      "index": 3
+    },
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "rsi_osob",
+          "sma_cross",
+          "rsi_trend_combo"
+        ],
+        "signal_combination": "unanimous",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 22
+          },
+          "ema_fast": {
+            "period": 37
+          },
+          "ema_slow": {
+            "period": 70
+          },
+          "sma_fast": {
+            "period": 42
+          },
+          "sma_slow": {
+            "period": 43
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 80,
+            "oversold": 22
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 77,
+            "oversold": 28
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0,
+        "start_time": "2026-02-16 01:40:36",
+        "end_time": "2026-02-16 01:43:58",
+        "duration": "0h 3m 21.75s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_trades_failed:0<40",
+      "generation": 1,
+      "index": 4
+    },
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "ema_cross",
+          "sma_cross"
+        ],
+        "signal_combination": "and_signals",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 28
+          },
+          "ema_fast": {
+            "period": 37
+          },
+          "ema_slow": {
+            "period": 38
+          },
+          "sma_fast": {
+            "period": 15
+          },
+          "sma_slow": {
+            "period": 153
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 77,
+            "oversold": 26
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 80,
+            "oversold": 38
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0,
+        "start_time": "2026-02-16 01:39:02",
+        "end_time": "2026-02-16 01:41:59",
+        "duration": "0h 2m 57.56s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_trades_failed:0<40",
+      "generation": 1,
+      "index": 5
+    },
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "ema_cross",
+          "sma_cross"
+        ],
+        "signal_combination": "and_signals",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 24
+          },
+          "ema_fast": {
+            "period": 11
+          },
+          "ema_slow": {
+            "period": 43
+          },
+          "sma_fast": {
+            "period": 45
+          },
+          "sma_slow": {
+            "period": 95
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 68,
+            "oversold": 38
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 75,
+            "oversold": 38
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0,
+        "start_time": "2026-02-16 01:40:55",
+        "end_time": "2026-02-16 01:43:44",
+        "duration": "0h 2m 48.57s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_trades_failed:0<40",
+      "generation": 1,
+      "index": 6
+    },
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "ema_cross",
+          "rsi_trend_combo"
+        ],
+        "signal_combination": "unanimous",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 7
+          },
+          "ema_fast": {
+            "period": 38
+          },
+          "ema_slow": {
+            "period": 48
+          },
+          "sma_fast": {
+            "period": 33
+          },
+          "sma_slow": {
+            "period": 146
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 82,
+            "oversold": 22
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 76,
+            "oversold": 22
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0,
+        "start_time": "2026-02-16 01:43:51",
+        "end_time": "2026-02-16 01:45:37",
+        "duration": "0h 1m 45.24s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_trades_failed:0<40",
+      "generation": 1,
+      "index": 7
+    },
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "rsi_osob",
+          "sma_cross",
+          "rsi_trend_combo"
+        ],
+        "signal_combination": "unanimous",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 22
+          },
+          "ema_fast": {
+            "period": 37
+          },
+          "ema_slow": {
+            "period": 70
+          },
+          "sma_fast": {
+            "period": 42
+          },
+          "sma_slow": {
+            "period": 43
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 80,
+            "oversold": 22
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 77,
+            "oversold": 28
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0,
+        "start_time": "2026-02-16 02:05:29",
+        "end_time": "2026-02-16 02:07:36",
+        "duration": "0h 2m 6.75s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_trades_failed:0<40",
+      "generation": 1,
+      "index": 8
+    },
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "rsi_osob",
+          "ema_cross",
+          "sma_cross"
+        ],
+        "signal_combination": "majority_vote",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 22
+          },
+          "ema_fast": {
+            "period": 39
+          },
+          "ema_slow": {
+            "period": 57
+          },
+          "sma_fast": {
+            "period": 45
+          },
+          "sma_slow": {
+            "period": 181
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 66,
+            "oversold": 16
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 73,
+            "oversold": 38
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 29.80726131779471,
+        "sharpe_ratio": -1.0901205903283195,
+        "max_drawdown": 100.14167535155538,
+        "total_return": -73.17306305028731,
+        "total_trades": 2231,
+        "start_time": "2026-02-16 02:48:56",
+        "end_time": "2026-02-16 02:51:24",
+        "duration": "0h 2m 28.12s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_return_failed:-73.17<0.00",
+      "generation": 1,
+      "index": 9
+    },
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "rsi_trend_combo"
+        ],
+        "signal_combination": "unanimous",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 19
+          },
+          "ema_fast": {
+            "period": 29
+          },
+          "ema_slow": {
+            "period": 70
+          },
+          "sma_fast": {
+            "period": 31
+          },
+          "sma_slow": {
+            "period": 147
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 82,
+            "oversold": 21
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 67,
+            "oversold": 20
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 53.53075170842825,
+        "sharpe_ratio": -1.2456364428622646,
+        "max_drawdown": 81.56272911008641,
+        "total_return": -58.021398808101246,
+        "total_trades": 439,
+        "start_time": "2026-02-16 02:36:19",
+        "end_time": "2026-02-16 02:38:55",
+        "duration": "0h 2m 36.21s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_return_failed:-58.02<0.00",
+      "generation": 1,
+      "index": 10
+    },
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "sma_cross"
+        ],
+        "signal_combination": "and_signals",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 18
+          },
+          "ema_fast": {
+            "period": 40
+          },
+          "ema_slow": {
+            "period": 45
+          },
+          "sma_fast": {
+            "period": 15
+          },
+          "sma_slow": {
+            "period": 153
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 77,
+            "oversold": 26
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 80,
+            "oversold": 38
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0,
+        "start_time": "2026-02-16 02:03:45",
+        "end_time": "2026-02-16 02:05:31",
+        "duration": "0h 1m 45.91s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_trades_failed:0<40",
+      "generation": 1,
+      "index": 11
+    },
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "ema_cross"
+        ],
+        "signal_combination": "and_signals",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 28
+          },
+          "ema_fast": {
+            "period": 37
+          },
+          "ema_slow": {
+            "period": 38
+          },
+          "sma_fast": {
+            "period": 37
+          },
+          "sma_slow": {
+            "period": 125
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 79,
+            "oversold": 25
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 78,
+            "oversold": 26
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0,
+        "start_time": "2026-02-16 02:21:39",
+        "end_time": "2026-02-16 02:23:43",
+        "duration": "0h 2m 4.19s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_trades_failed:0<40",
+      "generation": 1,
+      "index": 12
+    },
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "ema_cross",
+          "sma_cross"
+        ],
+        "signal_combination": "majority_vote",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 24
+          },
+          "ema_fast": {
+            "period": 19
+          },
+          "ema_slow": {
+            "period": 85
+          },
+          "sma_fast": {
+            "period": 24
+          },
+          "sma_slow": {
+            "period": 144
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 68,
+            "oversold": 38
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 75,
+            "oversold": 38
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 16.52173913043478,
+        "sharpe_ratio": -3.1238414758182724,
+        "max_drawdown": 69.61767262843357,
+        "total_return": -54.448948798975074,
+        "total_trades": 230,
+        "start_time": "2026-02-16 02:39:35",
+        "end_time": "2026-02-16 02:42:09",
+        "duration": "0h 2m 34.02s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_return_failed:-54.45<0.00",
+      "generation": 1,
+      "index": 13
+    },
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "rsi_osob"
+        ],
+        "signal_combination": "majority_vote",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 15
+          },
+          "ema_fast": {
+            "period": 38
+          },
+          "ema_slow": {
+            "period": 41
+          },
+          "sma_fast": {
+            "period": 47
+          },
+          "sma_slow": {
+            "period": 89
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 85,
+            "oversold": 36
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 74,
+            "oversold": 28
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": -29.02363655794627,
+        "max_drawdown": 94.27520934667913,
+        "total_return": -93.94557221357913,
+        "total_trades": 3,
+        "start_time": "2026-02-16 02:42:00",
+        "end_time": "2026-02-16 02:43:28",
+        "duration": "0h 1m 27.92s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_trades_failed:3<40",
+      "generation": 1,
+      "index": 14
+    },
+    {
+      "passed": false,
+      "score": -1000000000.0,
+      "candidate": {
+        "active_signals": [
+          "rsi_osob",
+          "ema_cross",
+          "sma_cross"
+        ],
+        "signal_combination": "unanimous",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 26
+          },
+          "ema_fast": {
+            "period": 29
+          },
+          "ema_slow": {
+            "period": 102
+          },
+          "sma_fast": {
+            "period": 15
+          },
+          "sma_slow": {
+            "period": 63
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 81,
+            "oversold": 22
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 65,
+            "oversold": 39
+          }
+        }
+      },
+      "metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0,
+        "start_time": "2026-02-16 02:52:48",
+        "end_time": "2026-02-16 02:53:38",
+        "duration": "0h 0m 50.35s"
+      },
+      "validation_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "stress_metrics": {
+        "win_rate": 0.0,
+        "sharpe_ratio": 0.0,
+        "max_drawdown": 0.0,
+        "total_return": 0.0,
+        "total_trades": 0
+      },
+      "failed_gate": "train_gate",
+      "failure_reason": "min_trades_failed:0<40",
+      "generation": 1,
+      "index": 15
+    }
+  ],
+  "config": {
+    "seed": 1,
+    "symbols": [
+      "BNBUSDT",
+      "XRPUSDT",
+      "ADAUSDT",
+      "DOTUSDT",
+      "ATOMUSDT",
+      "ALGOUSDT",
+      "VETUSDT",
+      "ICPUSDT",
+      "FILUSDT",
+      "AAVEUSDT",
+      "COMPUSDT",
+      "CRVUSDT",
+      "SNXUSDT",
+      "SUSHIUSDT",
+      "ARBUSDT",
+      "OPUSDT",
+      "NEARUSDT",
+      "GRTUSDT"
+    ],
+    "timeframes": [
+      "1m"
+    ],
+    "train_start": "2025-11-16",
+    "train_end": "2025-12-31",
+    "validation_start": "2026-01-01",
+    "validation_end": "2026-01-31",
+    "final_start": "2026-02-01",
+    "final_end": "2026-02-14",
+    "population_size": 16,
+    "generations": 6,
+    "elite_count": 5,
+    "tournament_size": 3,
+    "crossover_probability": 0.7,
+    "mutation_probability": 0.3,
+    "inner_opt_trials": 10,
+    "top_k": 10,
+    "min_trades": 40,
+    "validation_min_trades": 20,
+    "min_train_return_pct": 0.0,
+    "max_train_drawdown_pct": 35.0,
+    "min_validation_return_pct": -5.0,
+    "max_validation_drawdown_pct": 40.0,
+    "max_validation_gap_pct": 30.0,
+    "max_stress_drop_pct": 25.0,
+    "min_stress_return_pct": -10.0,
+    "max_stress_drawdown_pct": 45.0,
+    "max_active_signals": 3,
+    "workers": 4,
+    "checkpoint_every_generations": 2,
+    "stress_fee_multiplier": 2.0,
+    "stress_slippage_multiplier": 2.0,
+    "output_dir": "simple_strategy/auto_evolve/runs",
+    "save_strategy_files": true,
+    "enable_inner_optimization": true
+  },
+  "search_space": {
+    "indicators": {
+      "rsi_main": {
+        "function": "rsi",
+        "params": {
+          "period": {
+            "type": "int",
+            "low": 7,
+            "high": 28,
+            "step": 1
+          }
+        }
+      },
+      "ema_fast": {
+        "function": "ema",
+        "params": {
+          "period": {
+            "type": "int",
+            "low": 5,
+            "high": 40,
+            "step": 1
+          }
+        }
+      },
+      "ema_slow": {
+        "function": "ema",
+        "params": {
+          "period": {
+            "type": "int",
+            "low": 20,
+            "high": 140,
+            "step": 1
+          }
+        }
+      },
+      "sma_fast": {
+        "function": "sma",
+        "params": {
+          "period": {
+            "type": "int",
+            "low": 5,
+            "high": 50,
+            "step": 1
+          }
+        }
+      },
+      "sma_slow": {
+        "function": "sma",
+        "params": {
+          "period": {
+            "type": "int",
+            "low": 20,
+            "high": 200,
+            "step": 1
+          }
+        }
+      }
+    },
+    "signals": {
+      "rsi_osob": {
+        "function": "overbought_oversold",
+        "inputs": {
+          "indicator": "rsi_main"
+        },
+        "params": {
+          "overbought": {
+            "type": "int",
+            "low": 65,
+            "high": 85,
+            "step": 1
+          },
+          "oversold": {
+            "type": "int",
+            "low": 15,
+            "high": 40,
+            "step": 1
+          }
+        }
+      },
+      "ema_cross": {
+        "function": "ma_crossover",
+        "inputs": {
+          "fast_ma": "ema_fast",
+          "slow_ma": "ema_slow"
+        },
+        "params": {}
+      },
+      "sma_cross": {
+        "function": "ma_crossover",
+        "inputs": {
+          "fast_ma": "sma_fast",
+          "slow_ma": "sma_slow"
+        },
+        "params": {}
+      },
+      "rsi_trend_combo": {
+        "function": "rsi_mean_reversion_with_trend",
+        "inputs": {
+          "rsi": "rsi_main",
+          "ema_fast": "ema_fast",
+          "ema_slow": "ema_slow"
+        },
+        "params": {
+          "overbought": {
+            "type": "int",
+            "low": 65,
+            "high": 85,
+            "step": 1
+          },
+          "oversold": {
+            "type": "int",
+            "low": 15,
+            "high": 40,
+            "step": 1
+          }
+        }
+      }
+    },
+    "signal_combination_methods": [
+      "majority_vote",
+      "and_signals",
+      "unanimous"
+    ]
+  }
+}

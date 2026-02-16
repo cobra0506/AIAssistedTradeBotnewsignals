@@ -4,6 +4,8 @@ from tkinter import ttk, messagebox
 import subprocess
 import sys
 import os
+import json
+import time
 from simple_strategy.trading.parameter_gui import ParameterGUI
 
 class TradingBotDashboard:
@@ -11,22 +13,66 @@ class TradingBotDashboard:
         self.root = root
         self.root.title("AI Trading Bot Control Center")
         self.root.geometry("600x500")
+        self.auto_evolve_process = None
+        self.ae_status_refresh_ms = 5000
+        self.ae_status_job = None
         self.create_widgets()
     
     def create_widgets(self):
+        # Make the main dashboard vertically scrollable so all sections/buttons remain reachable.
+        self.main_canvas = tk.Canvas(self.root, highlightthickness=0)
+        self.main_scrollbar = ttk.Scrollbar(self.root, orient="vertical", command=self.main_canvas.yview)
+        self.main_canvas.configure(yscrollcommand=self.main_scrollbar.set)
+
+        self.main_scrollbar.pack(side="right", fill="y")
+        self.main_canvas.pack(side="left", fill="both", expand=True)
+
+        self.main_content_frame = ttk.Frame(self.main_canvas)
+        self.main_canvas_window = self.main_canvas.create_window((0, 0), window=self.main_content_frame, anchor="nw")
+
+        self.main_content_frame.bind("<Configure>", self._on_main_content_configure)
+        self.main_canvas.bind("<Configure>", self._on_main_canvas_configure)
+        self._bind_mousewheel(self.main_canvas)
+        self._bind_mousewheel(self.main_content_frame)
+
         # Data Collection Section
         self.create_data_collection_section()
         # Simple Strategy Section (NEW - FUNCTIONAL)
         self.create_simple_strategy_section()
+        # Auto evolution section (DEAP + Bayesian)
+        self.create_auto_evolve_section()
         # Placeholder sections for future modules
         self.create_placeholder_section("🤖 SL AI MODULE", "sl_ai")
         self.create_placeholder_section("🧠 RL AI MODULE", "rl_ai")
         # Bottom buttons
         self.create_bottom_buttons()
+
+    def _on_main_content_configure(self, _event):
+        self.main_canvas.configure(scrollregion=self.main_canvas.bbox("all"))
+
+    def _on_main_canvas_configure(self, event):
+        self.main_canvas.itemconfigure(self.main_canvas_window, width=event.width)
+
+    def _on_mousewheel(self, event):
+        if event.num == 4:
+            self.main_canvas.yview_scroll(-1, "units")
+            return
+        if event.num == 5:
+            self.main_canvas.yview_scroll(1, "units")
+            return
+
+        delta = int(-1 * (event.delta / 120)) if event.delta else 0
+        if delta != 0:
+            self.main_canvas.yview_scroll(delta, "units")
+
+    def _bind_mousewheel(self, widget):
+        widget.bind("<MouseWheel>", self._on_mousewheel)
+        widget.bind("<Button-4>", self._on_mousewheel)
+        widget.bind("<Button-5>", self._on_mousewheel)
     
     def create_data_collection_section(self):
         # Data Collection Frame
-        dc_frame = ttk.LabelFrame(self.root, text="📊 DATA COLLECTION MODULE", padding=10)
+        dc_frame = ttk.LabelFrame(self.main_content_frame, text="📊 DATA COLLECTION MODULE", padding=10)
         dc_frame.pack(fill="x", padx=10, pady=5)
         
         # Status
@@ -51,7 +97,7 @@ class TradingBotDashboard:
     
     def create_simple_strategy_section(self):
         # Simple Strategy Frame with Tabs (NEW - PHASE 3)
-        ss_frame = ttk.LabelFrame(self.root, text="📈 SIMPLE STRATEGY MODULE", padding=10)
+        ss_frame = ttk.LabelFrame(self.main_content_frame, text="📈 SIMPLE STRATEGY MODULE", padding=10)
         ss_frame.pack(fill="x", padx=10, pady=5)
         
         # Create notebook (tabs)
@@ -67,6 +113,54 @@ class TradingBotDashboard:
         self.ss_status = tk.StringVar(value="🔴 STOPPED")
         status_label = ttk.Label(ss_frame, textvariable=self.ss_status, font=("Arial", 10, "bold"))
         status_label.pack(anchor="w", pady=(5, 0))
+
+    def create_auto_evolve_section(self):
+        # Auto Evolution Frame
+        ae_frame = ttk.LabelFrame(self.main_content_frame, text="🧬 AUTO EVOLVE MODULE", padding=10)
+        ae_frame.pack(fill="x", padx=10, pady=5)
+
+        self.ae_status = tk.StringVar(value="⚫ IDLE")
+        ttk.Label(ae_frame, textvariable=self.ae_status, font=("Arial", 10, "bold")).pack(anchor="w")
+        self.ae_run_var = tk.StringVar(value="Run: -")
+        self.ae_progress_var = tk.StringVar(value="Progress: 0%")
+        self.ae_eval_var = tk.StringVar(value="Evaluated: 0/0")
+        self.ae_eta_var = tk.StringVar(value="ETA: -")
+        ttk.Label(ae_frame, textvariable=self.ae_run_var, font=("Arial", 9)).pack(anchor="w")
+        ttk.Label(ae_frame, textvariable=self.ae_progress_var, font=("Arial", 9)).pack(anchor="w")
+        ttk.Label(ae_frame, textvariable=self.ae_eval_var, font=("Arial", 9)).pack(anchor="w")
+        ttk.Label(ae_frame, textvariable=self.ae_eta_var, font=("Arial", 9)).pack(anchor="w")
+        self.ae_progressbar = ttk.Progressbar(ae_frame, orient="horizontal", mode="determinate", maximum=100)
+        self.ae_progressbar.pack(fill="x", pady=(3, 6))
+
+        top_button_row = ttk.Frame(ae_frame)
+        top_button_row.pack(fill="x", pady=5)
+        ttk.Button(top_button_row, text="RUN FULL SEARCH",
+                   command=self.start_auto_evolve_full).pack(side="left", padx=5)
+        ttk.Button(top_button_row, text="RUN OVERNIGHT",
+                   command=self.start_auto_evolve_overnight).pack(side="left", padx=5)
+        ttk.Button(top_button_row, text="RUN MULTI-DAY",
+                   command=self.start_auto_evolve_multiday).pack(side="left", padx=5)
+
+        profile_row = ttk.Frame(ae_frame)
+        profile_row.pack(fill="x", pady=2)
+        ttk.Button(profile_row, text="RUN SMOKE TEST",
+                   command=self.start_auto_evolve_smoke).pack(side="left", padx=5)
+        ttk.Button(profile_row, text="REFRESH STATUS",
+                   command=self.refresh_auto_evolve_status).pack(side="left", padx=5)
+        ttk.Label(profile_row, text="SEED (blank = config):").pack(side="left", padx=(12, 5))
+        self.ae_seed_var = tk.StringVar(value="")
+        ttk.Entry(profile_row, textvariable=self.ae_seed_var, width=10).pack(side="left")
+
+        bottom_button_row = ttk.Frame(ae_frame)
+        bottom_button_row.pack(fill="x", pady=2)
+        ttk.Button(bottom_button_row, text="RESUME LAST RUN",
+                   command=self.resume_auto_evolve_last).pack(side="left", padx=5)
+        ttk.Button(bottom_button_row, text="OPEN OUTPUT FOLDER",
+                   command=self.open_auto_evolve_output).pack(side="left", padx=5)
+        ttk.Button(bottom_button_row, text="DELETE ALL RUNS",
+                   command=self.clear_auto_evolve_runs).pack(side="left", padx=5)
+        self.refresh_auto_evolve_status()
+        self._schedule_auto_evolve_status_refresh()
 
     def create_backtesting_tab(self):
         # Backtesting Tab
@@ -234,7 +328,7 @@ class TradingBotDashboard:
         self.load_live_trading_options()
     
     def create_placeholder_section(self, title, module_name):
-        frame = ttk.LabelFrame(self.root, text=f"{title} (Coming Soon)", padding=10)
+        frame = ttk.LabelFrame(self.main_content_frame, text=f"{title} (Coming Soon)", padding=10)
         frame.pack(fill="x", padx=10, pady=5)
         
         status_var = tk.StringVar(value="⚫ NOT IMPLEMENTED")
@@ -247,12 +341,256 @@ class TradingBotDashboard:
         ttk.Button(button_frame, text="SETTINGS", state="disabled").pack(side="left", padx=5)
     
     def create_bottom_buttons(self):
-        bottom_frame = ttk.Frame(self.root)
+        bottom_frame = ttk.Frame(self.main_content_frame)
         bottom_frame.pack(fill="x", padx=10, pady=10)
         
         ttk.Button(bottom_frame, text="📋 SYSTEM LOGS").pack(side="left", padx=5)
         ttk.Button(bottom_frame, text="🔧 GLOBAL SETTINGS").pack(side="left", padx=5)
         ttk.Button(bottom_frame, text="❌ EXIT", command=self.root.quit).pack(side="right", padx=5)
+
+    def _auto_evolve_config_path(self):
+        return os.path.join("simple_strategy", "auto_evolve", "configs", "default.json")
+
+    def _auto_evolve_output_dir(self):
+        project_root = os.path.dirname(__file__)
+        default_output = os.path.join("simple_strategy", "auto_evolve", "runs")
+        config_rel = self._auto_evolve_config_path()
+        config_abs = os.path.join(project_root, config_rel)
+
+        output_rel = default_output
+        try:
+            with open(config_abs, "r", encoding="utf-8") as fh:
+                payload = json.load(fh)
+                output_rel = payload.get("output_dir", default_output)
+        except Exception:
+            output_rel = default_output
+
+        return os.path.join(project_root, output_rel)
+
+    def _auto_evolve_latest_run_dir(self):
+        output_dir = self._auto_evolve_output_dir()
+        if not os.path.exists(output_dir):
+            return ""
+        run_dirs = [
+            entry.path
+            for entry in os.scandir(output_dir)
+            if entry.is_dir() and entry.name.startswith("run_")
+        ]
+        if not run_dirs:
+            return ""
+        return max(run_dirs, key=os.path.getmtime)
+
+    @staticmethod
+    def _read_json_file(path):
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                return json.load(fh)
+        except Exception:
+            return {}
+
+    @staticmethod
+    def _format_duration(seconds):
+        if seconds is None:
+            return "-"
+        total = max(0, int(seconds))
+        hours, rem = divmod(total, 3600)
+        minutes, secs = divmod(rem, 60)
+        if hours > 0:
+            return f"{hours}h {minutes}m"
+        if minutes > 0:
+            return f"{minutes}m {secs}s"
+        return f"{secs}s"
+
+    def _schedule_auto_evolve_status_refresh(self):
+        try:
+            self.ae_status_job = self.root.after(self.ae_status_refresh_ms, self._auto_evolve_status_tick)
+        except Exception:
+            self.ae_status_job = None
+
+    def _auto_evolve_status_tick(self):
+        self.refresh_auto_evolve_status()
+        self._schedule_auto_evolve_status_refresh()
+
+    def refresh_auto_evolve_status(self):
+        try:
+            latest_run_dir = self._auto_evolve_latest_run_dir()
+            if not latest_run_dir:
+                self.ae_status.set("⚫ IDLE")
+                self.ae_run_var.set("Run: -")
+                self.ae_progress_var.set("Progress: 0%")
+                self.ae_eval_var.set("Evaluated: 0/0")
+                self.ae_eta_var.set("ETA: -")
+                if hasattr(self, "ae_progressbar"):
+                    self.ae_progressbar["value"] = 0
+                return
+
+            run_name = os.path.basename(latest_run_dir)
+            run_config = self._read_json_file(os.path.join(latest_run_dir, "run_config.resolved.json"))
+            checkpoint = self._read_json_file(os.path.join(latest_run_dir, "checkpoints", "latest.json"))
+            has_summary = os.path.exists(os.path.join(latest_run_dir, "summary.txt"))
+            has_top_results = os.path.exists(os.path.join(latest_run_dir, "top_results.json"))
+
+            generations = int(run_config.get("generations", 0) or 0)
+            population_size = int(run_config.get("population_size", 0) or 0)
+            expected_evals = generations * population_size if generations > 0 and population_size > 0 else 0
+
+            generation_idx = int(checkpoint.get("generation", -1) or -1)
+            all_results = checkpoint.get("all_results", [])
+            evaluated = len(all_results) if isinstance(all_results, list) else 0
+
+            progress_pct = 0.0
+            if expected_evals > 0 and evaluated > 0:
+                progress_pct = min(100.0, (100.0 * evaluated) / expected_evals)
+            elif generations > 0 and generation_idx >= 0:
+                progress_pct = min(100.0, (100.0 * (generation_idx + 1)) / generations)
+
+            if has_summary and has_top_results:
+                progress_pct = 100.0
+
+            run_start_path = os.path.join(latest_run_dir, "run_config.resolved.json")
+            run_start_ts = os.path.getmtime(run_start_path) if os.path.exists(run_start_path) else os.path.getmtime(latest_run_dir)
+            elapsed_sec = max(0.0, time.time() - run_start_ts)
+
+            eta_sec = None
+            if 0.0 < progress_pct < 100.0:
+                eta_sec = elapsed_sec * ((100.0 - progress_pct) / progress_pct)
+
+            checkpoint_path = os.path.join(latest_run_dir, "checkpoints", "latest.json")
+            last_update_ts = os.path.getmtime(checkpoint_path) if os.path.exists(checkpoint_path) else run_start_ts
+            seconds_since_update = max(0.0, time.time() - last_update_ts)
+            process_running = self.auto_evolve_process is not None and self.auto_evolve_process.poll() is None
+
+            if has_summary and has_top_results:
+                status_text = "✅ COMPLETE"
+            elif process_running:
+                status_text = "🟢 RUNNING"
+            elif seconds_since_update < 3600 and (evaluated > 0 or generation_idx >= 0):
+                status_text = "🟢 RUNNING (DETECTED)"
+            elif elapsed_sec < 1800 and not has_summary:
+                status_text = "🟡 STARTING"
+            elif evaluated > 0 or generation_idx >= 0:
+                status_text = "🟡 INCOMPLETE / STOPPED"
+            else:
+                status_text = "🟡 WAITING FOR FIRST CHECKPOINT"
+
+            completed_generations = max(0, generation_idx + 1)
+            generation_text = f"{completed_generations}/{generations}" if generations > 0 else "-"
+            eval_text = f"{evaluated}/{expected_evals}" if expected_evals > 0 else f"{evaluated}/?"
+
+            self.ae_status.set(status_text)
+            self.ae_run_var.set(f"Run: {run_name}")
+            self.ae_progress_var.set(f"Progress: {progress_pct:.1f}% | Generations: {generation_text}")
+            self.ae_eval_var.set(f"Evaluated: {eval_text}")
+            self.ae_eta_var.set(
+                f"Elapsed: {self._format_duration(elapsed_sec)} | ETA: {self._format_duration(eta_sec)} | Last update: {self._format_duration(seconds_since_update)} ago"
+            )
+            if hasattr(self, "ae_progressbar"):
+                self.ae_progressbar["value"] = progress_pct
+        except Exception:
+            self.ae_status.set("🟡 STATUS UNKNOWN")
+
+    def _launch_auto_evolve(self, extra_args):
+        try:
+            project_root = os.path.dirname(__file__)
+            seed_args = self._get_auto_evolve_seed_args()
+            if seed_args is None:
+                return
+            command = [sys.executable, "-m", "simple_strategy.auto_evolve.run_evolution"] + extra_args + seed_args
+            self.auto_evolve_process = subprocess.Popen(command, cwd=project_root)
+            self.ae_status.set("🟢 RUNNING")
+            self.refresh_auto_evolve_status()
+        except Exception as e:
+            self.ae_status.set("🔴 FAILED")
+            messagebox.showerror("Auto Evolve Error", f"Failed to start auto evolution: {e}")
+
+    def _get_auto_evolve_seed_args(self):
+        seed_text = self.ae_seed_var.get().strip() if hasattr(self, "ae_seed_var") else ""
+        if not seed_text:
+            return []
+        try:
+            seed = int(seed_text)
+        except ValueError:
+            messagebox.showerror("Auto Evolve Error", "Seed must be a positive integer.")
+            return None
+        if seed <= 0:
+            messagebox.showerror("Auto Evolve Error", "Seed must be greater than 0.")
+            return None
+        return ["--seed", str(seed)]
+
+    def start_auto_evolve_full(self):
+        config_path = self._auto_evolve_config_path()
+        self._launch_auto_evolve(["--config", config_path])
+
+    def start_auto_evolve_overnight(self):
+        config_path = self._auto_evolve_config_path()
+        self._launch_auto_evolve([
+            "--config", config_path,
+            "--population", "16",
+            "--generations", "6",
+            "--workers", "4",
+        ])
+
+    def start_auto_evolve_multiday(self):
+        config_path = self._auto_evolve_config_path()
+        self._launch_auto_evolve([
+            "--config", config_path,
+            "--population", "32",
+            "--generations", "20",
+            "--workers", "4",
+        ])
+
+    def start_auto_evolve_smoke(self):
+        self._launch_auto_evolve(["--smoke", "--population", "8", "--generations", "2", "--workers", "1"])
+
+    def resume_auto_evolve_last(self):
+        output_dir = self._auto_evolve_output_dir()
+        if not os.path.exists(output_dir):
+            messagebox.showinfo("Auto Evolve", "No output folder found yet.")
+            return
+
+        run_dirs = [entry.path for entry in os.scandir(output_dir) if entry.is_dir()]
+        if not run_dirs:
+            messagebox.showinfo("Auto Evolve", "No previous run found to resume.")
+            return
+
+        latest_run_dir = max(run_dirs, key=os.path.getmtime)
+        self._launch_auto_evolve(["--resume-run-dir", latest_run_dir])
+
+    def open_auto_evolve_output(self):
+        output_dir = self._auto_evolve_output_dir()
+        os.makedirs(output_dir, exist_ok=True)
+        try:
+            os.startfile(output_dir)
+        except Exception:
+            messagebox.showinfo("Auto Evolve Output", f"Output folder: {output_dir}")
+
+    def clear_auto_evolve_runs(self):
+        output_dir = self._auto_evolve_output_dir()
+        os.makedirs(output_dir, exist_ok=True)
+        run_dirs = [entry.path for entry in os.scandir(output_dir) if entry.is_dir()]
+        if not run_dirs:
+            messagebox.showinfo("Auto Evolve", "No run folders to delete.")
+            return
+
+        should_delete = messagebox.askyesno(
+            "Delete Runs",
+            f"Delete all {len(run_dirs)} run folders in:\n{output_dir}?",
+        )
+        if not should_delete:
+            return
+
+        import shutil
+
+        deleted = 0
+        for run_dir in run_dirs:
+            try:
+                shutil.rmtree(run_dir)
+                deleted += 1
+            except Exception:
+                pass
+
+        messagebox.showinfo("Auto Evolve", f"Deleted {deleted} run folder(s).")
+        self.refresh_auto_evolve_status()
     
     def start_data_collection(self):
         try:

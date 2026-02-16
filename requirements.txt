@@ -24,6 +24,7 @@ pytz>=2022.1
 # For optimization
 optuna>=3.0.0
 seaborn>=0.11.0
+deap>=1.4.1
 
 # For Trading
 ccxt
