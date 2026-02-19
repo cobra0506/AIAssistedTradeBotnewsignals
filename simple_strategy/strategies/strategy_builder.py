@@ -97,6 +97,12 @@ class StrategyBuilder:
                     'middle_band': name,
                     'lower_band': name
                 }
+            elif indicator_func.__name__ == 'stochastic':
+                # Stochastic returns (k_percent, d_percent)
+                self.indicators[name]['components'] = {
+                    'k_percent': name,
+                    'd_percent': name
+                }
             
             logger.debug(f"📊 Added indicator: {name} with params: {params}")
             return self
@@ -379,9 +385,17 @@ class StrategyBuilder:
             raise ValueError("No signal rules defined. Add at least one signal rule.")
         
         # 3. Validate signal rule indicator references
+        available_components = set()
+        for indicator_data in self.indicators.values():
+            available_components.update(indicator_data.get('components', {}).keys())
+
         for rule_name, rule_config in self.signal_rules.items():
             for param_name, indicator_name in rule_config['indicator_refs']:
-                if indicator_name not in self.indicators and indicator_name != 'price':
+                if (
+                    indicator_name not in self.indicators
+                    and indicator_name not in available_components
+                    and indicator_name != 'price'
+                ):
                     available_indicators = list(self.indicators.keys())
                     raise ValueError(
                         f"Signal rule '{rule_name}' references unknown indicator '{indicator_name}'. "

@@ -6,6 +6,7 @@ import sys
 import os
 import json
 import time
+from datetime import datetime
 from simple_strategy.trading.parameter_gui import ParameterGUI
 
 class TradingBotDashboard:
@@ -41,9 +42,9 @@ class TradingBotDashboard:
         self.create_simple_strategy_section()
         # Auto evolution section (DEAP + Bayesian)
         self.create_auto_evolve_section()
-        # Placeholder sections for future modules
+        # Placeholder section for SL AI and active section for RL AI
         self.create_placeholder_section("🤖 SL AI MODULE", "sl_ai")
-        self.create_placeholder_section("🧠 RL AI MODULE", "rl_ai")
+        self.create_rl_ai_section()
         # Bottom buttons
         self.create_bottom_buttons()
 
@@ -157,6 +158,10 @@ class TradingBotDashboard:
                    command=self.resume_auto_evolve_last).pack(side="left", padx=5)
         ttk.Button(bottom_button_row, text="OPEN OUTPUT FOLDER",
                    command=self.open_auto_evolve_output).pack(side="left", padx=5)
+        ttk.Button(bottom_button_row, text="OPEN FAST LEGO FINDER",
+                   command=self.open_fast_strategy_finder).pack(side="left", padx=5)
+        ttk.Button(bottom_button_row, text="OPEN UNIQUE ADVANCED ENGINE",
+                   command=self.open_unique_advanced_engine).pack(side="left", padx=5)
         ttk.Button(bottom_button_row, text="DELETE ALL RUNS",
                    command=self.clear_auto_evolve_runs).pack(side="left", padx=5)
         self.refresh_auto_evolve_status()
@@ -234,6 +239,28 @@ class TradingBotDashboard:
         self.bybit_balance_label = ttk.Label(bybit_balance_frame, textvariable=self.bybit_balance_var, 
                                             font=("Arial", 10, "bold"), foreground="blue")
         self.bybit_balance_label.pack(side="left", padx=5)
+
+        global_rules_frame = ttk.LabelFrame(paper_frame, text="Global Rules", padding=6)
+        global_rules_frame.pack(fill="x", pady=5)
+        ttk.Label(global_rules_frame, text="Enable:").grid(row=0, column=0, sticky="w", padx=5, pady=2)
+        self.paper_enable_global_rules_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(global_rules_frame, variable=self.paper_enable_global_rules_var).grid(
+            row=0, column=1, sticky="w", padx=5, pady=2
+        )
+        ttk.Label(global_rules_frame, text="Profile:").grid(row=1, column=0, sticky="w", padx=5, pady=2)
+        self.paper_global_rules_profile_var = tk.StringVar(value="balanced")
+        ttk.Combobox(
+            global_rules_frame,
+            textvariable=self.paper_global_rules_profile_var,
+            values=["safe", "balanced", "aggressive"],
+            state="readonly",
+            width=12,
+        ).grid(row=1, column=1, sticky="w", padx=5, pady=2)
+        ttk.Label(global_rules_frame, text="Min 24h Notional (USDT):").grid(row=2, column=0, sticky="w", padx=5, pady=2)
+        self.paper_min_24h_notional_var = tk.StringVar(value="50000000")
+        ttk.Entry(global_rules_frame, textvariable=self.paper_min_24h_notional_var, width=14).grid(
+            row=2, column=1, sticky="w", padx=5, pady=2
+        )
         
         # Start button (changed to OPEN like backtesting)
         button_frame = ttk.Frame(paper_frame)
@@ -326,6 +353,26 @@ class TradingBotDashboard:
         
         # Load accounts and strategies when tab is created
         self.load_live_trading_options()
+
+    def create_rl_ai_section(self):
+        frame = ttk.LabelFrame(self.main_content_frame, text="🧠 RL AI MODULE", padding=10)
+        frame.pack(fill="x", padx=10, pady=5)
+
+        self.rl_status = tk.StringVar(value="⚫ IDLE (No RL model trained yet)")
+        ttk.Label(frame, textvariable=self.rl_status, font=("Arial", 10, "bold")).pack(anchor="w")
+        ttk.Label(
+            frame,
+            text="Run RL training/evaluation from a dedicated control window.",
+            font=("Arial", 9),
+        ).pack(anchor="w", pady=(2, 6))
+
+        button_frame = ttk.Frame(frame)
+        button_frame.pack(fill="x", pady=5)
+        ttk.Button(
+            button_frame,
+            text="OPEN RL CONTROL PANEL",
+            command=self.open_rl_ai_window,
+        ).pack(side="left", padx=5)
     
     def create_placeholder_section(self, title, module_name):
         frame = ttk.LabelFrame(self.main_content_frame, text=f"{title} (Coming Soon)", padding=10)
@@ -348,8 +395,48 @@ class TradingBotDashboard:
         ttk.Button(bottom_frame, text="🔧 GLOBAL SETTINGS").pack(side="left", padx=5)
         ttk.Button(bottom_frame, text="❌ EXIT", command=self.root.quit).pack(side="right", padx=5)
 
+    def open_rl_ai_window(self):
+        try:
+            from rl_ai.gui.rl_ai_control_gui import RLAIControlGUI
+
+            rl_window = tk.Toplevel(self.root)
+            rl_window.title("RL AI Control Panel")
+            rl_window.geometry("960x720")
+            RLAIControlGUI(rl_window)
+
+            if hasattr(self, "rl_status"):
+                self.rl_status.set("🟢 READY")
+        except Exception as e:
+            if hasattr(self, "rl_status"):
+                self.rl_status.set("🔴 FAILED")
+            messagebox.showerror("RL AI", f"Failed to open RL control panel: {e}")
+
+    def open_fast_strategy_finder(self):
+        try:
+            from simple_strategy.fast_finder.gui import FastStrategyFinderGUI
+
+            window = tk.Toplevel(self.root)
+            FastStrategyFinderGUI(window)
+        except Exception as e:
+            messagebox.showerror("Fast Finder", f"Failed to open fast strategy finder: {e}")
+
+    def open_unique_advanced_engine(self):
+        try:
+            from simple_strategy.unique_engine.gui import UniqueStrategyEngineGUI
+
+            window = tk.Toplevel(self.root)
+            UniqueStrategyEngineGUI(window)
+        except Exception as e:
+            messagebox.showerror("Unique Engine", f"Failed to open unique advanced engine: {e}")
+
     def _auto_evolve_config_path(self):
         return os.path.join("simple_strategy", "auto_evolve", "configs", "default.json")
+
+    def _auto_evolve_overnight_config_path(self):
+        return os.path.join("simple_strategy", "auto_evolve", "configs", "overnight.json")
+
+    def _auto_evolve_multiday_config_path(self):
+        return os.path.join("simple_strategy", "auto_evolve", "configs", "multiday.json")
 
     def _auto_evolve_output_dir(self):
         project_root = os.path.dirname(__file__)
@@ -424,6 +511,16 @@ class TradingBotDashboard:
             return f"{minutes}m {secs}s"
         return f"{secs}s"
 
+    @staticmethod
+    def _run_name_to_timestamp(run_name):
+        if not isinstance(run_name, str) or not run_name.startswith("run_"):
+            return None
+        try:
+            parsed = datetime.strptime(run_name[4:], "%Y%m%d_%H%M%S")
+            return parsed.timestamp()
+        except Exception:
+            return None
+
     def _schedule_auto_evolve_status_refresh(self):
         try:
             self.ae_status_job = self.root.after(self.ae_status_refresh_ms, self._auto_evolve_status_tick)
@@ -453,8 +550,13 @@ class TradingBotDashboard:
             has_summary = os.path.exists(os.path.join(latest_run_dir, "summary.txt"))
             has_top_results = os.path.exists(os.path.join(latest_run_dir, "top_results.json"))
 
-            generations = int(run_config.get("generations", 0) or 0)
-            population_size = int(run_config.get("population_size", 0) or 0)
+            checkpoint_config = checkpoint.get("config", {}) if isinstance(checkpoint, dict) else {}
+            checkpoint_config = checkpoint_config if isinstance(checkpoint_config, dict) else {}
+            generations = int(checkpoint_config.get("generations", run_config.get("generations", 0)) or 0)
+            population_size = int(checkpoint_config.get("population_size", run_config.get("population_size", 0)) or 0)
+            checkpoint_population = checkpoint.get("population", [])
+            if isinstance(checkpoint_population, list) and checkpoint_population:
+                population_size = len(checkpoint_population)
             expected_evals = generations * population_size if generations > 0 and population_size > 0 else 0
 
             generation_idx = int(checkpoint.get("generation", -1) or -1)
@@ -471,7 +573,12 @@ class TradingBotDashboard:
                 progress_pct = 100.0
 
             run_start_path = os.path.join(latest_run_dir, "run_config.resolved.json")
-            run_start_ts = os.path.getmtime(run_start_path) if os.path.exists(run_start_path) else os.path.getmtime(latest_run_dir)
+            run_start_ts = self._run_name_to_timestamp(run_name)
+            if run_start_ts is None:
+                if os.path.exists(run_start_path):
+                    run_start_ts = os.path.getmtime(run_start_path)
+                else:
+                    run_start_ts = os.path.getctime(latest_run_dir)
             elapsed_sec = max(0.0, time.time() - run_start_ts)
 
             eta_sec = None
@@ -561,21 +668,23 @@ class TradingBotDashboard:
         self._launch_auto_evolve(["--config", config_path])
 
     def start_auto_evolve_overnight(self):
-        config_path = self._auto_evolve_config_path()
+        config_path = self._auto_evolve_overnight_config_path()
         self._launch_auto_evolve([
             "--config", config_path,
             "--population", "16",
-            "--generations", "6",
+            "--generations", "12",
             "--workers", "4",
+            "--max-runtime-hours", "9.5",
         ])
 
     def start_auto_evolve_multiday(self):
-        config_path = self._auto_evolve_config_path()
+        config_path = self._auto_evolve_multiday_config_path()
         self._launch_auto_evolve([
             "--config", config_path,
-            "--population", "32",
-            "--generations", "20",
+            "--population", "24",
+            "--generations", "120",
             "--workers", "4",
+            "--max-runtime-hours", "92",
         ])
 
     def start_auto_evolve_smoke(self):
@@ -819,6 +928,14 @@ class TradingBotDashboard:
             account = self.paper_account_var.get()
             strategy = self.paper_strategy_var.get()
             balance = self.paper_balance_var.get()
+            min_24h_notional_usdt = float(self.paper_min_24h_notional_var.get())
+            global_rules_config = {
+                'enable_global_rules': bool(self.paper_enable_global_rules_var.get()),
+                'global_rules_profile': str(self.paper_global_rules_profile_var.get()).strip().lower() or "balanced",
+                'global_rules': {
+                    'min_24h_notional_usdt': min_24h_notional_usdt,
+                },
+            }
             
             if not account or not strategy:
                 messagebox.showerror("Error", "Please select both account and strategy!")
@@ -826,7 +943,12 @@ class TradingBotDashboard:
             
             # Initialize and start trading engine
             from simple_strategy.trading.paper_trading_engine import PaperTradingEngine
-            self.paper_trading_engine = PaperTradingEngine(account, strategy, balance)
+            self.paper_trading_engine = PaperTradingEngine(
+                account,
+                strategy,
+                balance,
+                global_rules_config=global_rules_config,
+            )
             
             # Start trading in a separate thread to avoid freezing GUI
             import threading

@@ -13,6 +13,7 @@ from urllib.parse import urlencode
 from datetime import datetime
 from datetime import timedelta
 from simple_strategy.shared.data_feeder import DataFeeder
+from simple_strategy.shared.global_rules import resolve_global_rules
 from shared_modules.data_collection.config import DataCollectionConfig
 MIN_CANDLES = DataCollectionConfig.MIN_CANDLES  # Get from config
 # Removed unused imports to avoid circular dependencies
@@ -21,7 +22,23 @@ import asyncio
 #from shared_modules.data_collection.config import DataCollectionConfig
 
 class PaperTradingEngine:
-    def __init__(self, api_account, strategy_name, initial_balance=1000, log_callback=None, status_callback=None, performance_callback=None, max_positions=2000, stop_trading_at_percentage=None):
+    def __init__(
+        self,
+        api_account,
+        strategy_name,
+        initial_balance=1000,
+        log_callback=None,
+        status_callback=None,
+        performance_callback=None,
+        max_positions=2000,
+        stop_trading_at_percentage=None,
+        enable_engine_risk_guard=True,
+        execution_max_drawdown_pct=0.20,
+        execution_max_position_notional_pct=0.10,
+        shadow_mode=True,
+        shadow_only=False,
+        global_rules_config=None,
+    ):
         self.api_account = api_account
         self.strategy_name = strategy_name
         self.initial_balance = float(initial_balance)  # This is your working capital
@@ -33,6 +50,31 @@ class PaperTradingEngine:
         # Optional trading controls
         self.max_positions = max_positions
         self.stop_trading_at_percentage = stop_trading_at_percentage  # None or percentage (e.g., 10 for 10%)
+        self.enable_engine_risk_guard = bool(enable_engine_risk_guard)
+        self.execution_max_drawdown_pct = max(0.0, float(execution_max_drawdown_pct))
+        self.execution_max_position_notional_pct = max(
+            0.0, min(1.0, float(execution_max_position_notional_pct))
+        )
+        self.shadow_mode = bool(shadow_mode)
+        self.shadow_only = bool(shadow_only)
+        global_rules_payload = {}
+        if isinstance(global_rules_config, dict):
+            if 'global_rules' in global_rules_config or 'enable_global_rules' in global_rules_config:
+                global_rules_payload = dict(global_rules_config)
+            else:
+                global_rules_payload = {
+                    'enable_global_rules': bool(global_rules_config.get('enabled', False)),
+                    'global_rules_profile': global_rules_config.get('profile', 'balanced'),
+                    'global_rules': dict(global_rules_config),
+                }
+        self.global_rules = resolve_global_rules(global_rules_payload)
+        self.global_rule_stats = {
+            'blocked_signals': 0,
+            'blocked_reasons': {},
+            'emergency_closes': 0,
+        }
+        self._market_snapshot_cache = {}
+        self._market_snapshot_ttl_sec = 30
         
         # API configuration - using the EXACT working configuration
         self.api_key = None
@@ -53,6 +95,18 @@ class PaperTradingEngine:
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         data_dir = os.path.join(project_root, 'data')
         self.data_feeder = DataFeeder(data_dir=data_dir)
+        self.data_dir = data_dir
+        self.shadow_dashboard_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            'logs',
+            'shadow_dashboard.html',
+        )
+        self.shadow_state_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            'logs',
+            'shadow_state.json',
+        )
+        self._shadow_events = []
         
         # GUI callback functions
         self.log_callback = log_callback
@@ -62,12 +116,10 @@ class PaperTradingEngine:
         # NEW: Use shared data access instead of creating new data collection
         # Initialize this later to avoid recursion issues
         self.shared_data_access = None
-
         # Add these missing attributes
         self.data_system_initialized = False
         self.is_running = False
         self.trading_loop_active = False
-
         # Initialize symbol information cache
         self.symbol_info_cache = {}
         
@@ -93,6 +145,23 @@ class PaperTradingEngine:
         self.log_message(f"  Real Bybit Available Balance: ${self.real_balance}")
         self.log_message(f"  Balance Offset: ${self.balance_offset}")
         self.log_message(f"  Max Positions: {self.max_positions}")
+        self.log_message(f"  Engine Risk Guard: {'ON' if self.enable_engine_risk_guard else 'OFF'}")
+        self.log_message(
+            f"  Engine Max Drawdown %: {self.execution_max_drawdown_pct * 100:.2f}%"
+        )
+        self.log_message(
+            f"  Engine Max Position Notional %: {self.execution_max_position_notional_pct * 100:.2f}%"
+        )
+        self.log_message(
+            f"  Global Rules: {'ON' if self.global_rules.enabled else 'OFF'} (profile={self.global_rules.profile})"
+        )
+        if self.global_rules.enabled:
+            self.log_message(
+                f"  Global Liquidity Floor: ${self.global_rules.min_24h_notional_usdt:,.0f} 24h notional"
+            )
+        self.log_message(f"  Shadow Mode: {'ON' if self.shadow_mode else 'OFF'}")
+        if self.shadow_only:
+            self.log_message("  Shadow Only: ON (signals logged, orders not executed)")
         if self.stop_trading_at_percentage:
             self.log_message(f"  Stop Trading At: {self.stop_trading_at_percentage}% of initial balance")
             
@@ -103,7 +172,7 @@ class PaperTradingEngine:
                                             params={"category": "linear", "limit": 1000})
             
             if error:
-                self.log_message(f"❌ Error getting symbols info: {error}")
+                self.log_message(f"âŒ Error getting symbols info: {error}")
                 return False
             
             if result and 'list' in result and result['list']:
@@ -114,20 +183,20 @@ class PaperTradingEngine:
                     if symbol:
                         self.symbol_info_cache[symbol] = symbol_info
                 
-                self.log_message(f"✅ Cached information for {len(self.symbol_info_cache)} symbols")
+                self.log_message(f"âœ… Cached information for {len(self.symbol_info_cache)} symbols")
                 return True
             else:
-                self.log_message("❌ No symbol information found")
+                self.log_message("âŒ No symbol information found")
                 return False
                 
         except Exception as e:
-            self.log_message(f"❌ Error getting symbols info: {e}")
+            self.log_message(f"âŒ Error getting symbols info: {e}")
             return False
 
     def get_trading_rules(self, symbol):
         """Get trading rules for a specific symbol"""
         if symbol not in self.symbol_info_cache:
-            self.log_message(f"❌ Symbol {symbol} not found in cache")
+            self.log_message(f"âŒ Symbol {symbol} not found in cache")
             return None
         
         symbol_info = self.symbol_info_cache[symbol]
@@ -166,7 +235,7 @@ class PaperTradingEngine:
         # Get trading rules for the symbol
         rules = self.get_trading_rules(symbol)
         if not rules:
-            self.log_message(f"❌ No trading rules found for {symbol}")
+            self.log_message(f"âŒ No trading rules found for {symbol}")
             return None
         
         # Calculate the raw quantity
@@ -191,7 +260,7 @@ class PaperTradingEngine:
         # Format the quantity correctly
         formatted_quantity = self.format_quantity(rounded_quantity, rules['qty_step'])
         
-        self.log_message(f"📊 Position sizing for {symbol}:")
+        self.log_message(f"ðŸ“Š Position sizing for {symbol}:")
         self.log_message(f"   Desired value: ${position_value:.2f}")
         self.log_message(f"   Current price: ${current_price:.6f}")
         self.log_message(f"   Raw quantity: {raw_quantity:.6f}")
@@ -230,14 +299,14 @@ class PaperTradingEngine:
             result, error = self.make_request("POST", "/v5/position/set-leverage", data=leverage_data)
             
             if error:
-                self.log_message(f"⚠️ Could not set leverage for {symbol}: {error}")
+                self.log_message(f"âš ï¸ Could not set leverage for {symbol}: {error}")
                 return False
             
-            self.log_message(f"✅ Leverage set to {leverage}x for {symbol}")
+            self.log_message(f"âœ… Leverage set to {leverage}x for {symbol}")
             return True
             
         except Exception as e:
-            self.log_message(f"❌ Error setting leverage for {symbol}: {e}")
+            self.log_message(f"âŒ Error setting leverage for {symbol}: {e}")
             return False
 
     def get_working_capital(self):
@@ -251,12 +320,12 @@ class PaperTradingEngine:
                     position_value = position['quantity'] * current_price
                     open_positions_value += position_value
             except Exception as e:
-                self.log_message(f"❌ Error calculating position value for {symbol}: {e}")
+                self.log_message(f"âŒ Error calculating position value for {symbol}: {e}")
         
         # Available capital = simulated balance - value of open positions
         available_capital = self.simulated_balance - open_positions_value
         
-        self.log_message(f"💰 Capital Analysis:")
+        self.log_message(f"ðŸ’° Capital Analysis:")
         self.log_message(f"   Simulated Balance: ${self.simulated_balance:.2f}")
         self.log_message(f"   Open Positions Value: ${open_positions_value:.2f}")
         self.log_message(f"   Available Capital: ${available_capital:.2f}")
@@ -264,30 +333,71 @@ class PaperTradingEngine:
         return available_capital
     
     def check_position_timeouts(self):
-        """Check for positions that have been open too long and close them"""
+        """Check for positions that have been open too long and close them."""
         if not self.current_positions:
             return
-        
-        # Set timeout duration (e.g., 4 hours in seconds)
-        timeout_duration = 4 * 60 * 60  # 4 hours
-        
+
+        timeout_minutes = 240
+        if self.global_rules.enabled and self.global_rules.emergency_close_enabled:
+            timeout_minutes = max(1, int(self.global_rules.max_hold_minutes))
+        timeout_duration = timeout_minutes * 60
+
         current_time = datetime.now()
         positions_to_close = []
-        
+
         for symbol, position in self.current_positions.items():
             entry_time = datetime.fromisoformat(position['entry_time'])
             time_open = (current_time - entry_time).total_seconds()
-            
             if time_open > timeout_duration:
                 positions_to_close.append(symbol)
-                self.log_message(f"⏰ Position {symbol} timed out after {time_open/3600:.1f} hours")
-        
-        # Close timed out positions based on their type
+                self.log_message(
+                    f"[EMERGENCY] Position {symbol} timed out after {time_open/60:.1f} minutes "
+                    f"(limit {timeout_minutes}m)"
+                )
+
         for symbol in positions_to_close:
             if self.current_positions[symbol]['type'] == 'LONG':
                 self.execute_close_long(symbol)
+                self.global_rule_stats['emergency_closes'] = int(self.global_rule_stats.get('emergency_closes', 0)) + 1
             elif self.current_positions[symbol]['type'] == 'SHORT':
                 self.execute_close_short(symbol)
+                self.global_rule_stats['emergency_closes'] = int(self.global_rule_stats.get('emergency_closes', 0)) + 1
+
+    def _check_global_emergency_exits(self):
+        if not self.global_rules.enabled or not self.global_rules.emergency_close_enabled:
+            return
+        if not self.current_positions:
+            return
+
+        stop_loss_pct = max(0.0001, self._safe_float(self.global_rules.position_stop_loss_pct, 0.02))
+        positions_to_close = []
+        for symbol, position in self.current_positions.items():
+            entry_price = self._safe_float(position.get('entry_price', 0.0))
+            if entry_price <= 0.0:
+                continue
+            current_price = self.get_current_price_from_api(symbol)
+            if current_price <= 0.0:
+                continue
+            position_type = str(position.get('type', '')).upper()
+            if position_type == 'LONG':
+                stop_price = entry_price * (1.0 - stop_loss_pct)
+                if current_price <= stop_price:
+                    positions_to_close.append((symbol, 'LONG', current_price, stop_price))
+            elif position_type == 'SHORT':
+                stop_price = entry_price * (1.0 + stop_loss_pct)
+                if current_price >= stop_price:
+                    positions_to_close.append((symbol, 'SHORT', current_price, stop_price))
+
+        for symbol, position_type, current_price, stop_price in positions_to_close:
+            self.log_message(
+                f"[EMERGENCY] Stop loss hit for {symbol} ({position_type}) "
+                f"price={current_price:.6f}, stop={stop_price:.6f}"
+            )
+            if position_type == 'LONG':
+                self.execute_close_long(symbol)
+            else:
+                self.execute_close_short(symbol)
+            self.global_rule_stats['emergency_closes'] = int(self.global_rule_stats.get('emergency_closes', 0)) + 1
 
     def update_working_capital_after_trade(self, trade_pnl):
         """Update working capital after a trade"""
@@ -296,9 +406,429 @@ class PaperTradingEngine:
 
     def log_message(self, message):
         """Log message to both console and GUI if available"""
-        print(message)  # Use print instead of self.log_message()
+        text = str(message)
+        try:
+            print(text)  # Use print instead of recursive logger calls
+        except UnicodeEncodeError:
+            # Some Windows consoles cannot print certain symbols; keep logging alive.
+            safe_text = text.encode('ascii', errors='replace').decode('ascii')
+            print(safe_text)
         if self.log_callback:
-            self.log_callback(message)
+            self.log_callback(text)
+
+    def _normalize_timeframe(self, timeframe):
+        text = str(timeframe).strip()
+        return text.rstrip('m')
+
+
+    def _timeframe_with_suffix(self, timeframe):
+        normalized = self._normalize_timeframe(timeframe)
+        return f"{normalized}m"
+
+
+    def _collect_strategy_timeframes(self, fallback_timeframes=None):
+        timeframes = []
+        if fallback_timeframes:
+            timeframes.extend(list(fallback_timeframes))
+
+        if self.strategy is not None:
+            strategy_timeframes = getattr(self.strategy, 'timeframes', None)
+            if strategy_timeframes:
+                timeframes.extend(list(strategy_timeframes))
+
+            entry_tf = getattr(self.strategy, 'entry_timeframe', None)
+            if entry_tf:
+                timeframes.append(entry_tf)
+
+            entry_tfs = getattr(self.strategy, 'entry_timeframes', None)
+            if isinstance(entry_tfs, (list, tuple)):
+                timeframes.extend(list(entry_tfs))
+
+        cleaned = []
+        seen = set()
+        for tf in timeframes:
+            tf_text = self._timeframe_with_suffix(tf)
+            key = self._normalize_timeframe(tf_text)
+            if key not in seen:
+                seen.add(key)
+                cleaned.append(tf_text)
+
+        if not cleaned:
+            cleaned = ['1m']
+        return cleaned
+
+
+    def _extract_timeframes_from_params(self, parameters_def, current_params):
+        timeframes = []
+        if not isinstance(parameters_def, dict) or not isinstance(current_params, dict):
+            return timeframes
+
+        for param_name, param_info in parameters_def.items():
+            if 'timeframe' not in str(param_name).lower():
+                continue
+            value = current_params.get(param_name)
+            if value is None:
+                continue
+            if isinstance(value, (list, tuple)):
+                for item in value:
+                    timeframes.append(self._timeframe_with_suffix(item))
+            else:
+                timeframes.append(self._timeframe_with_suffix(value))
+        return timeframes
+
+
+    def _resolve_entry_timeframe(self):
+        if self.strategy is None:
+            return '1m'
+
+        entry_tfs = getattr(self.strategy, 'entry_timeframes', None)
+        if isinstance(entry_tfs, (list, tuple)) and len(entry_tfs) > 0:
+            return self._timeframe_with_suffix(entry_tfs[0])
+
+        entry_tf = getattr(self.strategy, 'entry_timeframe', None)
+        if entry_tf:
+            return self._timeframe_with_suffix(entry_tf)
+
+        strategy_timeframes = getattr(self.strategy, 'timeframes', None)
+        if isinstance(strategy_timeframes, (list, tuple)) and len(strategy_timeframes) > 0:
+            return self._timeframe_with_suffix(strategy_timeframes[0])
+
+        return '1m'
+
+
+    def _get_strategy_state_safe(self):
+        if self.strategy is None:
+            return {}
+        if not hasattr(self.strategy, 'get_strategy_state'):
+            return {}
+        try:
+            state = self.strategy.get_strategy_state()
+            if isinstance(state, dict):
+                return state
+        except Exception as e:
+            self.log_message(f"âš ï¸ Could not read strategy state: {e}")
+        return {}
+
+
+    def _estimate_open_notional(self, symbol, current_price):
+        if current_price is None or current_price <= 0:
+            current_price = self.get_current_price_from_api(symbol)
+        if current_price <= 0:
+            return 0.0
+
+        target = max(self.simulated_balance, 0.0) * 0.05
+        rules = self.get_trading_rules(symbol)
+        if rules:
+            min_qty = float(rules.get('min_order_qty', 0.0))
+            min_position_value = min_qty * current_price
+            target = max(target, min_position_value)
+        return float(target)
+
+    def _record_global_block(self, reason):
+        if not hasattr(self, 'global_rule_stats'):
+            self.global_rule_stats = {
+                'blocked_signals': 0,
+                'blocked_reasons': {},
+                'emergency_closes': 0,
+            }
+        self.global_rule_stats['blocked_signals'] = int(self.global_rule_stats.get('blocked_signals', 0)) + 1
+        blocked_reasons = self.global_rule_stats.setdefault('blocked_reasons', {})
+        blocked_reasons[reason] = int(blocked_reasons.get(reason, 0)) + 1
+
+    def _expected_move_pct_from_strategy(self):
+        if self.strategy is None:
+            return max(0.1, self.global_rules.position_stop_loss_pct * 200.0)
+
+        for attr in ('expected_move_pct', 'take_profit_pct', 'target_profit_pct', 'tp_pct'):
+            value = getattr(self.strategy, attr, None)
+            if value is None:
+                continue
+            try:
+                numeric = float(value)
+            except (TypeError, ValueError):
+                continue
+            if numeric <= 0.0:
+                continue
+            if numeric > 1.0:
+                return numeric
+            return numeric * 100.0
+        return max(0.1, self.global_rules.position_stop_loss_pct * 200.0)
+
+    def _get_symbol_market_snapshot(self, symbol):
+        now_ts = time.time()
+        cached = self._market_snapshot_cache.get(symbol)
+        if cached and now_ts - cached.get('timestamp', 0.0) <= self._market_snapshot_ttl_sec:
+            return cached.get('data', {})
+
+        result, error = self.make_request(
+            "GET",
+            "/v5/market/tickers",
+            params={"category": "linear", "symbol": symbol},
+        )
+        if error:
+            return {}
+        if not result or 'list' not in result or not result['list']:
+            return {}
+
+        snapshot = result['list'][0]
+        self._market_snapshot_cache[symbol] = {'timestamp': now_ts, 'data': snapshot}
+        return snapshot
+
+    @staticmethod
+    def _safe_float(value, default=0.0):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return float(default)
+
+    def _estimate_spread_bps(self, symbol, current_price=None, snapshot=None):
+        snap = snapshot if isinstance(snapshot, dict) else self._get_symbol_market_snapshot(symbol)
+        bid = self._safe_float(snap.get('bid1Price', 0.0))
+        ask = self._safe_float(snap.get('ask1Price', 0.0))
+        mid = self._safe_float(current_price, 0.0)
+        if mid <= 0.0 and bid > 0.0 and ask > 0.0:
+            mid = (bid + ask) / 2.0
+        if bid <= 0.0 or ask <= 0.0 or mid <= 0.0:
+            return 0.0
+        return max(0.0, ((ask - bid) / mid) * 10000.0)
+
+    def _estimate_24h_notional(self, symbol, current_price=None, snapshot=None):
+        snap = snapshot if isinstance(snapshot, dict) else self._get_symbol_market_snapshot(symbol)
+        turnover24h = self._safe_float(snap.get('turnover24h', 0.0))
+        if turnover24h > 0.0:
+            return turnover24h
+
+        volume24h = self._safe_float(snap.get('volume24h', 0.0))
+        if volume24h <= 0.0:
+            return 0.0
+
+        price = self._safe_float(current_price, 0.0)
+        if price <= 0.0:
+            price = self._safe_float(snap.get('lastPrice', 0.0))
+        if price <= 0.0:
+            return 0.0
+        return volume24h * price
+
+    def _current_open_notional(self):
+        total = 0.0
+        for pos in self.current_positions.values():
+            cost = self._safe_float(pos.get('cost', 0.0))
+            if cost <= 0.0:
+                quantity = self._safe_float(pos.get('quantity', 0.0))
+                entry_price = self._safe_float(pos.get('entry_price', 0.0))
+                cost = quantity * entry_price
+            total += abs(cost)
+        return total
+
+    def _current_open_risk(self):
+        stop_loss_pct = max(0.0, self._safe_float(self.global_rules.position_stop_loss_pct, 0.02))
+        return self._current_open_notional() * stop_loss_pct
+
+    def _apply_global_entry_rules(self, symbol, current_price, planned_notional, account_value):
+        rules = getattr(self, 'global_rules', None)
+        if rules is None:
+            rules = resolve_global_rules({})
+            self.global_rules = rules
+        if not hasattr(self, 'global_rule_stats'):
+            self.global_rule_stats = {
+                'blocked_signals': 0,
+                'blocked_reasons': {},
+                'emergency_closes': 0,
+            }
+        if not hasattr(self, '_market_snapshot_cache'):
+            self._market_snapshot_cache = {}
+        if not hasattr(self, '_market_snapshot_ttl_sec'):
+            self._market_snapshot_ttl_sec = 30
+
+        if not rules.enabled:
+            return True, 'global_rules_disabled'
+
+        if rules.one_position_per_symbol and symbol in self.current_positions:
+            return False, 'global_position_already_open'
+
+        snapshot = self._get_symbol_market_snapshot(symbol)
+
+        min_notional = self._safe_float(rules.min_24h_notional_usdt, 0.0)
+        if min_notional > 0.0:
+            estimated_24h_notional = self._estimate_24h_notional(
+                symbol=symbol, current_price=current_price, snapshot=snapshot
+            )
+            if estimated_24h_notional <= 0.0 or estimated_24h_notional < min_notional:
+                return False, 'liquidity_below_min_notional'
+
+        spread_bps = self._estimate_spread_bps(symbol=symbol, current_price=current_price, snapshot=snapshot)
+        if self._safe_float(rules.max_spread_bps, 0.0) > 0.0 and spread_bps > float(rules.max_spread_bps):
+            return False, f'spread_above_limit({spread_bps:.2f}bps)'
+
+        # Use conservative fixed slippage for cost filter.
+        slippage_pct = 0.0003
+        spread_pct = spread_bps / 10000.0
+        fee_pct = 0.00055
+        expected_move_pct = self._expected_move_pct_from_strategy()
+        round_trip_cost_pct = rules.round_trip_cost_pct(
+            fee_pct=fee_pct,
+            spread_pct=spread_pct,
+            slippage_pct=slippage_pct,
+        )
+        if round_trip_cost_pct > 0.0 and self._safe_float(rules.min_expected_move_to_cost_ratio, 0.0) > 0.0:
+            ratio = expected_move_pct / round_trip_cost_pct
+            if ratio < float(rules.min_expected_move_to_cost_ratio):
+                return False, 'expected_move_below_cost_ratio'
+
+        max_notional_cap = max(0.0, float(account_value) * self._safe_float(rules.max_notional_exposure_pct, 0.0))
+        if max_notional_cap > 0.0:
+            if (self._current_open_notional() + planned_notional) > (max_notional_cap + 1e-9):
+                return False, 'max_notional_exposure_exceeded'
+
+        max_open_risk_cap = max(0.0, float(account_value) * self._safe_float(rules.max_total_open_risk_pct, 0.0))
+        if max_open_risk_cap > 0.0:
+            planned_risk = planned_notional * self._safe_float(rules.position_stop_loss_pct, 0.02)
+            if (self._current_open_risk() + planned_risk) > (max_open_risk_cap + 1e-9):
+                return False, 'max_total_open_risk_exceeded'
+
+        return True, 'global_rules_allowed'
+
+
+    def _engine_risk_guard(self, symbol, signal, current_price=None):
+        if signal not in ('OPEN_LONG', 'OPEN_SHORT'):
+            return True, 'non_open_signal'
+
+        if self.shadow_only:
+            return False, 'shadow_only_mode'
+
+        if not self.enable_engine_risk_guard:
+            return True, 'guard_disabled'
+
+        if symbol in self.current_positions:
+            return False, 'position_already_open'
+
+        strategy_state = self._get_strategy_state_safe()
+        if bool(strategy_state.get('drawdown_lock', False)):
+            return False, 'strategy_drawdown_lock'
+
+        virtual_drawdown = float(strategy_state.get('virtual_drawdown_pct', 0.0) or 0.0)
+        strategy_max_dd = float(
+            strategy_state.get('max_drawdown_pct', self.execution_max_drawdown_pct) or self.execution_max_drawdown_pct
+        )
+        effective_max_dd = min(max(strategy_max_dd, 0.0), max(self.execution_max_drawdown_pct, 0.0))
+        if effective_max_dd > 0 and virtual_drawdown >= effective_max_dd:
+            return False, 'drawdown_limit_breached'
+
+        cap_pct = self.execution_max_position_notional_pct
+        strategy_cap = strategy_state.get('effective_position_size_pct')
+        if strategy_cap is not None:
+            try:
+                cap_pct = min(cap_pct, max(0.0, float(strategy_cap)))
+            except (TypeError, ValueError):
+                pass
+
+        if cap_pct <= 0.0:
+            return False, 'position_cap_zero'
+
+        balance_info = self.get_balance_info()
+        account_value = float(balance_info.get('account_value', self.simulated_balance) or self.simulated_balance)
+        max_allowed_notional = max(account_value, 0.0) * cap_pct
+        planned_notional = self._estimate_open_notional(symbol, current_price=current_price)
+
+        if planned_notional <= 0.0:
+            return False, 'invalid_planned_notional'
+        if planned_notional > max_allowed_notional + 1e-9:
+            return False, (
+                f'position_cap_exceeded(planned={planned_notional:.2f},'
+                f'max={max_allowed_notional:.2f})'
+            )
+
+        global_allowed, global_reason = self._apply_global_entry_rules(
+            symbol=symbol,
+            current_price=current_price,
+            planned_notional=planned_notional,
+            account_value=account_value,
+        )
+        if not global_allowed:
+            self._record_global_block(global_reason)
+            return False, global_reason
+
+        return True, 'allowed'
+
+
+    def _record_shadow_event(self, symbol, signal, allowed, reason):
+        if not self.shadow_mode:
+            return
+        event = {
+            'timestamp': datetime.now().isoformat(),
+            'symbol': symbol,
+            'signal': signal,
+            'allowed': bool(allowed),
+            'reason': str(reason),
+            'open_positions': len(self.current_positions),
+            'simulated_balance': float(self.simulated_balance),
+            'strategy_state': self._get_strategy_state_safe(),
+        }
+        self._shadow_events.append(event)
+        if len(self._shadow_events) > 500:
+            self._shadow_events = self._shadow_events[-500:]
+        self._write_shadow_dashboard()
+
+
+    def _write_shadow_dashboard(self):
+        if not self.shadow_mode:
+            return
+
+        try:
+            os.makedirs(os.path.dirname(self.shadow_dashboard_path), exist_ok=True)
+            payload = {
+                'generated_at': datetime.now().isoformat(),
+                'event_count': len(self._shadow_events),
+                'events': self._shadow_events[-200:],
+            }
+            with open(self.shadow_state_path, 'w', encoding='utf-8') as f:
+                json.dump(payload, f, indent=2, ensure_ascii=False)
+
+            last_rows = self._shadow_events[-100:]
+            rows_html = []
+            for row in reversed(last_rows):
+                color = '#059669' if row.get('allowed') else '#dc2626'
+                rows_html.append(
+                    '<tr>'
+                    f"<td>{row.get('timestamp','')}</td>"
+                    f"<td>{row.get('symbol','')}</td>"
+                    f"<td>{row.get('signal','')}</td>"
+                    f"<td style='color:{color};font-weight:600'>{'ALLOW' if row.get('allowed') else 'BLOCK'}</td>"
+                    f"<td>{row.get('reason','')}</td>"
+                    f"<td>{row.get('open_positions',0)}</td>"
+                    f"<td>${float(row.get('simulated_balance',0.0)):.2f}</td>"
+                    '</tr>'
+                )
+
+            state = self._get_strategy_state_safe()
+            html = (
+                "<!doctype html><html><head><meta charset='utf-8'/>"
+                "<meta http-equiv='refresh' content='10'/>"
+                "<title>Shadow Dashboard</title>"
+                "<style>"
+                "body{font-family:Segoe UI,Arial,sans-serif;background:#f8fafc;color:#0f172a;margin:16px;}"
+                ".card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:12px;}"
+                "table{width:100%;border-collapse:collapse;}th,td{border:1px solid #e2e8f0;padding:6px;font-size:12px;text-align:left;}"
+                "th{background:#f1f5f9;}"
+                "code{background:#eef2ff;padding:1px 4px;border-radius:4px;}"
+                "</style></head><body>"
+                "<h2>RL Shadow Dashboard</h2>"
+                f"<div class='card'><b>Generated:</b> {datetime.now().isoformat()}<br/>"
+                f"<b>Events:</b> {len(self._shadow_events)}<br/>"
+                f"<b>Shadow Only:</b> {self.shadow_only}<br/>"
+                f"<b>Risk Guard:</b> {self.enable_engine_risk_guard}</div>"
+                "<div class='card'><h3>Strategy State</h3><pre>"
+                f"{json.dumps(state, indent=2, default=str)[:5000]}"
+                "</pre></div>"
+                "<div class='card'><h3>Recent Decisions</h3><table>"
+                "<tr><th>Timestamp</th><th>Symbol</th><th>Signal</th><th>Result</th><th>Reason</th><th>Open Pos</th><th>Balance</th></tr>"
+                + "".join(rows_html)
+                + "</table></div></body></html>"
+            )
+            with open(self.shadow_dashboard_path, 'w', encoding='utf-8') as f:
+                f.write(html)
+        except Exception as e:
+            self.log_message(f"âš ï¸ Could not write shadow dashboard: {e}")
 
     def initialize_shared_data_access(self):
         """Initialize shared data access safely"""
@@ -308,13 +838,13 @@ class PaperTradingEngine:
             
             # Check if data collection is running
             if self.shared_data_access.is_data_collection_running():
-                self.log_message("✅ Using existing data collection process")
+                self.log_message("âœ… Using existing data collection process")
             else:
-                self.log_message("⚠️ Data collection not running - will use existing CSV files")
+                self.log_message("âš ï¸ Data collection not running - will use existing CSV files")
                 
             return True
         except Exception as e:
-            self.log_message(f"❌ Error initializing shared data access: {e}")
+            self.log_message(f"âŒ Error initializing shared data access: {e}")
             return False
     
     def load_credentials(self):
@@ -330,14 +860,14 @@ class PaperTradingEngine:
                     account_info = accounts[account_type][self.api_account]
                     self.api_key = account_info['api_key']
                     self.api_secret = account_info['api_secret']
-                    self.log_message(f"✅ API credentials loaded for {self.api_account}")
+                    self.log_message(f"âœ… API credentials loaded for {self.api_account}")
                     return True
             
-            self.log_message(f"❌ Account '{self.api_account}' not found")
+            self.log_message(f"âŒ Account '{self.api_account}' not found")
             return False
             
         except Exception as e:
-            self.log_message(f"❌ Error loading API credentials: {e}")
+            self.log_message(f"âŒ Error loading API credentials: {e}")
             return False
     
     def generate_signature(self, timestamp, method, path, body='', params=None):
@@ -414,7 +944,7 @@ class PaperTradingEngine:
             return self.shared_data_access.get_latest_data(symbol, timeframe, limit=limit)
         else:
             # Fallback to empty list if shared data access not available
-            self.log_message(f"⚠️ Shared data access not available for {symbol}_{timeframe}")
+            self.log_message(f"âš ï¸ Shared data access not available for {symbol}_{timeframe}")
             return []
     
     def test_connection(self):
@@ -424,20 +954,20 @@ class PaperTradingEngine:
             result, error = self.make_request("GET", "/v5/account/wallet-balance", params={"accountType": "UNIFIED"})
             
             if error:
-                self.log_message(f"❌ Connection test failed: {error}")
+                self.log_message(f"âŒ Connection test failed: {error}")
                 return False
             
             if result and 'list' in result and result['list']:
                 wallet_data = result['list'][0]
                 balance = float(wallet_data.get('totalAvailableBalance', '0'))
-                self.log_message(f"✅ Connection successful! Balance: ${balance}")
+                self.log_message(f"âœ… Connection successful! Balance: ${balance}")
                 return True
             else:
-                self.log_message("❌ Connection test failed: Invalid response format")
+                self.log_message("âŒ Connection test failed: Invalid response format")
                 return False
                 
         except Exception as e:
-            self.log_message(f"❌ Connection test error: {e}")
+            self.log_message(f"âŒ Connection test error: {e}")
             return False
     
     def get_balance(self):
@@ -449,7 +979,7 @@ class PaperTradingEngine:
         try:
             result, error = self.make_request("GET", "/v5/account/wallet-balance", params={"accountType": "UNIFIED"})
             if error:
-                self.log_message(f"❌ Error getting real balance: {error}")
+                self.log_message(f"âŒ Error getting real balance: {error}")
                 return {'available_balance': 0.0, 'margin_balance': 0.0}
             
             if result and 'list' in result and result['list']:
@@ -466,7 +996,7 @@ class PaperTradingEngine:
                 return {'available_balance': 0.0, 'margin_balance': 0.0}
                 
         except Exception as e:
-            self.log_message(f"❌ Error getting real balance: {e}")
+            self.log_message(f"âŒ Error getting real balance: {e}")
             return {'available_balance': 0.0, 'margin_balance': 0.0}
 
     def get_display_balance(self):
@@ -478,13 +1008,13 @@ class PaperTradingEngine:
         Syncs self.current_positions with the real exchange to handle restarts.
         If the bot crashed and restarted, this prevents opening duplicate positions.
         """
-        self.log_message("🔄 Syncing positions from exchange...")
+        self.log_message("ðŸ”„ Syncing positions from exchange...")
         
         try:
             result, error = self.make_request("GET", "/v5/position/list", params={"category": "linear"})
             
             if error:
-                self.log_message(f"⚠️ Could not sync positions: {error}")
+                self.log_message(f"âš ï¸ Could not sync positions: {error}")
                 return
 
             if result and 'list' in result:
@@ -526,16 +1056,16 @@ class PaperTradingEngine:
                     }
                     
                     synced_count += 1
-                    self.log_message(f"✅ Recovered {pos_type} position for {symbol} (Size: {size})")
+                    self.log_message(f"âœ… Recovered {pos_type} position for {symbol} (Size: {size})")
 
                 if synced_count > 0:
                     self.open_trades_count = len(self.current_positions)
-                    self.log_message(f"✅ Sync complete. Recovered {synced_count} open positions.")
+                    self.log_message(f"âœ… Sync complete. Recovered {synced_count} open positions.")
                 else:
-                    self.log_message("✅ Sync complete. No open positions found on exchange.")
+                    self.log_message("âœ… Sync complete. No open positions found on exchange.")
                     
         except Exception as e:
-            self.log_message(f"❌ Error syncing positions: {e}")
+            self.log_message(f"âŒ Error syncing positions: {e}")
     
     def get_all_perpetual_symbols(self):
         """Get all perpetual symbols"""
@@ -543,7 +1073,7 @@ class PaperTradingEngine:
             result, error = self.make_request("GET", "/v5/market/instruments-info", params={"category": "linear", "limit": 1000})
             
             if error:
-                self.log_message(f"❌ Error getting symbols: {error}")
+                self.log_message(f"âŒ Error getting symbols: {error}")
                 return []
             
             symbols = []
@@ -558,11 +1088,11 @@ class PaperTradingEngine:
                     instrument.get('status') == 'Trading'):
                     symbols.append(symbol)
             
-            self.log_message(f"✅ Found {len(symbols)} perpetual symbols")
+            self.log_message(f"âœ… Found {len(symbols)} perpetual symbols")
             return sorted(symbols)
                 
         except Exception as e:
-            self.log_message(f"❌ Error getting symbols: {e}")
+            self.log_message(f"âŒ Error getting symbols: {e}")
             return []
         
     def filter_tradable_symbols(self, all_symbols):
@@ -578,28 +1108,33 @@ class PaperTradingEngine:
             if symbol.endswith('USDT') and len(symbol) <= 10:  # Reasonable symbol length
                 tradable_symbols.append(symbol)
         
-        self.log_message(f"📊 Filtered {len(all_symbols)} symbols down to {len(tradable_symbols)} tradable symbols")
+        self.log_message(f"ðŸ“Š Filtered {len(all_symbols)} symbols down to {len(tradable_symbols)} tradable symbols")
         return tradable_symbols
     
     def execute_open_long(self, symbol, quantity=None):
         """Execute a long position opening"""
         try:
             # Add this logging at the beginning
-            self.log_message(f"🔍 DEBUG: Current simulated balance before opening LONG: ${self.simulated_balance:.2f}")
+            self.log_message(f"ðŸ” DEBUG: Current simulated balance before opening LONG: ${self.simulated_balance:.2f}")
             
             # Set leverage before placing the order
             self.set_leverage(symbol)
-
             # Get current price
             current_price = self.get_current_price_from_api(symbol)
             if current_price <= 0:
-                self.log_message(f"❌ Could not get current price for {symbol}")
+                self.log_message(f"âŒ Could not get current price for {symbol}")
+                return None
+
+            can_open, block_reason = self._engine_risk_guard(symbol, 'OPEN_LONG', current_price=current_price)
+            if not can_open:
+                self.log_message(f"[BLOCKED] Engine risk guard blocked OPEN_LONG for {symbol}: {block_reason}")
+                self._record_shadow_event(symbol, 'OPEN_LONG', False, block_reason)
                 return None
             
             # Calculate minimum position value based on trading rules
             rules = self.get_trading_rules(symbol)
             if not rules:
-                self.log_message(f"❌ No trading rules found for {symbol}")
+                self.log_message(f"âŒ No trading rules found for {symbol}")
                 return None
             
             # Calculate minimum required capital for this symbol
@@ -607,50 +1142,50 @@ class PaperTradingEngine:
             min_position_value = min_qty * current_price
             
             # Add this logging
-            self.log_message(f"🔍 DEBUG: Min position value: ${min_position_value:.2f}")
+            self.log_message(f"ðŸ” DEBUG: Min position value: ${min_position_value:.2f}")
             
             # Check if we have enough simulated balance for this position
             if self.simulated_balance < min_position_value:
-                self.log_message(f"❌ Insufficient balance for {symbol}: Need ${min_position_value:.2f}, Have ${self.simulated_balance:.2f}")
+                self.log_message(f"âŒ Insufficient balance for {symbol}: Need ${min_position_value:.2f}, Have ${self.simulated_balance:.2f}")
                 return None
             
             # Use 5% of simulated balance for position sizing
             position_value = self.simulated_balance * 0.05
             
             # Add this logging
-            self.log_message(f"🔍 DEBUG: Calculated position value (5% of simulated balance): ${position_value:.2f}")
+            self.log_message(f"ðŸ” DEBUG: Calculated position value (5% of simulated balance): ${position_value:.2f}")
             
             # Ensure we meet minimum position requirements
             position_value = max(position_value, min_position_value)
             
             # Add this logging
-            self.log_message(f"🔍 DEBUG: Final position value after min check: ${position_value:.2f}")
+            self.log_message(f"ðŸ” DEBUG: Final position value after min check: ${position_value:.2f}")
             
             # Calculate a valid quantity based on trading rules
             final_quantity = self.calculate_valid_quantity(symbol, current_price, position_value)
             if final_quantity is None:
-                self.log_message(f"❌ Could not calculate valid quantity for {symbol}")
+                self.log_message(f"âŒ Could not calculate valid quantity for {symbol}")
                 return None
             
             # Final check: ensure we can afford this position
             actual_position_cost = final_quantity * current_price
             
             # Add this logging
-            self.log_message(f"🔍 DEBUG: Final position cost: ${actual_position_cost:.2f}")
+            self.log_message(f"ðŸ” DEBUG: Final position cost: ${actual_position_cost:.2f}")
             
             # Get leverage for this symbol
             symbol_info = self.symbol_info_cache.get(symbol, {})
             leverage_filter = symbol_info.get('leverageFilter', {})
             leverage = float(leverage_filter.get('maxLeverage', 5))
             
-            # Calculate margin needed (position value ÷ leverage)
+            # Calculate margin needed (position value Ã· leverage)
             margin_needed = actual_position_cost / leverage
             
             # Add this logging
-            self.log_message(f"🔍 DEBUG: Position value: ${actual_position_cost:.2f}, Leverage: {leverage}x, Margin needed: ${margin_needed:.2f}")
+            self.log_message(f"ðŸ” DEBUG: Position value: ${actual_position_cost:.2f}, Leverage: {leverage}x, Margin needed: ${margin_needed:.2f}")
             
             if margin_needed > self.simulated_balance:
-                self.log_message(f"❌ Insufficient margin for {symbol}: Need ${margin_needed:.2f}, Have ${self.simulated_balance:.2f}")
+                self.log_message(f"âŒ Insufficient margin for {symbol}: Need ${margin_needed:.2f}, Have ${self.simulated_balance:.2f}")
                 return None
             
             # Create order data with properly formatted quantity
@@ -663,11 +1198,11 @@ class PaperTradingEngine:
                 "timeInForce": "GTC"
             }
             
-            self.log_message(f"📈 Placing BUY order for {final_quantity} {symbol} (value: ${actual_position_cost:.2f}, margin: ${margin_needed:.2f})...")
+            self.log_message(f"ðŸ“ˆ Placing OPEN_LONG order for {final_quantity} {symbol} (value: ${actual_position_cost:.2f}, margin: ${margin_needed:.2f})...")
             result, error = self.make_request("POST", "/v5/order/create", data=order_data)
             
             if error:
-                self.log_message(f"❌ Buy order failed: {error}")
+                self.log_message(f"âŒ OPEN_LONG order failed: {error}")
                 return None
             
             # FIX: Update simulated balance directly with margin cost, not based on real balance
@@ -675,11 +1210,11 @@ class PaperTradingEngine:
             self.simulated_balance -= margin_needed
             
             # Add this logging
-            self.log_message(f"🔍 DEBUG: Old simulated balance: ${old_simulated_balance:.2f}")
-            self.log_message(f"🔍 DEBUG: New simulated balance after buy: ${self.simulated_balance:.2f}")
-            self.log_message(f"🔍 DEBUG: Margin deducted: ${margin_needed:.2f}")
+            self.log_message(f"ðŸ” DEBUG: Old simulated balance: ${old_simulated_balance:.2f}")
+            self.log_message(f"ðŸ” DEBUG: New simulated balance after open long: ${self.simulated_balance:.2f}")
+            self.log_message(f"ðŸ” DEBUG: Margin deducted: ${margin_needed:.2f}")
             
-            self.log_message(f"💰 Simulated balance after buy: ${self.simulated_balance:.2f} (margin used: ${margin_needed:.2f})")
+            self.log_message(f"ðŸ’° Simulated balance after open long: ${self.simulated_balance:.2f} (margin used: ${margin_needed:.2f})")
             
             # Record the trade
             trade = {
@@ -695,7 +1230,6 @@ class PaperTradingEngine:
                 'position_value': actual_position_cost,
                 'margin_used': margin_needed
             }
-
             self.log_trade_to_csv(trade)
             
             self.trades.append(trade)
@@ -719,22 +1253,21 @@ class PaperTradingEngine:
             # Update counters
             self.open_trades_count += 1
             
-            self.log_message(f"✅ Buy order successful! Order ID: {result.get('orderId')}")
+            self.log_message(f"âœ… Buy order successful! Order ID: {result.get('orderId')}")
             return trade
             
         except Exception as e:
-            self.log_message(f"❌ Error executing buy order: {e}")
+            self.log_message(f"âŒ Error executing buy order: {e}")
             return None
-
     def execute_close_long(self, symbol, quantity=None):
         """Execute a long position closing"""
         if symbol not in self.current_positions:
-            self.log_message(f"❌ No position found for {symbol}")
+            self.log_message(f"âŒ No position found for {symbol}")
             return None
         
         # Check if it's a long position
         if self.current_positions[symbol]['type'] != 'LONG':
-            self.log_message(f"❌ Cannot close LONG position for {symbol}: Current position is SHORT")
+            self.log_message(f"âŒ Cannot close LONG position for {symbol}: Current position is SHORT")
             return None
         
         if quantity is None:
@@ -744,13 +1277,13 @@ class PaperTradingEngine:
             # Get current price
             current_price = self.get_current_price_from_api(symbol)
             if current_price <= 0:
-                self.log_message(f"❌ Could not get current price for {symbol}")
+                self.log_message(f"âŒ Could not get current price for {symbol}")
                 return None
             
             # Get trading rules for symbol
             rules = self.get_trading_rules(symbol)
             if not rules:
-                self.log_message(f"❌ No trading rules found for {symbol}")
+                self.log_message(f"âŒ No trading rules found for {symbol}")
                 return None
             
             # Format the quantity according to the symbol's requirements
@@ -766,11 +1299,11 @@ class PaperTradingEngine:
                 "timeInForce": "GTC"
             }
             
-            self.log_message(f"📉 Placing SELL order for {final_quantity} {symbol}...")
+            self.log_message(f"ðŸ“‰ Placing CLOSE_LONG order for {final_quantity} {symbol}...")
             result, error = self.make_request("POST", "/v5/order/create", data=order_data)
             
             if error:
-                self.log_message(f"❌ Sell order failed: {error}")
+                self.log_message(f"âŒ Sell order failed: {error}")
                 return None
             
             # Get current real balance BEFORE closing position
@@ -787,8 +1320,8 @@ class PaperTradingEngine:
             trade_pnl = position_value - original_cost
             
             # Add this logging
-            self.log_message(f"🔍 DEBUG: Position value: ${position_value:.2f}, Original cost: ${original_cost:.2f}")
-            self.log_message(f"🔍 DEBUG: Calculated P&L: ${trade_pnl:.2f}")
+            self.log_message(f"ðŸ” DEBUG: Position value: ${position_value:.2f}, Original cost: ${original_cost:.2f}")
+            self.log_message(f"ðŸ” DEBUG: Calculated P&L: ${trade_pnl:.2f}")
             
             # FIX: Get REAL Bybit balance AFTER closing position
             new_balance_info = self.get_real_balance()
@@ -803,10 +1336,10 @@ class PaperTradingEngine:
             self.real_balance = new_real_balance
             
             # Add this logging
-            self.log_message(f"🔍 DEBUG: Old simulated balance: ${old_simulated_balance:.2f}")
-            self.log_message(f"🔍 DEBUG: New simulated balance after sell: ${self.simulated_balance:.2f}")
-            self.log_message(f"🔍 DEBUG: REAL P&L from Bybit: ${real_pnl:.2f}")
-            self.log_message(f"🔍 DEBUG: Calculated vs Real P&L diff: ${abs(trade_pnl - real_pnl):.2f}")
+            self.log_message(f"ðŸ” DEBUG: Old simulated balance: ${old_simulated_balance:.2f}")
+            self.log_message(f"ðŸ” DEBUG: New simulated balance after sell: ${self.simulated_balance:.2f}")
+            self.log_message(f"ðŸ” DEBUG: REAL P&L from Bybit: ${real_pnl:.2f}")
+            self.log_message(f"ðŸ” DEBUG: Calculated vs Real P&L diff: ${abs(trade_pnl - real_pnl):.2f}")
             
             # Calculate position duration in minutes
             entry_time = datetime.fromisoformat(self.current_positions[symbol]['entry_time'])
@@ -846,33 +1379,38 @@ class PaperTradingEngine:
             self.open_trades_count -= 1
             self.closed_trades_count += 1
             
-            self.log_message(f"💰 Simulated balance after sell: ${self.simulated_balance:.2f} (P&L: ${trade_pnl:.2f}, margin returned: ${margin_used:.2f})")
-            self.log_message(f"✅ Sell order successful! Order ID: {result.get('orderId')}")
+            self.log_message(f"ðŸ’° Simulated balance after sell: ${self.simulated_balance:.2f} (P&L: ${trade_pnl:.2f}, margin returned: ${margin_used:.2f})")
+            self.log_message(f"âœ… Sell order successful! Order ID: {result.get('orderId')}")
             return trade
             
         except Exception as e:
-            self.log_message(f"❌ Error executing sell order: {e}")
+            self.log_message(f"âŒ Error executing sell order: {e}")
             return None
 
     def execute_open_short(self, symbol, quantity=None):
         """Execute a short position opening"""
         try:
             # Add this logging at the beginning
-            self.log_message(f"🔍 DEBUG: Current simulated balance before opening SHORT: ${self.simulated_balance:.2f}")
+            self.log_message(f"ðŸ” DEBUG: Current simulated balance before opening SHORT: ${self.simulated_balance:.2f}")
             
             # Set leverage before placing the order
             self.set_leverage(symbol)
-
             # Get current price
             current_price = self.get_current_price_from_api(symbol)
             if current_price <= 0:
-                self.log_message(f"❌ Could not get current price for {symbol}")
+                self.log_message(f"âŒ Could not get current price for {symbol}")
+                return None
+
+            can_open, block_reason = self._engine_risk_guard(symbol, 'OPEN_SHORT', current_price=current_price)
+            if not can_open:
+                self.log_message(f"[BLOCKED] Engine risk guard blocked OPEN_SHORT for {symbol}: {block_reason}")
+                self._record_shadow_event(symbol, 'OPEN_SHORT', False, block_reason)
                 return None
             
             # Calculate minimum position value based on trading rules
             rules = self.get_trading_rules(symbol)
             if not rules:
-                self.log_message(f"❌ No trading rules found for {symbol}")
+                self.log_message(f"âŒ No trading rules found for {symbol}")
                 return None
             
             # Calculate minimum required capital for this symbol
@@ -880,50 +1418,50 @@ class PaperTradingEngine:
             min_position_value = min_qty * current_price
             
             # Add this logging
-            self.log_message(f"🔍 DEBUG: Min position value: ${min_position_value:.2f}")
+            self.log_message(f"ðŸ” DEBUG: Min position value: ${min_position_value:.2f}")
             
             # Check if we have enough simulated balance for this position
             if self.simulated_balance < min_position_value:
-                self.log_message(f"❌ Insufficient balance for {symbol}: Need ${min_position_value:.2f}, Have ${self.simulated_balance:.2f}")
+                self.log_message(f"âŒ Insufficient balance for {symbol}: Need ${min_position_value:.2f}, Have ${self.simulated_balance:.2f}")
                 return None
             
             # Use 5% of simulated balance for position sizing
             position_value = self.simulated_balance * 0.05
             
             # Add this logging
-            self.log_message(f"🔍 DEBUG: Calculated position value (5% of simulated balance): ${position_value:.2f}")
+            self.log_message(f"ðŸ” DEBUG: Calculated position value (5% of simulated balance): ${position_value:.2f}")
             
             # Ensure we meet minimum position requirements
             position_value = max(position_value, min_position_value)
             
             # Add this logging
-            self.log_message(f"🔍 DEBUG: Final position value after min check: ${position_value:.2f}")
+            self.log_message(f"ðŸ” DEBUG: Final position value after min check: ${position_value:.2f}")
             
             # Calculate a valid quantity based on trading rules
             final_quantity = self.calculate_valid_quantity(symbol, current_price, position_value)
             if final_quantity is None:
-                self.log_message(f"❌ Could not calculate valid quantity for {symbol}")
+                self.log_message(f"âŒ Could not calculate valid quantity for {symbol}")
                 return None
             
             # Final check: ensure we can afford this position
             actual_position_cost = final_quantity * current_price
             
             # Add this logging
-            self.log_message(f"🔍 DEBUG: Final position cost: ${actual_position_cost:.2f}")
+            self.log_message(f"ðŸ” DEBUG: Final position cost: ${actual_position_cost:.2f}")
             
             # Get leverage for this symbol
             symbol_info = self.symbol_info_cache.get(symbol, {})
             leverage_filter = symbol_info.get('leverageFilter', {})
             leverage = float(leverage_filter.get('maxLeverage', 5))
             
-            # Calculate margin needed (position value ÷ leverage)
+            # Calculate margin needed (position value Ã· leverage)
             margin_needed = actual_position_cost / leverage
             
             # Add this logging
-            self.log_message(f"🔍 DEBUG: Position value: ${actual_position_cost:.2f}, Leverage: {leverage}x, Margin needed: ${margin_needed:.2f}")
+            self.log_message(f"ðŸ” DEBUG: Position value: ${actual_position_cost:.2f}, Leverage: {leverage}x, Margin needed: ${margin_needed:.2f}")
             
             if margin_needed > self.simulated_balance:
-                self.log_message(f"❌ Insufficient margin for {symbol}: Need ${margin_needed:.2f}, Have ${self.simulated_balance:.2f}")
+                self.log_message(f"âŒ Insufficient margin for {symbol}: Need ${margin_needed:.2f}, Have ${self.simulated_balance:.2f}")
                 return None
             
             # Create order data with properly formatted quantity
@@ -936,11 +1474,11 @@ class PaperTradingEngine:
                 "timeInForce": "GTC"
             }
             
-            self.log_message(f"📉 Placing SELL order for {final_quantity} {symbol} (value: ${actual_position_cost:.2f}, margin: ${margin_needed:.2f})...")
+            self.log_message(f"ðŸ“‰ Placing OPEN_SHORT order for {final_quantity} {symbol} (value: ${actual_position_cost:.2f}, margin: ${margin_needed:.2f})...")
             result, error = self.make_request("POST", "/v5/order/create", data=order_data)
             
             if error:
-                self.log_message(f"❌ Sell order failed: {error}")
+                self.log_message(f"âŒ OPEN_SHORT order failed: {error}")
                 return None
             
             # FIX: Update simulated balance directly with margin cost, not based on real balance
@@ -948,11 +1486,11 @@ class PaperTradingEngine:
             self.simulated_balance -= margin_needed
             
             # Add this logging
-            self.log_message(f"🔍 DEBUG: Old simulated balance: ${old_simulated_balance:.2f}")
-            self.log_message(f"🔍 DEBUG: New simulated balance after sell: ${self.simulated_balance:.2f}")
-            self.log_message(f"🔍 DEBUG: Margin deducted: ${margin_needed:.2f}")
+            self.log_message(f"ðŸ” DEBUG: Old simulated balance: ${old_simulated_balance:.2f}")
+            self.log_message(f"ðŸ” DEBUG: New simulated balance after open short: ${self.simulated_balance:.2f}")
+            self.log_message(f"ðŸ” DEBUG: Margin deducted: ${margin_needed:.2f}")
             
-            self.log_message(f"💰 Simulated balance after sell: ${self.simulated_balance:.2f} (margin used: ${margin_needed:.2f})")
+            self.log_message(f"ðŸ’° Simulated balance after open short: ${self.simulated_balance:.2f} (margin used: ${margin_needed:.2f})")
             
             # Record the trade
             trade = {
@@ -968,7 +1506,6 @@ class PaperTradingEngine:
                 'position_value': actual_position_cost,
                 'margin_used': margin_needed
             }
-
             self.log_trade_to_csv(trade)
             
             self.trades.append(trade)
@@ -992,22 +1529,21 @@ class PaperTradingEngine:
             # Update counters
             self.open_trades_count += 1
             
-            self.log_message(f"✅ Sell order successful! Order ID: {result.get('orderId')}")
+            self.log_message(f"âœ… Sell order successful! Order ID: {result.get('orderId')}")
             return trade
             
         except Exception as e:
-            self.log_message(f"❌ Error executing sell order: {e}")
+            self.log_message(f"âŒ Error executing sell order: {e}")
             return None
-
     def execute_close_short(self, symbol, quantity=None):
         """Execute a short position closing"""
         if symbol not in self.current_positions:
-            self.log_message(f"❌ No position found for {symbol}")
+            self.log_message(f"âŒ No position found for {symbol}")
             return None
         
         # Check if it's a short position
         if self.current_positions[symbol]['type'] != 'SHORT':
-            self.log_message(f"❌ Cannot close SHORT position for {symbol}: Current position is LONG")
+            self.log_message(f"âŒ Cannot close SHORT position for {symbol}: Current position is LONG")
             return None
         
         if quantity is None:
@@ -1017,13 +1553,13 @@ class PaperTradingEngine:
             # Get current price
             current_price = self.get_current_price_from_api(symbol)
             if current_price <= 0:
-                self.log_message(f"❌ Could not get current price for {symbol}")
+                self.log_message(f"âŒ Could not get current price for {symbol}")
                 return None
             
             # Get trading rules for symbol
             rules = self.get_trading_rules(symbol)
             if not rules:
-                self.log_message(f"❌ No trading rules found for {symbol}")
+                self.log_message(f"âŒ No trading rules found for {symbol}")
                 return None
             
             # Format the quantity according to the symbol's requirements
@@ -1039,11 +1575,11 @@ class PaperTradingEngine:
                 "timeInForce": "GTC"
             }
             
-            self.log_message(f"📈 Placing BUY order for {final_quantity} {symbol}...")
+            self.log_message(f"ðŸ“ˆ Placing CLOSE_SHORT order for {final_quantity} {symbol}...")
             result, error = self.make_request("POST", "/v5/order/create", data=order_data)
             
             if error:
-                self.log_message(f"❌ Buy order failed: {error}")
+                self.log_message(f"âŒ Buy order failed: {error}")
                 return None
             
             # Get current real balance BEFORE closing position
@@ -1060,8 +1596,8 @@ class PaperTradingEngine:
             trade_pnl = original_cost - position_value
             
             # Add this logging
-            self.log_message(f"🔍 DEBUG: Position value: ${position_value:.2f}, Original cost: ${original_cost:.2f}")
-            self.log_message(f"🔍 DEBUG: Calculated P&L: ${trade_pnl:.2f}")
+            self.log_message(f"ðŸ” DEBUG: Position value: ${position_value:.2f}, Original cost: ${original_cost:.2f}")
+            self.log_message(f"ðŸ” DEBUG: Calculated P&L: ${trade_pnl:.2f}")
             
             # FIX: Get REAL Bybit balance AFTER closing position
             new_balance_info = self.get_real_balance()
@@ -1076,10 +1612,10 @@ class PaperTradingEngine:
             self.real_balance = new_real_balance
             
             # Add this logging
-            self.log_message(f"🔍 DEBUG: Old simulated balance: ${old_simulated_balance:.2f}")
-            self.log_message(f"🔍 DEBUG: New simulated balance after buy: ${self.simulated_balance:.2f}")
-            self.log_message(f"🔍 DEBUG: REAL P&L from Bybit: ${real_pnl:.2f}")
-            self.log_message(f"🔍 DEBUG: Calculated vs Real P&L diff: ${abs(trade_pnl - real_pnl):.2f}")
+            self.log_message(f"ðŸ” DEBUG: Old simulated balance: ${old_simulated_balance:.2f}")
+            self.log_message(f"ðŸ” DEBUG: New simulated balance after buy: ${self.simulated_balance:.2f}")
+            self.log_message(f"ðŸ” DEBUG: REAL P&L from Bybit: ${real_pnl:.2f}")
+            self.log_message(f"ðŸ” DEBUG: Calculated vs Real P&L diff: ${abs(trade_pnl - real_pnl):.2f}")
             
             # Calculate position duration in minutes
             entry_time = datetime.fromisoformat(self.current_positions[symbol]['entry_time'])
@@ -1119,12 +1655,12 @@ class PaperTradingEngine:
             self.open_trades_count -= 1
             self.closed_trades_count += 1
             
-            self.log_message(f"💰 Simulated balance after buy: ${self.simulated_balance:.2f} (P&L: ${trade_pnl:.2f}, margin returned: ${margin_used:.2f})")
-            self.log_message(f"✅ Buy order successful! Order ID: {result.get('orderId')}")
+            self.log_message(f"ðŸ’° Simulated balance after buy: ${self.simulated_balance:.2f} (P&L: ${trade_pnl:.2f}, margin returned: ${margin_used:.2f})")
+            self.log_message(f"âœ… Buy order successful! Order ID: {result.get('orderId')}")
             return trade
             
         except Exception as e:
-            self.log_message(f"❌ Error executing buy order: {e}")
+            self.log_message(f"âŒ Error executing buy order: {e}")
             return None
         
     def log_trade_to_csv(self, trade):
@@ -1177,14 +1713,14 @@ class PaperTradingEngine:
         # Check if we've reached the maximum number of open positions
         max_positions = getattr(self, 'max_positions', 20)  # Default to 20 if not set
         if len(self.current_positions) >= max_positions:
-            self.log_message(f"🛑 Max positions reached: {len(self.current_positions)} >= {max_positions}")
+            self.log_message(f"ðŸ›‘ Max positions reached: {len(self.current_positions)} >= {max_positions}")
             return False
         
         # Optional: Check if balance is below a percentage threshold (if enabled)
         if hasattr(self, 'stop_trading_at_percentage') and self.stop_trading_at_percentage:
             min_balance = self.initial_balance * (self.stop_trading_at_percentage / 100)
             if self.simulated_balance < min_balance:
-                self.log_message(f"🛑 Balance below threshold: ${self.simulated_balance:.2f} < ${min_balance:.2f} ({self.stop_trading_at_percentage}%)")
+                self.log_message(f"ðŸ›‘ Balance below threshold: ${self.simulated_balance:.2f} < ${min_balance:.2f} ({self.stop_trading_at_percentage}%)")
                 return False
         
         return True
@@ -1202,12 +1738,12 @@ class PaperTradingEngine:
             calculated_quantity = position_value / current_price
             
             # Log what we're doing
-            self.log_message(f"📊 Position sizing: 5% of working capital = ${position_value:.2f}, calculated qty = {calculated_quantity:.6f}")
+            self.log_message(f"ðŸ“Š Position sizing: 5% of working capital = ${position_value:.2f}, calculated qty = {calculated_quantity:.6f}")
             
             return calculated_quantity
             
         except Exception as e:
-            self.log_message(f"❌ Error calculating position size: {e}")
+            self.log_message(f"âŒ Error calculating position size: {e}")
             return 0.001  # Default fallback
     
     def load_strategy(self):
@@ -1243,18 +1779,22 @@ class PaperTradingEngine:
             
             # Log which parameters are being used
             if optimized_params:
-                self.log_message(f"✅ Using optimized parameters:")
+                self.log_message(f"âœ… Using optimized parameters:")
                 for param, value in optimized_params.items():
                     if param != 'last_optimized':  # Skip the metadata
                         self.log_message(f"  {param}: {value}")
             else:
-                self.log_message("⚠️ Using default parameters (no optimized parameters found)")
+                self.log_message("âš ï¸ Using default parameters (no optimized parameters found)")
             
             # Create the strategy using the create_func from the registry
             if 'create_func' in strategy_info:
                 # Get symbols and timeframes - we'll use 1-minute data for paper trading
-                symbols = ['BTCUSDT']  # We'll update this per symbol in generate_strategy_signal
-                timeframes = ['1m']     # We're using 1-minute data
+                symbols = ['BTCUSDT']  # Updated per symbol in generate_strategy_signal
+                timeframes = ['1m']
+                param_timeframes = self._extract_timeframes_from_params(parameters_def, current_params)
+                if param_timeframes:
+                    timeframes.extend(param_timeframes)
+                timeframes = self._collect_strategy_timeframes(timeframes)
                 
                 # Create the strategy
                 self.strategy = strategy_info['create_func'](
@@ -1275,146 +1815,194 @@ class PaperTradingEngine:
             return False
     
     def generate_trading_signal(self, symbol, current_price):
-        """Generate trading signal using the loaded strategy"""
+        """Generate trading signal using the loaded strategy."""
         try:
-            # First try to use the loaded strategy
             if self.strategy and hasattr(self.strategy, 'generate_signals'):
                 signal = self.generate_strategy_signal(symbol)
-                
-                if signal == 'SELL' and symbol not in self.current_positions:
-                    self.log_message(f"⚠️ SELL signal for {symbol} but no position open, changing to HOLD")
-                    return 'HOLD'
-                
+
+                if signal in ('OPEN_LONG', 'OPEN_SHORT'):
+                    can_open, block_reason = self._engine_risk_guard(
+                        symbol,
+                        signal,
+                        current_price=current_price,
+                    )
+                    if not can_open:
+                        self.log_message(
+                            f"[BLOCKED] Engine risk guard blocked {signal} for {symbol}: {block_reason}"
+                        )
+                        self._record_shadow_event(symbol, signal, False, block_reason)
+                        return 'HOLD'
+
+                if signal in ('CLOSE_LONG', 'CLOSE_SHORT'):
+                    position = self.current_positions.get(symbol)
+                    if not position:
+                        self.log_message(f"?? {signal} for {symbol} but no position open, changing to HOLD")
+                        return 'HOLD'
+                    if signal == 'CLOSE_LONG' and position.get('type') == 'SHORT':
+                        self.log_message(f"?? CLOSE_LONG for {symbol} but position is SHORT, changing to HOLD")
+                        return 'HOLD'
+                    if signal == 'CLOSE_SHORT' and position.get('type') == 'LONG':
+                        self.log_message(f"?? CLOSE_SHORT for {symbol} but position is LONG, changing to HOLD")
+                        return 'HOLD'
+
+                self._record_shadow_event(symbol, signal, True, 'signal_forwarded')
                 return signal
-            
-            # Fallback to RSI strategy
-            return self.generate_rsi_signal(symbol, current_price)
-            
+
+            fallback = self.generate_rsi_signal(symbol, current_price)
+            self._record_shadow_event(symbol, fallback, True, 'fallback_rsi')
+            return fallback
+
         except Exception as e:
-            self.log_message(f"❌ Error generating signal for {symbol}: {e}")
+            self.log_message(f"? Error generating signal for {symbol}: {e}")
+            self._record_shadow_event(symbol, 'HOLD', False, f'generate_signal_error:{e}')
             return 'HOLD'
-    
     def generate_strategy_signal(self, symbol):
-        """Generate signal using the loaded strategy - Updated for new signal schema"""
+        """Generate signal using the loaded strategy with multi-timeframe support."""
         try:
-            # Get historical data for the symbol
-            historical_data = self.get_historical_data_for_symbol(symbol)
-            
-            # Explicitly check for None or empty DataFrame
-            if historical_data is None:
-                self.log_message(f"⚠️ No historical data available for {symbol}")
+            timeframes = self._collect_strategy_timeframes(['1m'])
+            strategy_timeframe_data = {}
+            for timeframe in timeframes:
+                df = self.get_historical_data_for_symbol(symbol, timeframe)
+                if df is not None and not df.empty:
+                    strategy_timeframe_data[timeframe] = df
+
+            if not strategy_timeframe_data:
+                self.log_message(f"?? No historical data available for {symbol} on requested timeframes")
                 return 'HOLD'
-            
-            if isinstance(historical_data, pd.DataFrame) and historical_data.empty:
-                self.log_message(f"⚠️ Empty historical data for {symbol}")
+
+            entry_timeframe = self._resolve_entry_timeframe()
+            entry_candidates = [
+                entry_timeframe,
+                self._normalize_timeframe(entry_timeframe),
+                self._timeframe_with_suffix(entry_timeframe),
+            ]
+            entry_df = None
+            for key in entry_candidates:
+                if key in strategy_timeframe_data:
+                    entry_df = strategy_timeframe_data[key]
+                    break
+
+            if entry_df is None:
+                first_key = next(iter(strategy_timeframe_data))
+                entry_df = strategy_timeframe_data[first_key]
+                entry_timeframe = first_key
+
+            if len(entry_df) < MIN_CANDLES:
+                self.log_message(
+                    f"?? Not enough historical data for {symbol} {entry_timeframe} "
+                    f"(only {len(entry_df)} rows)"
+                )
                 return 'HOLD'
-            
-            if len(historical_data) < MIN_CANDLES:
-                self.log_message(f"⚠️ Not enough historical data for {symbol} (only {len(historical_data)} rows)")
-                return 'HOLD'
-            
-            # Prepare data in the format expected by the strategy
+
             strategy_data = {
-                symbol: {
-                    "1m": historical_data  # We're using 1-minute data
-                }
+                symbol: strategy_timeframe_data
             }
-            
-            # Generate signals using the strategy
+
             try:
                 if hasattr(self.strategy, 'generate_signals_vectorized'):
-                    self.log_message(f"🔍 DEBUG: Calling strategy.generate_signals_vectorized for {symbol}")
+                    self.log_message(f"?? DEBUG: Calling strategy.generate_signals_vectorized for {symbol}")
                     signals = self.strategy.generate_signals_vectorized(strategy_data)
                 else:
-                    self.log_message(f"🔍 DEBUG: Calling strategy.generate_signals for {symbol}")
+                    self.log_message(f"?? DEBUG: Calling strategy.generate_signals for {symbol}")
                     signals = self.strategy.generate_signals(strategy_data)
-                
-                self.log_message(f"🔍 DEBUG: Raw signals from strategy for {symbol}: {signals}")
-                
-                # Extract the signal for our symbol and timeframe
-                if signals and symbol in signals and "1m" in signals[symbol]:
-                    signal = signals[symbol]["1m"]
-                    if hasattr(signal, "iloc"):
+
+                self.log_message(f"?? DEBUG: Raw signals from strategy for {symbol}: {signals}")
+
+                if signals and symbol in signals:
+                    symbol_signals = signals[symbol]
+                    signal = None
+                    for key in (
+                        entry_timeframe,
+                        self._normalize_timeframe(entry_timeframe),
+                        self._timeframe_with_suffix(entry_timeframe),
+                    ):
+                        if key in symbol_signals:
+                            signal = symbol_signals[key]
+                            break
+
+                    if signal is None and symbol_signals:
+                        first_tf = next(iter(symbol_signals))
+                        signal = symbol_signals[first_tf]
+
+                    if signal is None:
+                        self.log_message(f"?? No signal returned for {symbol}")
+                        return 'HOLD'
+
+                    if hasattr(signal, 'iloc'):
                         signal = signal.iloc[-1]
-                    self.log_message(f"🔍 DEBUG: Extracted signal for {symbol}: {signal}")
-                    
-                    # Validate that the signal is one of the expected types
+                    self.log_message(f"?? DEBUG: Extracted signal for {symbol}: {signal}")
+
                     valid_signals = ['OPEN_LONG', 'OPEN_SHORT', 'CLOSE_LONG', 'CLOSE_SHORT', 'HOLD']
                     if signal in valid_signals:
                         if signal != 'HOLD':
-                            self.log_message(f"🚨 SIGNAL DETECTED: {symbol} -> {signal}")
+                            self.log_message(f"?? SIGNAL DETECTED: {symbol} -> {signal}")
                         return signal
-                    else:
-                        self.log_message(f"⚠️ Invalid signal type for {symbol}: {signal}. Expected one of: {valid_signals}")
-                        return 'HOLD'
-                else:
-                    self.log_message(f"⚠️ No signal returned for {symbol}")
+
+                    self.log_message(
+                        f"?? Invalid signal type for {symbol}: {signal}. Expected one of: {valid_signals}"
+                    )
                     return 'HOLD'
-                    
+
+                self.log_message(f"?? No signal returned for {symbol}")
+                return 'HOLD'
+
             except Exception as e:
-                self.log_message(f"❌ Error generating signals: {e}")
+                self.log_message(f"? Error generating signals: {e}")
                 import traceback
                 self.log_message(f"Traceback: {traceback.format_exc()}")
                 return 'HOLD'
-            
+
         except Exception as e:
-            self.log_message(f"❌ Error generating strategy signal for {symbol}: {e}")
+            self.log_message(f"? Error generating strategy signal for {symbol}: {e}")
             import traceback
             self.log_message(f"Traceback: {traceback.format_exc()}")
             return 'HOLD'
 
-    def get_historical_data_for_symbol(self, symbol):
-        """Get historical data for a symbol by loading directly from CSV."""
-        return self.load_csv_data(symbol)
+    def get_historical_data_for_symbol(self, symbol, timeframe='1m'):
+        """Get historical data for a symbol/timeframe by loading directly from CSV."""
+        return self.load_csv_data(symbol, timeframe=timeframe)
 
-    def load_csv_data(self, symbol):
-        """Load data directly from CSV file as fallback"""
+    def load_csv_data(self, symbol, timeframe='1m'):
+        """Load data directly from CSV file as fallback."""
         try:
             import pandas as pd
-            
-            # Construct the correct file path to the project's root 'data' folder
-            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            csv_file = os.path.join(project_root, 'data', f'{symbol}_1.csv')
-            
+
+            tf = self._normalize_timeframe(timeframe)
+            csv_file = os.path.join(self.data_dir, f'{symbol}_{tf}.csv')
+
             if not os.path.exists(csv_file):
-                self.log_message(f"⚠️ CSV file not found for {symbol}: {csv_file}")
+                self.log_message(f"?? CSV file not found for {symbol} {timeframe}: {csv_file}")
                 return None
-            
-            # Load CSV file
+
             df = pd.read_csv(csv_file)
-            
-            # Ensure we have a DataFrame
+
             if not isinstance(df, pd.DataFrame):
-                self.log_message(f"❌ Loaded data is not a DataFrame for {symbol}")
+                self.log_message(f"? Loaded data is not a DataFrame for {symbol} {timeframe}")
                 return None
-            
-            # Check if DataFrame is empty
+
             if df.empty:
-                self.log_message(f"⚠️ Empty DataFrame for {symbol}")
-                return pd.DataFrame()  # Return empty DataFrame instead of None
-            
-            # Convert timestamp to datetime if needed
+                self.log_message(f"?? Empty DataFrame for {symbol} {timeframe}")
+                return pd.DataFrame()
+
             if 'timestamp' in df.columns and 'datetime' not in df.columns:
                 df['datetime'] = pd.to_datetime(df['timestamp'], unit='ms')
-            
-            # Sort by datetime
-            df = df.sort_values('datetime')
-            
-            # Get last 1000 rows for RSI calculation
+
+            if 'datetime' in df.columns:
+                df = df.sort_values('datetime')
+
             if len(df) > 1000:
                 df = df.tail(1000)
-            
-            self.log_message(f"✅ Loaded {len(df)} rows from CSV for {symbol}")
+
+            self.log_message(f"? Loaded {len(df)} rows from CSV for {symbol} {timeframe}")
             return df
-            
+
         except Exception as e:
-            self.log_message(f"❌ Error loading CSV for {symbol}: {e}")
+            self.log_message(f"? Error loading CSV for {symbol} {timeframe}: {e}")
             return None
-        
     def update_balance_after_trade(self, pnl_amount):
         """Update simulated balance after trade"""
         self.simulated_balance += pnl_amount
-        self.log_message(f"💰 Balance updated: ${self.simulated_balance:.2f} (P&L: ${pnl_amount:.2f})")
+        self.log_message(f"ðŸ’° Balance updated: ${self.simulated_balance:.2f} (P&L: ${pnl_amount:.2f})")
 
     def get_balance_info(self):
         """Get complete balance information"""
@@ -1439,7 +2027,7 @@ class PaperTradingEngine:
                     unrealized_pnl_total += unrealized_pnl
 
             except Exception as e:
-                self.log_message(f"⚠️ Could not get price for {symbol}: {e}")
+                self.log_message(f"âš ï¸ Could not get price for {symbol}: {e}")
 
         
         # Calculate total account value
@@ -1489,100 +2077,94 @@ class PaperTradingEngine:
         symbols_to_monitor, available_intervals = self.get_symbols_and_intervals_from_data_dir()
         #symbols_to_monitor = ['BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'DOTUSDT', 'ATOMUSDT', 'ALGOUSDT', 'VETUSDT', 'ICPUSDT', 'FILUSDT', 'AAVEUSDT', 'COMPUSDT', 'CRVUSDT', 'SNXUSDT', 'SUSHIUSDT', 'ARBUSDT', 'OPUSDT', 'NEARUSDT', 'GRTUSDT']
         #available_intervals = ['1', '5', '15', '60']  # We'll use 1-minute for trading
-
-        # For now, let's just use the 1-minute interval
-        if '1' not in available_intervals:
-            self.log_message("❌ No 1-minute interval data found. Cannot start.")
+        entry_timeframe = self._resolve_entry_timeframe()
+        entry_interval = self._normalize_timeframe(entry_timeframe)
+        if entry_interval not in available_intervals:
+            self.log_message(f"[ERROR] No {entry_timeframe} interval data found. Cannot start.")
             return
-            
-        self.log_message(f"📈 Monitoring {len(symbols_to_monitor)} symbols on the 1m interval.")
+
+        self.log_message(
+            f"[INFO] Monitoring {len(symbols_to_monitor)} symbols on entry timeframe {entry_timeframe}.",
+        )
         
         # Main CSV-based trading loop
         loop_count = 0
-
         while self.is_running:
             loop_count += 1
             self.log_message(f"\n=== Trading Loop #{loop_count} ===")
         
             # Check for position timeouts
             self.check_position_timeouts()
-
+            self._check_global_emergency_exits()
             # Process each symbol by reading from the latest CSV data
             for symbol in symbols_to_monitor:
                 try:
-                    # Get the latest data for the symbol from the CSV file
-                    historical_data = self.get_historical_data_for_symbol(symbol)
-                    
+                    entry_timeframe = self._resolve_entry_timeframe()
+                    historical_data = self.get_historical_data_for_symbol(symbol, entry_timeframe)
+
                     if historical_data is not None and not historical_data.empty:
-                        # Generate a trading signal based on this fresh data
                         signal = self.generate_trading_signal(symbol, historical_data.iloc[-1]['close'])
-                        
-                        # Handle different signal types
+
+                        if self.shadow_only and signal in ('OPEN_LONG', 'OPEN_SHORT', 'CLOSE_LONG', 'CLOSE_SHORT'):
+                            self.log_message(
+                                f"[SHADOW] {symbol} {signal} blocked in shadow_only mode"
+                            )
+                            self._record_shadow_event(symbol, signal, False, 'shadow_only_mode')
+                            continue
+
                         if signal == 'OPEN_LONG':
-                            # Check if we can open a new long position
                             if self.should_continue_trading():
-                                # Check if we don't already have a position for this symbol
                                 if symbol not in self.current_positions:
                                     self.execute_open_long(symbol)
                                     time.sleep(0.1)
                                 else:
-                                    self.log_message(f"⚠️ OPEN_LONG signal for {symbol} but position already open, skipping")
+                                    self.log_message(f"?? OPEN_LONG signal for {symbol} but position already open, skipping")
                             else:
-                                # Log why we're not opening a position
                                 if len(self.current_positions) >= self.max_positions:
-                                    self.log_message(f"⚠️ Max positions reached ({len(self.current_positions)} >= {self.max_positions}), skipping {symbol}")
+                                    self.log_message(f"?? Max positions reached ({len(self.current_positions)} >= {self.max_positions}), skipping {symbol}")
                                 elif hasattr(self, 'stop_trading_at_percentage') and self.stop_trading_at_percentage:
                                     min_balance = self.initial_balance * (self.stop_trading_at_percentage / 100)
                                     if self.simulated_balance < min_balance:
-                                        self.log_message(f"⚠️ Balance below threshold ({self.simulated_balance:.2f} < {min_balance:.2f}), skipping {symbol}")
-                        
+                                        self.log_message(f"?? Balance below threshold ({self.simulated_balance:.2f} < {min_balance:.2f}), skipping {symbol}")
+
                         elif signal == 'CLOSE_LONG':
-                            # Check if we have a long position to close
                             if symbol in self.current_positions and self.current_positions[symbol]['type'] == 'LONG':
                                 self.execute_close_long(symbol)
                                 time.sleep(0.1)
                             else:
-                                self.log_message(f"⚠️ CLOSE_LONG signal for {symbol} but no long position open, skipping")
-                        
+                                self.log_message(f"?? CLOSE_LONG signal for {symbol} but no long position open, skipping")
+
                         elif signal == 'OPEN_SHORT':
-                            # Check if we can open a new short position
                             if self.should_continue_trading():
-                                # Check if we don't already have a position for this symbol
                                 if symbol not in self.current_positions:
                                     self.execute_open_short(symbol)
                                     time.sleep(0.1)
                                 else:
-                                    self.log_message(f"⚠️ OPEN_SHORT signal for {symbol} but position already open, skipping")
+                                    self.log_message(f"?? OPEN_SHORT signal for {symbol} but position already open, skipping")
                             else:
-                                # Log why we're not opening a position
                                 if len(self.current_positions) >= self.max_positions:
-                                    self.log_message(f"⚠️ Max positions reached ({len(self.current_positions)} >= {self.max_positions}), skipping {symbol}")
+                                    self.log_message(f"?? Max positions reached ({len(self.current_positions)} >= {self.max_positions}), skipping {symbol}")
                                 elif hasattr(self, 'stop_trading_at_percentage') and self.stop_trading_at_percentage:
                                     min_balance = self.initial_balance * (self.stop_trading_at_percentage / 100)
                                     if self.simulated_balance < min_balance:
-                                        self.log_message(f"⚠️ Balance below threshold ({self.simulated_balance:.2f} < {min_balance:.2f}), skipping {symbol}")
-                        
+                                        self.log_message(f"?? Balance below threshold ({self.simulated_balance:.2f} < {min_balance:.2f}), skipping {symbol}")
+
                         elif signal == 'CLOSE_SHORT':
-                            # Check if we have a short position to close
                             if symbol in self.current_positions and self.current_positions[symbol]['type'] == 'SHORT':
                                 self.execute_close_short(symbol)
                                 time.sleep(0.1)
                             else:
-                                self.log_message(f"⚠️ CLOSE_SHORT signal for {symbol} but no short position open, skipping")
-                        
-                        # No need to log 'HOLD' to keep the log cleaner
-
+                                self.log_message(f"?? CLOSE_SHORT signal for {symbol} but no short position open, skipping")
                 except Exception as e:
-                    self.log_message(f"❌ Error processing {symbol}: {e}")
+                    self.log_message(f"âŒ Error processing {symbol}: {e}")
                     continue
             
             # Update performance and wait for the next minute
             self.update_performance_display()
             if self.is_running:
-                self.log_message("✅ Cycle complete. Waiting for the next minute...")
+                self.log_message("âœ… Cycle complete. Waiting for the next minute...")
                 time.sleep(60) # Wait 60 seconds before the next cycle
-
-        self.log_message("🛑 Trading loop ended")
+        self.log_message("ðŸ›‘ Trading loop ended")
     
     def update_performance(self):
         """Update performance display"""
@@ -1650,7 +2232,7 @@ class PaperTradingEngine:
                 return float(result['list'][0].get('lastPrice', 0))
             return 0
         except Exception as e:
-            self.log_message(f"❌ Error getting price from API: {e}")
+            self.log_message(f"âŒ Error getting price from API: {e}")
             return 0
         
     def get_performance_summary(self):
@@ -1683,7 +2265,14 @@ class PaperTradingEngine:
                 'closed_trades': self.closed_trades_count,
                 'win_rate': win_rate,
                 'open_positions': len(self.current_positions),
-                'status': 'Running' if self.is_running else 'Stopped'
+                'status': 'Running' if self.is_running else 'Stopped',
+                'global_rules': {
+                    'enabled': bool(getattr(getattr(self, 'global_rules', None), 'enabled', False)),
+                    'profile': str(getattr(getattr(self, 'global_rules', None), 'profile', 'balanced')),
+                    'blocked_signals': int(getattr(self, 'global_rule_stats', {}).get('blocked_signals', 0)),
+                    'blocked_reasons': dict(getattr(self, 'global_rule_stats', {}).get('blocked_reasons', {})),
+                    'emergency_closes': int(getattr(self, 'global_rule_stats', {}).get('emergency_closes', 0)),
+                },
             }
             
             return summary
@@ -1698,7 +2287,7 @@ class PaperTradingEngine:
         """Stop paper trading"""
         self.is_running = False
         self.trading_loop_active = False
-        self.log_message("🛑 Paper trading stopped by user")
+        self.log_message("ðŸ›‘ Paper trading stopped by user")
 
     def update_performance_display(self):
         """
@@ -1715,7 +2304,7 @@ class PaperTradingEngine:
                 
             # Optional: Log a summary to console
             self.log_message(
-                f"💰 Perf: ${performance['account_value']:.2f} | "
+                f"ðŸ’° Perf: ${performance['account_value']:.2f} | "
                 f"If Close Now: ${performance['liquidation_value']:.2f} | "
                 f"P&L: ${performance['total_pnl']:.2f} | "
                 f"Realized: ${performance.get('realized_pnl', 0.0):.2f} | "
@@ -1726,7 +2315,7 @@ class PaperTradingEngine:
             )
                 
         except Exception as e:
-            self.log_message(f"❌ Error updating performance: {e}")
+            self.log_message(f"âŒ Error updating performance: {e}")
             
     def get_symbols_and_intervals_from_data_dir(self):
         """
@@ -1743,7 +2332,7 @@ class PaperTradingEngine:
         intervals = set()
         file_count = 0
 
-        self.log_message(f"🔍 Scanning for symbols in {data_dir}...")
+        self.log_message(f"ðŸ” Scanning for symbols in {data_dir}...")
 
         try:
             for filename in os.listdir(data_dir):
@@ -1757,17 +2346,17 @@ class PaperTradingEngine:
                         intervals.add(interval)
                         file_count += 1
         except FileNotFoundError:
-            self.log_message(f"❌ Error: Data directory not found at {data_dir}")
+            self.log_message(f"âŒ Error: Data directory not found at {data_dir}")
             return [], []
 
         end_time = time.time()
         duration = end_time - start_time
 
         # Log the statistics
-        self.log_message(f"✅ Scan complete in {duration:.2f} seconds.")
-        self.log_message(f"📊 Found {file_count} data files.")
-        self.log_message(f"📈 Found {len(symbols)} unique symbols: {', '.join(list(symbols)[:10])}...")
-        self.log_message(f"⏱️ Found {len(intervals)} unique intervals: {', '.join(sorted(list(intervals)))}")
+        self.log_message(f"âœ… Scan complete in {duration:.2f} seconds.")
+        self.log_message(f"ðŸ“Š Found {file_count} data files.")
+        self.log_message(f"ðŸ“ˆ Found {len(symbols)} unique symbols: {', '.join(list(symbols)[:10])}...")
+        self.log_message(f"â±ï¸ Found {len(intervals)} unique intervals: {', '.join(sorted(list(intervals)))}")
 
         return sorted(list(symbols)), sorted(list(intervals))
 

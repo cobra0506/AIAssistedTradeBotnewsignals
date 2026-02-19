@@ -4,6 +4,10 @@
 - Explain in simple language.
 - No jargon. If a technical word is required, define it in 1 short line.
 - Keep answers short and actionable.
+- Be concise
+- Include key reasoning steps briefly
+- Avoid long explanations unless asked
+- Prefer bullet points over paragraphs
 
 ## Project safety (DO NOT BREAK SHARED CODE)
 - This codebase is shared by the Backtester AND the Paper Trader (and later the Real Trader).

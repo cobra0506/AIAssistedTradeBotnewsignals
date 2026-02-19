@@ -12,8 +12,11 @@ Note: `simple_strategy/backtester/position_manager.py` exists but the current en
 
 ## How It Works (High Level)
 1. Load historical OHLCV data for symbols/timeframes via `DataFeeder`.
-2. Pre-calculate indicators (currently EMA/RSI in `_precalculate_indicators`).
-3. Generate signals per-bar (uses `strategy.builder` rules or `generate_signals_vectorized` when present).
+2. Pre-calculate baseline indicators (EMA/RSI in `_precalculate_indicators`) for fast loop execution.
+3. Generate signals per-bar:
+- Builder strategies: backtester calculates builder-specific indicators first, then executes builder signal rules.
+- Vectorized strategies: uses `generate_signals_vectorized` when present.
+- Other strategies: falls back to `generate_signals` on rolling history windows.
 4. Execute trades with slippage/spread/fee simulation and risk-based sizing.
 5. Close remaining positions and compute metrics.
 
@@ -43,6 +46,7 @@ Stored fields include initial balance and net profit/loss.
 
 ## Notes
 - `progress_callback` can be provided to track progress.
+- Generated Fast/Unique strategies built with `StrategyBuilder` now run directly in backtester without manual edits.
 
 ## Integration Points
 - Strategy Builder (strategy objects)

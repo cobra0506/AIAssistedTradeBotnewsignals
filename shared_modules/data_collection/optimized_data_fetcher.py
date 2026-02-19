@@ -355,6 +355,7 @@ class OptimizedDataFetcher:
         """Make a rate-limited request to Bybit API"""
         url = f"https://api.bybit.com/v5/market/kline"
         max_retries = self.config.BULK_MAX_RETRIES
+        retry_delay = 1.0
         
         for attempt in range(max_retries):
             try:

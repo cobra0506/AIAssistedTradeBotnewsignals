@@ -670,6 +670,24 @@ class SimpleStrategyGUI:
         self.risk_per_trade_var = tk.StringVar(value="2.0")
         ttk.Entry(trading_frame, textvariable=self.risk_per_trade_var, width=15).grid(row=2, column=1, padx=5, pady=2)
 
+        ttk.Label(trading_frame, text="Enable Global Rules:").grid(row=3, column=0, sticky="w", padx=5, pady=2)
+        self.enable_global_rules_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(trading_frame, variable=self.enable_global_rules_var).grid(row=3, column=1, sticky="w", padx=5, pady=2)
+
+        ttk.Label(trading_frame, text="Global Rules Profile:").grid(row=4, column=0, sticky="w", padx=5, pady=2)
+        self.global_rules_profile_var = tk.StringVar(value="balanced")
+        ttk.Combobox(
+            trading_frame,
+            textvariable=self.global_rules_profile_var,
+            values=["safe", "balanced", "aggressive"],
+            width=12,
+            state="readonly",
+        ).grid(row=4, column=1, sticky="w", padx=5, pady=2)
+
+        ttk.Label(trading_frame, text="Min 24h Notional (USDT):").grid(row=5, column=0, sticky="w", padx=5, pady=2)
+        self.min_24h_notional_var = tk.StringVar(value="50000000")
+        ttk.Entry(trading_frame, textvariable=self.min_24h_notional_var, width=15).grid(row=5, column=1, padx=5, pady=2)
+
         # Run Backtest Button
         self.run_btn = ttk.Button(config_frame, text="🚀 Run Backtest", command=self.run_backtest)
         self.run_btn.grid(row=4, column=0, columnspan=2, pady=10)
@@ -975,9 +993,12 @@ class SimpleStrategyGUI:
             initial_balance = float(self.initial_balance_var.get())
             max_positions = int(self.max_positions_var.get())
             risk_per_trade = float(self.risk_per_trade_var.get()) / 100.0
+            min_24h_notional_usdt = float(self.min_24h_notional_var.get())
         except ValueError:
             messagebox.showerror("Error", "Invalid trading settings!")
             return
+        enable_global_rules = bool(self.enable_global_rules_var.get())
+        global_rules_profile = str(self.global_rules_profile_var.get()).strip().lower() or "balanced"
         
         self.status_var.set("Running backtest...")
         self.results_text.delete(1.0, tk.END)
@@ -1024,6 +1045,14 @@ class SimpleStrategyGUI:
                 self.results_text.insert(tk.END, f"Initial Balance: ${initial_balance}\n")
                 self.results_text.insert(tk.END, f"Max Positions: {max_positions}\n")
                 self.results_text.insert(tk.END, f"Risk Per Trade: {risk_per_trade*100:.1f}%\n")
+                self.results_text.insert(
+                    tk.END,
+                    f"Global Rules: {'ON' if enable_global_rules else 'OFF'} ({global_rules_profile})\n",
+                )
+                self.results_text.insert(
+                    tk.END,
+                    f"Min 24h Notional: ${min_24h_notional_usdt:,.0f}\n",
+                )
                 self.results_text.insert(tk.END, f"=" * 50 + "\n\n")
                 
                 # Check data files
@@ -1051,7 +1080,14 @@ class SimpleStrategyGUI:
                         'processing_mode': 'sequential',
                         'batch_size': 1000,
                         'memory_limit_percent': 70,
-                        'enable_parallel_processing': False
+                        'enable_parallel_processing': False,
+                        'max_positions': max_positions,
+                        'risk_per_trade': risk_per_trade,
+                        'enable_global_rules': enable_global_rules,
+                        'global_rules_profile': global_rules_profile,
+                        'global_rules': {
+                            'min_24h_notional_usdt': min_24h_notional_usdt,
+                        },
                     }
                 )
 

@@ -21,6 +21,7 @@ import json
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from shared.data_feeder import DataFeeder
 from shared.strategy_base import StrategyBase
+from simple_strategy.shared.global_rules import GlobalRules, resolve_global_rules
 
 # Configure logging to reduce debug output
 logging.basicConfig(
@@ -56,6 +57,12 @@ class BacktesterEngine:
         self.strategy = strategy
         self.risk_manager = risk_manager or RiskManager()  # Use default if not provided
         self.config = config or {}
+        self.global_rules: GlobalRules = resolve_global_rules(self.config)
+        self._global_rule_stats = {
+            'blocked_signals': 0,
+            'blocked_reasons': {},
+            'emergency_closes': 0,
+        }
         
         # Backtester state
         self.is_running = False
@@ -130,6 +137,230 @@ class BacktesterEngine:
 
         return unrealized
 
+    def _refresh_runtime_config(self, runtime_config: Optional[Dict[str, Any]] = None) -> None:
+        if runtime_config:
+            merged = dict(self.config)
+            merged.update(runtime_config)
+            self.config = merged
+        self.global_rules = resolve_global_rules(self.config)
+        self._global_rule_stats = {
+            'blocked_signals': 0,
+            'blocked_reasons': {},
+            'emergency_closes': 0,
+        }
+
+    @staticmethod
+    def _timeframe_to_minutes(timeframe: str) -> int:
+        text = str(timeframe).strip().lower()
+        if not text:
+            return 1
+
+        suffix = text[-1]
+        try:
+            value = int(text[:-1]) if suffix in {'m', 'h', 'd'} else int(text)
+        except ValueError:
+            return 1
+
+        if suffix == 'h':
+            return max(1, value * 60)
+        if suffix == 'd':
+            return max(1, value * 1440)
+        return max(1, value)
+
+    def _estimate_24h_notional(self, df: pd.DataFrame, index: int, timeframe: str) -> float:
+        if df is None or df.empty or index < 0:
+            return 0.0
+
+        timeframe_minutes = self._timeframe_to_minutes(timeframe)
+        bars = max(1, int((24 * 60) / timeframe_minutes))
+        start_idx = max(0, index - bars + 1)
+        window = df.iloc[start_idx:index + 1]
+        if window.empty:
+            return 0.0
+
+        for col in ('quote_volume', 'quoteVolume', 'turnover', 'notional', 'value'):
+            if col in window.columns:
+                values = pd.to_numeric(window[col], errors='coerce').fillna(0.0)
+                return float(values.sum())
+
+        if 'volume' in window.columns and 'close' in window.columns:
+            volume = pd.to_numeric(window['volume'], errors='coerce').fillna(0.0)
+            close = pd.to_numeric(window['close'], errors='coerce').fillna(0.0)
+            return float((volume * close).sum())
+
+        return 0.0
+
+    def _total_open_notional(self) -> float:
+        return float(
+            sum(
+                abs(float(pos.get('entry_price', 0.0)) * float(pos.get('quantity', 0.0)))
+                for pos in self.positions.values()
+            )
+        )
+
+    def _total_open_risk(self) -> float:
+        total = 0.0
+        for pos in self.positions.values():
+            entry_price = float(pos.get('entry_price', 0.0))
+            quantity = float(pos.get('quantity', 0.0))
+            stop_loss_pct = float(pos.get('stop_loss_pct', self.global_rules.position_stop_loss_pct))
+            total += abs(entry_price * quantity) * max(0.0, stop_loss_pct)
+        return float(total)
+
+    def _expected_move_pct(self) -> float:
+        for attr in ('expected_move_pct', 'take_profit_pct', 'target_profit_pct', 'tp_pct'):
+            value = getattr(self.strategy, attr, None)
+            if value is None:
+                continue
+            try:
+                numeric = float(value)
+            except (TypeError, ValueError):
+                continue
+            if numeric <= 0.0:
+                continue
+            if numeric > 1.0:
+                return numeric
+            return numeric * 100.0
+        return max(0.1, self.global_rules.position_stop_loss_pct * 200.0)
+
+    def _record_global_block(self, reason: str) -> None:
+        if not reason:
+            return
+        self._global_rule_stats['blocked_signals'] += 1
+        blocked = self._global_rule_stats.setdefault('blocked_reasons', {})
+        blocked[reason] = int(blocked.get(reason, 0)) + 1
+
+    def _can_open_with_global_rules(
+        self,
+        symbol: str,
+        timeframe: str,
+        df: pd.DataFrame,
+        row_index: int,
+        entry_price: float,
+        quantity: float,
+    ) -> Tuple[bool, str]:
+        rules = self.global_rules
+        if not rules.enabled:
+            return True, 'rules_disabled'
+
+        if quantity <= 0.0 or entry_price <= 0.0:
+            return False, 'invalid_order_size'
+
+        if rules.one_position_per_symbol and symbol in self.positions:
+            return False, 'position_already_open'
+
+        min_notional = float(rules.min_24h_notional_usdt)
+        if min_notional > 0.0:
+            estimated_24h_notional = self._estimate_24h_notional(df=df, index=row_index, timeframe=timeframe)
+            if estimated_24h_notional <= 0.0 or estimated_24h_notional < min_notional:
+                return False, 'liquidity_below_min_notional'
+
+        spread_pct = float(self.config.get('spread_pct', 0.0004))
+        slippage_pct = float(self.config.get('slippage_pct', 0.0003))
+        spread_bps = (max(0.0, spread_pct) + max(0.0, slippage_pct)) * 10000.0
+        if rules.max_spread_bps > 0.0 and spread_bps > float(rules.max_spread_bps):
+            return False, 'spread_above_limit'
+
+        fee_pct = float(self.config.get('fee_pct', 0.00055))
+        round_trip_cost_pct = rules.round_trip_cost_pct(fee_pct=fee_pct, spread_pct=spread_pct, slippage_pct=slippage_pct)
+        expected_move_pct = self._expected_move_pct()
+        if round_trip_cost_pct > 0.0 and rules.min_expected_move_to_cost_ratio > 0.0:
+            ratio = expected_move_pct / round_trip_cost_pct
+            if ratio < float(rules.min_expected_move_to_cost_ratio):
+                return False, 'expected_move_below_cost_ratio'
+
+        planned_notional = abs(entry_price * quantity)
+        max_notional_allowed = max(0.0, float(self.initial_balance) * float(rules.max_notional_exposure_pct))
+        if max_notional_allowed > 0.0:
+            if (self._total_open_notional() + planned_notional) > (max_notional_allowed + 1e-9):
+                return False, 'max_notional_exposure_exceeded'
+
+        planned_risk = planned_notional * max(0.0, float(rules.position_stop_loss_pct))
+        max_total_open_risk = max(0.0, float(self.initial_balance) * float(rules.max_total_open_risk_pct))
+        if max_total_open_risk > 0.0:
+            if (self._total_open_risk() + planned_risk) > (max_total_open_risk + 1e-9):
+                return False, 'max_total_open_risk_exceeded'
+
+        return True, 'allowed'
+
+    def _check_emergency_close_reason(
+        self,
+        symbol: str,
+        current_price: float,
+        timestamp: Any,
+    ) -> Optional[str]:
+        rules = self.global_rules
+        if not rules.enabled or not rules.emergency_close_enabled:
+            return None
+
+        position = self.positions.get(symbol)
+        if position is None:
+            return None
+
+        entry_ts = position.get('entry_timestamp')
+        if entry_ts is not None:
+            try:
+                hold_minutes = (pd.Timestamp(timestamp) - pd.Timestamp(entry_ts)).total_seconds() / 60.0
+                if hold_minutes >= float(rules.max_hold_minutes):
+                    return 'max_hold_minutes'
+            except Exception:
+                pass
+
+        entry_price = float(position.get('entry_price', 0.0))
+        if entry_price <= 0.0 or current_price <= 0.0:
+            return None
+
+        stop_loss_pct = max(0.0, float(position.get('stop_loss_pct', rules.position_stop_loss_pct)))
+        is_short = bool(position.get('is_short', False))
+
+        if is_short:
+            stop_price = entry_price * (1.0 + stop_loss_pct)
+            if current_price >= stop_price:
+                return 'stop_loss_hit'
+        else:
+            stop_price = entry_price * (1.0 - stop_loss_pct)
+            if current_price <= stop_price:
+                return 'stop_loss_hit'
+
+        return None
+
+    def _close_position(self, symbol: str, current_price: float, timestamp: Any, reason: str) -> bool:
+        position = self.positions.get(symbol)
+        if position is None:
+            return False
+
+        is_short = bool(position.get('is_short', False))
+        entry_price = float(position.get('entry_price', 0.0))
+        quantity = float(position.get('quantity', 0.0))
+        entry_timestamp = position.get('entry_timestamp')
+        if quantity <= 0.0:
+            self.positions.pop(symbol, None)
+            return False
+
+        execution_side = 'price_up' if is_short else 'price_down'
+        exit_price = self.get_execution_price(float(current_price), execution_side)
+        gross_pnl = (entry_price - exit_price) * quantity if is_short else (exit_price - entry_price) * quantity
+        fee = self.apply_fees(exit_price * quantity)
+        net_pnl = gross_pnl - fee
+        self.balance += net_pnl
+
+        direction = 'CLOSE_SHORT' if is_short else 'CLOSE_LONG'
+        trade_record = {
+            'symbol': symbol,
+            'direction': direction,
+            'entry_price': entry_price,
+            'exit_price': exit_price,
+            'size': quantity,
+            'entry_timestamp': entry_timestamp,
+            'exit_timestamp': timestamp,
+            'pnl': net_pnl,
+            'exit_reason': reason,
+        }
+        self.performance_tracker.record_trade(trade_record)
+        self.positions.pop(symbol, None)
+        print(f"CLOSE {direction}: {symbol} at {exit_price} (PnL: {net_pnl:.4f}, reason: {reason})")
+        return True
+
 
     def run_backtest(self, symbols, timeframes, start_date, end_date, config=None, strategy=None, data=None, initial_balance=None, progress_callback=None):
         """
@@ -160,6 +391,7 @@ class BacktesterEngine:
             pass # Silently fail parameter loading to keep flow going
         
         try:
+            self._refresh_runtime_config(config)
             # Initial balance
             initial_balance = initial_balance or (config['initial_balance'] if config and 'initial_balance' in config else 10000.0)
             
@@ -197,9 +429,17 @@ class BacktesterEngine:
             self.performance_tracker = PerformanceTracker(initial_balance=initial_balance)
             self.positions = {}
             self._debug_count = []
+            self._global_rule_stats['blocked_signals'] = 0
+            self._global_rule_stats['blocked_reasons'] = {}
+            self._global_rule_stats['emergency_closes'] = 0
             
             # Track signal history for debugging
-            signal_history = {symbol: {timeframe: [] for timeframe in timeframes} for symbol in symbols}
+            resolved_symbols = list(symbols or data_with_indicators.keys())
+            resolved_timeframes = list(timeframes or (strategy.timeframes if hasattr(strategy, 'timeframes') else []))
+            signal_history = {
+                symbol: {timeframe: [] for timeframe in resolved_timeframes}
+                for symbol in resolved_symbols
+            }
             
             # Main loop - optimized version
             total_rows = sum(len(data[s][t]) for s in data for t in data[s])
@@ -215,7 +455,12 @@ class BacktesterEngine:
                     signals_series = None
                     if use_builder_signals:
                         try:
-                            signals_series = strategy.builder._execute_signal_rules(df)
+                            # Builder strategies define their own indicator names
+                            # (for example: rsi_main), so calculate them before
+                            # executing signal rules.
+                            builder_df = df.copy()
+                            strategy.builder._calculate_indicators(builder_df)
+                            signals_series = strategy.builder._execute_signal_rules(builder_df)
                         except Exception:
                             signals_series = None
                     elif hasattr(strategy, 'generate_signals_vectorized'):
@@ -262,20 +507,38 @@ class BacktesterEngine:
 
                         
                         # Track signal history
+                        if symbol not in signal_history:
+                            signal_history[symbol] = {}
+                        if timeframe not in signal_history[symbol]:
+                            signal_history[symbol][timeframe] = []
                         signal_history[symbol][timeframe].append((timestamp, signal))
                         
                         # Debug all trading signals
                         if self.debug_signals:
                             self._debug_signal(symbol, timeframe, timestamp, signal, df.iloc[i], signal_history[symbol][timeframe][-5:]) 
 
-                        current_price = df.iloc[i]['close']
+                        current_price = float(df.iloc[i]['close'])
+
+                        emergency_reason = self._check_emergency_close_reason(
+                            symbol=symbol,
+                            current_price=current_price,
+                            timestamp=timestamp,
+                        )
+                        if emergency_reason:
+                            if self._close_position(
+                                symbol=symbol,
+                                current_price=current_price,
+                                timestamp=timestamp,
+                                reason=f"emergency_{emergency_reason}",
+                            ):
+                                self._global_rule_stats['emergency_closes'] += 1
                         
                         # === TRADE EXECUTION ===
                         if signal in ['OPEN_LONG', 'CLOSE_LONG', 'OPEN_SHORT', 'CLOSE_SHORT']:
                             # Add validation for CLOSE signals
                             if signal in ['CLOSE_LONG', 'CLOSE_SHORT']:
                                 if symbol not in self.positions:
-                                    #print(f"⚠️ WARNING: {signal} signal for {symbol} but no open position. Skipping.")
+                                    #print(f" WARNING: {signal} signal for {symbol} but no open position. Skipping.")
                                     # Check if we ever had an OPEN signal for this symbol
                                     recent_signals = [s[1] for s in signal_history[symbol][timeframe][-10:]]
                                     has_open_signal = any(s in ['OPEN_LONG', 'OPEN_SHORT'] for s in recent_signals)
@@ -285,11 +548,11 @@ class BacktesterEngine:
                                     continue
                                 if signal == 'CLOSE_LONG' and self.positions[symbol].get('is_short', False):
                                     if self.debug_signals:
-                                        print(f"⚠️ WARNING: CLOSE_LONG signal for {symbol} but position is SHORT. Skipping.")
+                                        print(f" WARNING: CLOSE_LONG signal for {symbol} but position is SHORT. Skipping.")
                                     continue
                                 if signal == 'CLOSE_SHORT' and not self.positions[symbol].get('is_short', False):
                                     if self.debug_signals:
-                                        print(f"⚠️ WARNING: CLOSE_SHORT signal for {symbol} but position is LONG. Skipping.")
+                                        print(f" WARNING: CLOSE_SHORT signal for {symbol} but position is LONG. Skipping.")
                                     continue
                             
                             if signal == 'OPEN_LONG':
@@ -297,92 +560,110 @@ class BacktesterEngine:
                                 if len(self.positions) >= max_positions:
                                     continue
                                 if symbol not in self.positions:
-                                    entry_price = self.get_execution_price(current_price, 'BUY')
-                                    stop_price = entry_price * 0.99
+                                    entry_price = self.get_execution_price(current_price, 'price_up')
+                                    stop_loss_pct = (
+                                        self.global_rules.position_stop_loss_pct
+                                        if self.global_rules.enabled
+                                        else 0.01
+                                    )
+                                    stop_price = entry_price * (1.0 - stop_loss_pct)
                                     quantity = self.get_order_size(symbol, entry_price, stop_price)
+                                    if quantity <= 0:
+                                        continue
+                                    allowed, reason = self._can_open_with_global_rules(
+                                        symbol=symbol,
+                                        timeframe=timeframe,
+                                        df=df,
+                                        row_index=i,
+                                        entry_price=entry_price,
+                                        quantity=quantity,
+                                    )
+                                    if not allowed:
+                                        self._record_global_block(reason)
+                                        continue
                                     fee = self.apply_fees(entry_price * quantity)
                                     self.balance -= fee
-                                    self.positions[symbol] = {'entry_price': entry_price, 'quantity': quantity, 'entry_timestamp': timestamp, 'is_short': False}
-                                    print(f"🟢 OPEN_LONG: {symbol} at {entry_price} (qty: {quantity})")
+                                    self.positions[symbol] = {
+                                        'entry_price': entry_price,
+                                        'quantity': quantity,
+                                        'entry_timestamp': timestamp,
+                                        'is_short': False,
+                                        'stop_loss_pct': stop_loss_pct,
+                                        'owner_strategy': strategy.name if hasattr(strategy, 'name') else strategy.__class__.__name__,
+                                        'entry_timeframe': timeframe,
+                                    }
+                                    print(f" OPEN_LONG: {symbol} at {entry_price} (qty: {quantity})")
                             elif signal == 'CLOSE_LONG':
                                 # Only process if we have a long position
                                 if symbol in self.positions and not self.positions[symbol].get('is_short', False):
-                                    position = self.positions.pop(symbol)
-                                    entry_price = position['entry_price']
-                                    quantity = position['quantity']
-                                    exit_price = self.get_execution_price(current_price, 'SELL')
-                                    gross_pnl = (exit_price - entry_price) * quantity
-                                    fee = self.apply_fees(exit_price * quantity)
-                                    net_pnl = gross_pnl - fee
-                                    self.balance += net_pnl
-                                    self.performance_tracker.record_trade({
-                                        'symbol': symbol, 'direction': 'CLOSE_LONG',
-                                        'entry_price': entry_price, 'exit_price': exit_price,
-                                        'size': quantity, 'entry_timestamp': position['entry_timestamp'],
-                                        'exit_timestamp': timestamp, 'pnl': net_pnl
-                                    })
-                                    print(f"🔴 CLOSE_LONG: {symbol} at {exit_price} (PnL: {net_pnl})")
+                                    self._close_position(
+                                        symbol=symbol,
+                                        current_price=current_price,
+                                        timestamp=timestamp,
+                                        reason='strategy_signal',
+                                    )
                             elif signal == 'OPEN_SHORT':
                                 max_positions = self.config.get('max_positions', 3)
                                 if len(self.positions) >= max_positions:
                                     continue
                                 if symbol not in self.positions:
-                                    entry_price = self.get_execution_price(current_price, 'SELL')
-                                    stop_price = entry_price * 1.01
+                                    entry_price = self.get_execution_price(current_price, 'price_down')
+                                    stop_loss_pct = (
+                                        self.global_rules.position_stop_loss_pct
+                                        if self.global_rules.enabled
+                                        else 0.01
+                                    )
+                                    stop_price = entry_price * (1.0 + stop_loss_pct)
                                     quantity = self.get_order_size(symbol, entry_price, stop_price)
+                                    if quantity <= 0:
+                                        continue
+                                    allowed, reason = self._can_open_with_global_rules(
+                                        symbol=symbol,
+                                        timeframe=timeframe,
+                                        df=df,
+                                        row_index=i,
+                                        entry_price=entry_price,
+                                        quantity=quantity,
+                                    )
+                                    if not allowed:
+                                        self._record_global_block(reason)
+                                        continue
                                     fee = self.apply_fees(entry_price * quantity)
                                     self.balance -= fee
-                                    self.positions[symbol] = {'entry_price': entry_price, 'quantity': quantity, 'entry_timestamp': timestamp, 'is_short': True}
-                                    print(f"🟢 OPEN_SHORT: {symbol} at {entry_price} (qty: {quantity})")
+                                    self.positions[symbol] = {
+                                        'entry_price': entry_price,
+                                        'quantity': quantity,
+                                        'entry_timestamp': timestamp,
+                                        'is_short': True,
+                                        'stop_loss_pct': stop_loss_pct,
+                                        'owner_strategy': strategy.name if hasattr(strategy, 'name') else strategy.__class__.__name__,
+                                        'entry_timeframe': timeframe,
+                                    }
+                                    print(f"OPEN_SHORT: {symbol} at {entry_price} (qty: {quantity})")
                             elif signal == 'CLOSE_SHORT':
                                 # Only process if we have a short position
                                 if symbol in self.positions and self.positions[symbol].get('is_short', False):
-                                    position = self.positions.pop(symbol)
-                                    entry_price = position['entry_price']
-                                    quantity = position['quantity']
-                                    exit_price = self.get_execution_price(current_price, 'BUY')
-                                    gross_pnl = (entry_price - exit_price) * quantity
-                                    fee = self.apply_fees(exit_price * quantity)
-                                    net_pnl = gross_pnl - fee
-                                    self.balance += net_pnl
-                                    self.performance_tracker.record_trade({
-                                        'symbol': symbol, 'direction': 'CLOSE_SHORT',
-                                        'entry_price': entry_price, 'exit_price': exit_price,
-                                        'size': quantity, 'entry_timestamp': position['entry_timestamp'],
-                                        'exit_timestamp': timestamp, 'pnl': net_pnl
-                                    })
-                                    print(f"🔴 CLOSE_SHORT: {symbol} at {exit_price} (PnL: {net_pnl})")
+                                    self._close_position(
+                                        symbol=symbol,
+                                        current_price=current_price,
+                                        timestamp=timestamp,
+                                        reason='strategy_signal',
+                                    )
 
 
             # === CLOSE REMAINING POSITIONS ===
-            for symbol, position in list(self.positions.items()):
-                last_symbol_data = max([data_with_indicators[symbol][tf] for tf in data_with_indicators[symbol]], key=lambda x: x.index[-1])
-                current_price = last_symbol_data.iloc[-1]['close']
-                entry_price = position['entry_price']
-                quantity = position['quantity']
-                is_short = position.get('is_short', False)
-                entry_timestamp = position['entry_timestamp']
-                
-                if is_short:
-                    exit_price = self.get_execution_price(current_price, 'BUY')
-                    gross_pnl = (entry_price - exit_price) * quantity
-                else:
-                    exit_price = self.get_execution_price(current_price, 'SELL')
-                    gross_pnl = (exit_price - entry_price) * quantity
-                
-                fee = self.apply_fees(exit_price * quantity)
-                net_pnl = gross_pnl - fee
-                self.balance += net_pnl
-                direction = 'CLOSE_SHORT' if is_short else 'CLOSE_LONG'
-                
-                self.performance_tracker.record_trade({
-                    'symbol': symbol, 'direction': direction,
-                    'entry_price': entry_price, 'exit_price': current_price,
-                    'size': quantity, 'entry_timestamp': entry_timestamp,
-                    'exit_timestamp': last_symbol_data.index[-1], 'pnl': net_pnl
-                })
-                print(f"🔴 CLOSE {direction}: {symbol} at {exit_price} (PnL: {net_pnl})")
-                del self.positions[symbol]
+            for symbol in list(self.positions.keys()):
+                last_symbol_data = max(
+                    [data_with_indicators[symbol][tf] for tf in data_with_indicators[symbol]],
+                    key=lambda x: x.index[-1],
+                )
+                current_price = float(last_symbol_data.iloc[-1]['close'])
+                self._close_position(
+                    symbol=symbol,
+                    current_price=current_price,
+                    timestamp=last_symbol_data.index[-1],
+                    reason='end_of_backtest',
+                )
             
             # === FINAL EQUITY & DRAWDOWN UPDATE ===
             self.equity = self.balance
@@ -427,7 +708,14 @@ class BacktesterEngine:
                 'total_trades': metrics['total_trades'],
                 'start_time': start_dt,
                 'end_time': end_dt,
-                'duration': duration_str
+                'duration': duration_str,
+                'global_rules': {
+                    'enabled': bool(self.global_rules.enabled),
+                    'profile': str(self.global_rules.profile),
+                    'blocked_signals': int(self._global_rule_stats.get('blocked_signals', 0)),
+                    'blocked_reasons': dict(self._global_rule_stats.get('blocked_reasons', {})),
+                    'emergency_closes': int(self._global_rule_stats.get('emergency_closes', 0)),
+                },
             }
 
         except Exception as e:
@@ -439,7 +727,14 @@ class BacktesterEngine:
                 'sharpe_ratio': 0.0,
                 'max_drawdown': 0.0,
                 'total_return': 0.0,
-                'total_trades': 0
+                'total_trades': 0,
+                'global_rules': {
+                    'enabled': bool(self.global_rules.enabled),
+                    'profile': str(self.global_rules.profile),
+                    'blocked_signals': int(self._global_rule_stats.get('blocked_signals', 0)),
+                    'blocked_reasons': dict(self._global_rule_stats.get('blocked_reasons', {})),
+                    'emergency_closes': int(self._global_rule_stats.get('emergency_closes', 0)),
+                },
             }
 
     
@@ -546,19 +841,19 @@ class BacktesterEngine:
         try:
             # Check if current_data is the expected structure
             if not isinstance(current_data, dict) or symbol not in current_data:
-                logger.warning(f"⚠️ Invalid data structure for {symbol}")
+                logger.warning(f" Invalid data structure for {symbol}")
                 return 50000.0  # Return a reasonable default price
             
             # Get the first timeframe data for this symbol
             if not current_data[symbol]:
-                logger.warning(f"⚠️ No timeframe data for {symbol}")
+                logger.warning(f" No timeframe data for {symbol}")
                 return 50000.0
             
             # Get the first timeframe DataFrame
             timeframe_data = list(current_data[symbol].values())[0]
             
             if timeframe_data.empty:
-                logger.warning(f"⚠️ Empty DataFrame for {symbol}")
+                logger.warning(f" Empty DataFrame for {symbol}")
                 return 50000.0
             
             # Get the last close price
@@ -566,13 +861,13 @@ class BacktesterEngine:
             
             # Ensure it's a valid price
             if pd.isna(current_price) or current_price <= 0:
-                logger.warning(f"⚠️ Invalid price {current_price} for {symbol}")
+                logger.warning(f" Invalid price {current_price} for {symbol}")
                 return 50000.0
             
             return float(current_price)
             
         except Exception as e:
-            logger.error(f"❌ Error getting current price for {symbol}: {e}")
+            logger.error(f" Error getting current price for {symbol}: {e}")
             # Return a reasonable default instead of 0
             return 50000.0
     
@@ -635,13 +930,13 @@ class BacktesterEngine:
         Display backtest results in a formatted way
         """
         print("\n" + "="*50)
-        print("📊 BACKTEST RESULTS")
+        print(" BACKTEST RESULTS")
         print("="*50)
-        print(f"💰 Total Return: {performance_metrics['total_return']:.2f}%")
-        print(f"🎯 Win Rate: {performance_metrics['win_rate']:.2f}%")
-        print(f"📈 Sharpe Ratio: {performance_metrics['sharpe_ratio']:.2f}")
-        print(f"📉 Max Drawdown: {performance_metrics['max_drawdown']:.2f}%")
-        print(f"🔄 Total Trades: {len(self.trades)}")
+        print(f" Total Return: {performance_metrics['total_return']:.2f}%")
+        print(f" Win Rate: {performance_metrics['win_rate']:.2f}%")
+        print(f" Sharpe Ratio: {performance_metrics['sharpe_ratio']:.2f}")
+        print(f" Max Drawdown: {performance_metrics['max_drawdown']:.2f}%")
+        print(f" Total Trades: {len(self.trades)}")
         print("="*50)
     
     def get_status(self) -> Dict[str, Any]:
@@ -669,7 +964,14 @@ class BacktesterEngine:
                 'win_rate_pct': 0.0,
                 'sharpe_ratio': 0.0,
                 'max_drawdown_pct': self.max_drawdown * 100,
-                'total_trades': 0
+                'total_trades': 0,
+                'global_rules': {
+                    'enabled': bool(self.global_rules.enabled),
+                    'profile': str(self.global_rules.profile),
+                    'blocked_signals': int(self._global_rule_stats.get('blocked_signals', 0)),
+                    'blocked_reasons': dict(self._global_rule_stats.get('blocked_reasons', {})),
+                    'emergency_closes': int(self._global_rule_stats.get('emergency_closes', 0)),
+                },
             }
         
         trades = self.performance_tracker.trades
@@ -696,7 +998,14 @@ class BacktesterEngine:
             'win_rate_pct': win_rate,
             'sharpe_ratio': sharpe_ratio,
             'max_drawdown_pct': self.max_drawdown * 100,
-            'total_trades': total_trades
+            'total_trades': total_trades,
+            'global_rules': {
+                'enabled': bool(self.global_rules.enabled),
+                'profile': str(self.global_rules.profile),
+                'blocked_signals': int(self._global_rule_stats.get('blocked_signals', 0)),
+                'blocked_reasons': dict(self._global_rule_stats.get('blocked_reasons', {})),
+                'emergency_closes': int(self._global_rule_stats.get('emergency_closes', 0)),
+            },
         }
         
         logger.info(f"DEBUG: Calculated metrics: {metrics}")
@@ -749,25 +1058,25 @@ class BacktesterEngine:
     def _display_results(self, metrics):
         """Display backtest results"""
         print("=" * 50)
-        print("📊 BACKTEST RESULTS")
+        print(" BACKTEST RESULTS")
         print("=" * 50)
-        print(f"💰 Total Return: {metrics['total_return_pct']:.2f}%")
-        print(f"🎯 Win Rate: {metrics['win_rate_pct']:.2f}%")
-        print(f"📈 Sharpe Ratio: {metrics['sharpe_ratio']:.2f}")
-        print(f"📉 Max Drawdown: {metrics['max_drawdown_pct']:.2f}%")
-        print(f"🔄 Total Trades: {metrics['total_trades']}")
+        print(f" Total Return: {metrics['total_return_pct']:.2f}%")
+        print(f" Win Rate: {metrics['win_rate_pct']:.2f}%")
+        print(f" Sharpe Ratio: {metrics['sharpe_ratio']:.2f}")
+        print(f" Max Drawdown: {metrics['max_drawdown_pct']:.2f}%")
+        print(f" Total Trades: {metrics['total_trades']}")
         print("=" * 50)
 
     def get_execution_price(self, price: float, side: str) -> float:
         """
         Simulate realistic execution price with spread + slippage.
-        side: 'BUY' or 'SELL'
+        side: 'price_up' or 'price_down'
         """
         # Conservative defaults for crypto perp trading
         spread_pct = self.config.get('spread_pct', 0.0004)      # 0.04%
         slippage_pct = self.config.get('slippage_pct', 0.0003)  # 0.03%
 
-        if side == 'BUY':
+        if side == 'price_up':
             return price * (1 + spread_pct + slippage_pct)
         else:
             return price * (1 - spread_pct - slippage_pct)

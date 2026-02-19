@@ -18,6 +18,9 @@ Trade against live market data using Bybit **demo** APIs with a simulated balanc
 ## Notes
 - Uses shared WebSocket data where available for consistency and efficiency.
 - Trades are executed on Bybit **demo** accounts (real API calls, no real capital).
+- Console logging is Unicode-safe on Windows. If a terminal cannot render a symbol, logging falls back to ASCII-safe output.
+- Fast finder strategies become selectable in paper trader after they are saved under `simple_strategy/strategies`.
+- Unique engine run-folder strategies are not auto-discovered by paper trader until published/copied into `simple_strategy/strategies`.
 
 ## Optional Redis Integration (Planned)
 An event-driven Redis pub/sub path can reduce latency by pushing confirmed candles directly to the paper trader instead of polling CSVs. This is currently a proposed enhancement.

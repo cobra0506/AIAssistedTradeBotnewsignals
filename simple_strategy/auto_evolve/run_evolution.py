@@ -2,6 +2,7 @@ import argparse
 import json
 import logging
 import random
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from copy import deepcopy
 from datetime import datetime
@@ -33,12 +34,14 @@ class EvolutionRunner:
         data_dir: str,
         run_dir: Path,
         smoke_mode: bool = False,
+        max_runtime_hours: float = 0.0,
     ):
         self.run_config = deepcopy(run_config)
         self.search_space = deepcopy(search_space)
         self.data_dir = data_dir
         self.run_dir = run_dir
         self.smoke_mode = smoke_mode
+        self.max_runtime_seconds = float(max_runtime_hours) * 3600.0 if float(max_runtime_hours) > 0 else None
 
         if smoke_mode:
             self.run_config["train_start"] = "2024-01-01"
@@ -165,7 +168,21 @@ class EvolutionRunner:
         else:
             population = self.toolbox.population(n=population_size)
 
+        run_started_ts = time.time()
         for generation in range(start_generation, generations):
+            if self.max_runtime_seconds is not None:
+                elapsed_seconds = max(0.0, time.time() - run_started_ts)
+                if elapsed_seconds >= self.max_runtime_seconds:
+                    print(
+                        "Max runtime reached ({:.2f}h >= {:.2f}h). Stopping before generation {}/{}.".format(
+                            elapsed_seconds / 3600.0,
+                            self.max_runtime_seconds / 3600.0,
+                            generation + 1,
+                            generations,
+                        )
+                    )
+                    break
+
             eval_results = self._evaluate_population(generation, population)
             self._assign_fitness(population, eval_results)
             all_results.extend(eval_results)
@@ -259,6 +276,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--generations", type=int, default=0, help="Override generation count")
     parser.add_argument("--workers", type=int, default=0, help="Override worker count")
     parser.add_argument("--seed", type=int, default=0, help="Override random seed")
+    parser.add_argument("--max-runtime-hours", type=float, default=0.0, help="Stop run after this many hours (best effort)")
     return parser.parse_args()
 
 
@@ -270,6 +288,21 @@ def main() -> int:
 
     run_config = load_run_config(args.config)
     search_space = load_search_space(args.search_space)
+    run_dir = _resolve_run_dir(run_config.get("output_dir", "simple_strategy/auto_evolve/output"), args.resume_run_dir)
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    resume_payload = None
+    if args.resume_run_dir:
+        resume_payload = load_latest_checkpoint(run_dir)
+        if resume_payload:
+            resume_config = resume_payload.get("config", {})
+            if isinstance(resume_config, dict) and resume_config:
+                run_config = deepcopy(resume_config)
+            resume_space = resume_payload.get("search_space", {})
+            if isinstance(resume_space, dict) and resume_space:
+                search_space = deepcopy(resume_space)
+        else:
+            print(f"No checkpoint found in {run_dir}. Starting a fresh run.")
 
     if args.population > 0:
         run_config["population_size"] = args.population
@@ -280,17 +313,12 @@ def main() -> int:
     if args.seed > 0:
         run_config["seed"] = args.seed
 
-    run_dir = _resolve_run_dir(run_config.get("output_dir", "simple_strategy/auto_evolve/output"), args.resume_run_dir)
-    run_dir.mkdir(parents=True, exist_ok=True)
+    effective_max_runtime_hours = float(args.max_runtime_hours or run_config.get("max_runtime_hours", 0.0) or 0.0)
+    if effective_max_runtime_hours > 0:
+        run_config["max_runtime_hours"] = effective_max_runtime_hours
 
     save_json(run_dir / "run_config.resolved.json", run_config)
     save_json(run_dir / "search_space.resolved.json", search_space)
-
-    resume_payload = None
-    if args.resume_run_dir:
-        resume_payload = load_latest_checkpoint(run_dir)
-        if not resume_payload:
-            print(f"No checkpoint found in {run_dir}. Starting a fresh run.")
 
     runner = EvolutionRunner(
         run_config=run_config,
@@ -298,6 +326,7 @@ def main() -> int:
         data_dir=args.data_dir,
         run_dir=run_dir,
         smoke_mode=args.smoke,
+        max_runtime_hours=effective_max_runtime_hours,
     )
     result = runner.run(resume_payload=resume_payload)
 

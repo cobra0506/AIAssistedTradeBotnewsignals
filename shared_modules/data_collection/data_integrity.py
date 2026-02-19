@@ -104,7 +104,7 @@ class DataIntegrityChecker:
                     unique_data.append(candle)
             
             # Sort by timestamp
-            unique_data.sort(key=lambda x: x['timestamp'])
+            unique_data.sort(key=lambda x: self._parse_timestamp_to_datetime(x))
             
             if unique_data:
                 issues['first_timestamp'] = unique_data[0]['timestamp']
@@ -123,16 +123,87 @@ class DataIntegrityChecker:
         
         return issues
     
+    def _parse_timestamp_to_datetime(self, candle_or_timestamp: Any) -> datetime:
+        """
+        Parse timestamp values from multiple supported formats.
+
+        Supported:
+        - unix milliseconds (int or numeric string)
+        - unix seconds (int or numeric string)
+        - ISO datetime string
+        """
+        raw_value = candle_or_timestamp
+        if isinstance(candle_or_timestamp, dict):
+            raw_value = candle_or_timestamp.get('timestamp')
+
+        if raw_value is None:
+            raise ValueError("Missing timestamp")
+
+        if isinstance(raw_value, (int, float)):
+            value = int(raw_value)
+            if value > 10**12:
+                return datetime.fromtimestamp(value / 1000)
+            return datetime.fromtimestamp(value)
+
+        raw_text = str(raw_value).strip()
+        if not raw_text:
+            raise ValueError("Empty timestamp")
+
+        if raw_text.isdigit():
+            value = int(raw_text)
+            if value > 10**12:
+                return datetime.fromtimestamp(value / 1000)
+            return datetime.fromtimestamp(value)
+
+        # Normalize UTC "Z" suffix to fromisoformat-compatible form.
+        if raw_text.endswith('Z'):
+            raw_text = raw_text[:-1] + '+00:00'
+
+        try:
+            return datetime.fromisoformat(raw_text)
+        except ValueError:
+            # Fallback for common CSV format "YYYY-MM-DD HH:MM:SS"
+            return datetime.strptime(raw_text, '%Y-%m-%d %H:%M:%S')
+
+    def _build_filled_candle(self, fieldnames: List[str], base_close: Any, filled_dt: datetime) -> Dict[str, Any]:
+        """Build a synthetic candle that matches the file's existing schema."""
+        close_value = str(base_close)
+        candle = {
+            'open': close_value,
+            'high': close_value,
+            'low': close_value,
+            'close': close_value,
+            'volume': '0'
+        }
+
+        if 'timestamp' in fieldnames:
+            if 'datetime' in fieldnames:
+                timestamp_ms = int(filled_dt.timestamp() * 1000)
+                candle['timestamp'] = str(timestamp_ms)
+                candle['datetime'] = filled_dt.strftime('%Y-%m-%d %H:%M:%S')
+            else:
+                candle['timestamp'] = filled_dt.isoformat()
+
+        if 'turnover' in fieldnames:
+            candle['turnover'] = '0'
+
+        # Preserve any extra custom columns in existing files.
+        for field in fieldnames:
+            if field not in candle:
+                candle[field] = ''
+
+        return candle
+
     def _validate_candle(self, candle: Dict[str, Any]) -> bool:
         """Validate a single candle"""
         try:
-            # Only check for required fields (don't require 'filled')
-            required_fields = ['timestamp', 'open', 'high', 'low', 'close', 'volume', 'turnover']
+            # Current collector schema does not always include turnover.
+            required_fields = ['timestamp', 'open', 'high', 'low', 'close', 'volume']
             if not all(field in candle for field in required_fields):
                 return False
             
-            # Validate timestamp format
-            datetime.fromisoformat(candle['timestamp'])
+            # Validate timestamp format (supports ms/seconds/ISO).
+            self._parse_timestamp_to_datetime(candle['timestamp'])
             
             # Validate price values
             open_price = float(candle['open'])
@@ -140,7 +211,7 @@ class DataIntegrityChecker:
             low_price = float(candle['low'])
             close_price = float(candle['close'])
             volume = float(candle['volume'])
-            turnover = float(candle['turnover'])
+            turnover = float(candle.get('turnover', 0.0))
             
             # Validate price relationships
             if not (low_price <= high_price and 
@@ -170,6 +241,7 @@ class DataIntegrityChecker:
             '5': 5,
             '15': 15,
             '60': 60,
+            '120': 120,
             '240': 240,
             '1440': 1440
         }.get(timeframe, 1)
@@ -177,8 +249,8 @@ class DataIntegrityChecker:
         expected_interval = timedelta(minutes=timeframe_minutes)
         
         for i in range(1, len(data)):
-            prev_timestamp = datetime.fromisoformat(data[i-1]['timestamp'])
-            curr_timestamp = datetime.fromisoformat(data[i]['timestamp'])
+            prev_timestamp = self._parse_timestamp_to_datetime(data[i-1]['timestamp'])
+            curr_timestamp = self._parse_timestamp_to_datetime(data[i]['timestamp'])
             
             actual_interval = curr_timestamp - prev_timestamp
             
@@ -278,13 +350,13 @@ class DataIntegrityChecker:
             
             # Convert timeframe to minutes
             timeframe_minutes = {
-                '1': 1, '5': 5, '15': 15, '60': 60, '240': 240, '1440': 1440
+                '1': 1, '5': 5, '15': 15, '60': 60, '120': 120, '240': 240, '1440': 1440
             }.get(timeframe, 1)
             
             expected_interval = timedelta(minutes=timeframe_minutes)
             
             # Sort by timestamp
-            data.sort(key=lambda x: x['timestamp'])
+            data.sort(key=lambda x: self._parse_timestamp_to_datetime(x))
             
             # Find and fill gaps
             filled_data = []
@@ -296,21 +368,17 @@ class DataIntegrityChecker:
                 
                 # Check if there's a gap to next candle
                 if i < len(data) - 1:
-                    current_timestamp = datetime.fromisoformat(current_candle['timestamp'])
-                    next_timestamp = datetime.fromisoformat(data[i+1]['timestamp'])
+                    current_timestamp = self._parse_timestamp_to_datetime(current_candle['timestamp'])
+                    next_timestamp = self._parse_timestamp_to_datetime(data[i+1]['timestamp'])
                     
                     while next_timestamp - current_timestamp > expected_interval + timedelta(seconds=1):
                         # Create filled candle
                         filled_timestamp = current_timestamp + expected_interval
-                        filled_candle = {
-                            'timestamp': filled_timestamp.isoformat(),
-                            'open': current_candle['close'],
-                            'high': current_candle['close'],
-                            'low': current_candle['close'],
-                            'close': current_candle['close'],
-                            'volume': '0',
-                            'turnover': '0'
-                        }
+                        filled_candle = self._build_filled_candle(
+                            fieldnames or [],
+                            current_candle.get('close', '0'),
+                            filled_timestamp
+                        )
                         
                         filled_data.append(filled_candle)
                         gaps_filled += 1

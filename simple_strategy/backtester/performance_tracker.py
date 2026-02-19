@@ -15,6 +15,8 @@ import json
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+# Avoid per-trade log spam during large backtests.
+logger.setLevel(logging.WARNING)
 
 @dataclass
 class TradeRecord:
@@ -152,8 +154,8 @@ class PerformanceTracker:
             self._last_calculation_time = None
 
             # Debug output
-            logger.info(f"DEBUG: Recorded trade {trade.trade_id}: {trade.direction} {trade.symbol} pnl={trade.pnl}")
-            logger.info(f"DEBUG: Total trades in tracker: {len(self.trades)}")
+            logger.debug("Recorded trade %s (%s %s) pnl=%s", trade.trade_id, trade.direction, trade.symbol, trade.pnl)
+            logger.debug("Total trades in tracker: %s", len(self.trades))
 
             return True
             

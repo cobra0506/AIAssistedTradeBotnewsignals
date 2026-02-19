@@ -14,9 +14,10 @@ class SharedDataAccess:
     def get_latest_data(self, symbol: str, timeframe: str, limit: int = 50) -> List[Dict]:
         """Get the latest data from CSV files"""
         try:
-            filename = f"{self.config.DATA_DIR}/{symbol}_{timeframe}.csv"
+            normalized_timeframe = str(timeframe).rstrip('m')
+            filename = f"{self.config.DATA_DIR}/{symbol}_{normalized_timeframe}.csv"
             if os.path.exists(filename):
-                return self.csv_manager.load_csv(filename)[-limit:]
+                return self.csv_manager.read_csv_data(symbol, normalized_timeframe)[-limit:]
             return []
         except Exception as e:
             print(f"Error getting latest data: {e}")

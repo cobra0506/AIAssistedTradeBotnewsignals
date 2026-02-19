@@ -1,0 +1,7 @@
+# Optional deep RL dependencies
+# Install with:
+#   pip install -r requirements_rl_deep.txt
+
+torch>=2.2.0
+stable-baselines3>=2.3.0
+gymnasium>=0.29.1

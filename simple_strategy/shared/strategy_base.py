@@ -49,7 +49,8 @@ class StrategyBase(ABC):
         Args:
             data: Nested dictionary {symbol: {timeframe: DataFrame}}
         Returns:
-            Dictionary {symbol: {timeframe: signal}} where signal is 'BUY', 'SELL', or 'HOLD'
+            Dictionary {symbol: {timeframe: signal}} where signal is
+            'OPEN_LONG', 'CLOSE_LONG', 'OPEN_SHORT', 'CLOSE_SHORT', or 'HOLD'
         """
         pass
 
@@ -101,26 +102,28 @@ class StrategyBase(ABC):
         Validate signal against risk management rules.
         Args:
             symbol: Trading symbol
-            signal: Trading signal ('BUY', 'SELL', 'HOLD')
+            signal: Trading signal
             data: Current market data
         Returns:
             True if signal is valid, False otherwise
         """
         if signal == 'HOLD':
             return True
+        open_signals = {'OPEN_LONG', 'OPEN_SHORT'}
+        close_signals = {'CLOSE_LONG', 'CLOSE_SHORT'}
         # Check if we already have maximum positions
-        if signal == 'BUY' and len(self.positions) >= self.max_positions:
+        if signal in open_signals and len(self.positions) >= self.max_positions:
             logger.warning(f"Signal validation failed: Maximum positions reached ({len(self.positions)}/{self.max_positions})")
             return False
         # Check portfolio risk
-        if signal == 'BUY':
+        if signal in open_signals:
             portfolio_risk = self._calculate_portfolio_risk()
             if portfolio_risk >= self.max_portfolio_risk:
                 logger.warning(f"Signal validation failed: Maximum portfolio risk reached ({portfolio_risk:.2%})")
                 return False
-        # Check if we have position to sell
-        if signal == 'SELL' and symbol not in self.positions:
-            logger.warning(f"Signal validation failed: No position to sell for {symbol}")
+        # Check if we have a position to close
+        if signal in close_signals and symbol not in self.positions:
+            logger.warning(f"Signal validation failed: No position to close for {symbol}")
             return False
         return True
 
