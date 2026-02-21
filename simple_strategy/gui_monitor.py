@@ -35,17 +35,117 @@ class SimpleStrategyGUI:
 
         # Initialize variables
         self.current_strategy = None
+        self.current_strategy_source_name = None
         self.param_widgets = {}
         
         self.create_widgets()
 
-    def load_optimized_parameters(self, strategy_name):
+    def _sanitize_strategy_params(self, parameters_def, raw_params):
+        """Validate and coerce params using strategy metadata."""
+        if not isinstance(parameters_def, dict) or not parameters_def:
+            return dict(raw_params or {})
+
+        source = dict(raw_params or {})
+        sanitized = {}
+
+        for param_name, param_info in parameters_def.items():
+            default_value = param_info.get('default', 0)
+            value = source.get(param_name, default_value)
+            param_type = str(param_info.get('type', '')).strip().lower()
+
+            if param_type == 'int':
+                try:
+                    value = int(float(value))
+                except (TypeError, ValueError):
+                    value = int(default_value)
+                min_val = param_info.get('min')
+                max_val = param_info.get('max')
+                if min_val is not None:
+                    value = max(int(min_val), value)
+                if max_val is not None:
+                    value = min(int(max_val), value)
+            elif param_type == 'float':
+                try:
+                    value = float(value)
+                except (TypeError, ValueError):
+                    value = float(default_value)
+                min_val = param_info.get('min')
+                max_val = param_info.get('max')
+                if min_val is not None:
+                    value = max(float(min_val), value)
+                if max_val is not None:
+                    value = min(float(max_val), value)
+            elif param_type == 'bool':
+                if isinstance(value, str):
+                    value = value.strip().lower() in {'1', 'true', 'yes', 'on'}
+                else:
+                    value = bool(value)
+            elif param_type == 'str':
+                value = str(value)
+                options = param_info.get('options')
+                if isinstance(options, (list, tuple)) and options and value not in options:
+                    value = str(default_value) if default_value in options else str(options[0])
+
+            sanitized[param_name] = value
+
+        # Generic fast/slow guards used by many strategies.
+        period_pairs = [
+            ('fast_period', 'slow_period'),
+            ('fast_ma_period', 'slow_ma_period'),
+            ('fast_ema_period', 'slow_ema_period'),
+            ('trend_fast_ema', 'trend_slow_ema'),
+            ('ema_fast', 'ema_slow'),
+            ('sma_fast_period', 'sma_slow_period'),
+        ]
+        for fast_key, slow_key in period_pairs:
+            if fast_key not in sanitized or slow_key not in sanitized:
+                continue
+            try:
+                fast_value = int(float(sanitized[fast_key]))
+                slow_value = int(float(sanitized[slow_key]))
+            except (TypeError, ValueError):
+                continue
+
+            if slow_value <= fast_value:
+                adjusted_slow = fast_value + 1
+                slow_def = parameters_def.get(slow_key, {})
+                slow_min = slow_def.get('min')
+                slow_max = slow_def.get('max')
+                if slow_min is not None:
+                    adjusted_slow = max(int(slow_min), adjusted_slow)
+                if slow_max is not None:
+                    adjusted_slow = min(int(slow_max), adjusted_slow)
+
+                # If slow is pinned too low by max, move fast down to keep slow > fast.
+                if adjusted_slow <= fast_value:
+                    fast_def = parameters_def.get(fast_key, {})
+                    fast_min = fast_def.get('min')
+                    fast_max = fast_def.get('max')
+                    adjusted_fast = adjusted_slow - 1
+                    if fast_min is not None:
+                        adjusted_fast = max(int(fast_min), adjusted_fast)
+                    if fast_max is not None:
+                        adjusted_fast = min(int(fast_max), adjusted_fast)
+                    sanitized[fast_key] = adjusted_fast
+                sanitized[slow_key] = adjusted_slow
+
+        return sanitized
+
+    def load_optimized_parameters(self, strategy_name, parameters_def=None):
         """Load optimized parameters if they exist, otherwise use defaults"""
         # Get optimized parameters
         optimized_params = self.param_manager.get_parameters(strategy_name)
-        
-        # Return the parameters as-is (including last_optimized)
-        return optimized_params if optimized_params else None
+
+        if not optimized_params:
+            return None
+
+        cleaned_params = {
+            key: value for key, value in optimized_params.items() if key != 'last_optimized'
+        }
+        if not cleaned_params:
+            return None
+
+        return self._sanitize_strategy_params(parameters_def or {}, cleaned_params)
     
     def create_widgets(self):
         # Create notebook for tabs
@@ -422,9 +522,6 @@ class SimpleStrategyGUI:
             widget.destroy()
         self.param_widgets.clear()
         
-        # Load optimized parameters if available
-        optimized_params = self.load_optimized_parameters(strategy_name)
-        
         # Get default parameters from strategy info
         parameters_def = strategy_info.get('parameters', {})
         default_params = {}
@@ -434,6 +531,10 @@ class SimpleStrategyGUI:
         # If no default parameters found, try alternative approach
         if not default_params:
             default_params = strategy_info.get('default_params', {})
+
+        # Load optimized parameters if available
+        optimized_params = self.load_optimized_parameters(strategy_name, parameters_def)
+        default_params = self._sanitize_strategy_params(parameters_def, default_params)
         
         # Use optimized parameters if available, otherwise use defaults
         current_params = optimized_params if optimized_params else default_params
@@ -747,6 +848,9 @@ class SimpleStrategyGUI:
                 self.status_var.set("⚠️ Please select a strategy first")
                 return
 
+            self.current_strategy = None
+            self.current_strategy_source_name = None
+
             # Get current parameter values from the GUI (handles sliders, entries, and checkboxes)
             current_params = {}
             for param_name, var in self.param_widgets.items():
@@ -768,6 +872,9 @@ class SimpleStrategyGUI:
             # Create strategy instance
             strategy_info = self.strategies.get(strategy_name)
             if strategy_info and 'create_func' in strategy_info:
+                parameters_def = strategy_info.get('parameters', {})
+                current_params = self._sanitize_strategy_params(parameters_def, current_params)
+
                 # Get symbols and timeframes from GUI
                 symbols = [s.strip() for s in self.symbols_var.get().split(',') if s.strip()]
                 timeframes = [t.strip() for t in self.timeframes_var.get().split(',') if t.strip()]
@@ -781,6 +888,7 @@ class SimpleStrategyGUI:
                 
                 print(f"🔧 GUI DEBUG: Created strategy with symbols: {symbols}")
                 print(f"🔧 GUI DEBUG: Created strategy with timeframes: {timeframes}")
+                self.current_strategy_source_name = strategy_name
 
                 # Ensure parameters are set as attributes on the strategy object
                 if strategy_info and 'create_func' in strategy_info:
@@ -977,6 +1085,9 @@ class SimpleStrategyGUI:
     
     def run_backtest(self):
         """Run backtest with current strategy and configuration using Threading"""
+
+        # Always rebuild from current GUI selection/params to avoid stale strategy state.
+        self.create_strategy()
         
         # Validation: Check if strategy is created
         if not hasattr(self, 'current_strategy') or self.current_strategy is None:

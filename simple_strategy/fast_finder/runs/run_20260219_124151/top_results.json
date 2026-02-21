@@ -1,0 +1,1039 @@
+{
+  "generated_at": "2026-02-19T12:17:28.508892Z",
+  "stopped": false,
+  "elapsed_seconds": 5733.287163699977,
+  "config": {
+    "seed": 42,
+    "data_dir": "data",
+    "symbols": [
+      "BNBUSDT",
+      "XRPUSDT",
+      "ADAUSDT",
+      "DOTUSDT",
+      "NEARUSDT"
+    ],
+    "timeframes": [
+      "1",
+      "5"
+    ],
+    "start_date": "2026-01-01",
+    "end_date": "2026-02-15",
+    "candidate_count": 250,
+    "workers": 4,
+    "top_k": 10,
+    "max_active_signals": 4,
+    "output_dir": "simple_strategy/fast_finder/runs",
+    "publish_top_n": 3,
+    "quality_preset": "A",
+    "search_profile": "advanced",
+    "search_space_path": "",
+    "initial_balance": 10000.0,
+    "min_return_pct": 5.0,
+    "max_drawdown_pct": 15.0,
+    "min_win_rate_pct": 45.0,
+    "min_trades": 40,
+    "fee_pct": 0.00055,
+    "spread_pct": 0.0004,
+    "slippage_pct": 0.0003,
+    "max_positions": 3,
+    "risk_per_trade": 0.02,
+    "enable_mtf_context_filter": false,
+    "enable_regime_filter": false,
+    "context_fast_period": 20,
+    "context_slow_period": 50,
+    "regime_symbol": "",
+    "enable_train_test_split": true,
+    "train_ratio": 0.7,
+    "min_test_return_pct": 1.0,
+    "max_test_drawdown_pct": 20.0,
+    "min_test_win_rate_pct": 42.0,
+    "min_test_trades": 15,
+    "enable_gate_fallback": true,
+    "fallback_return_relax_factor": 0.5,
+    "fallback_drawdown_relax_factor": 1.35,
+    "fallback_win_rate_relax_delta": 5.0,
+    "fallback_trades_relax_factor": 0.6
+  },
+  "evaluated": 250,
+  "fallback": {
+    "triggered": true,
+    "reason": "strict_gate_zero_passes",
+    "strict_pass_count": 0,
+    "relaxed_pass_count": 0
+  },
+  "top_results": [
+    {
+      "index": 126,
+      "score": 57.997922889055936,
+      "passed": false,
+      "passed_relaxed": false,
+      "train_passed": false,
+      "test_passed": false,
+      "candidate": {
+        "active_signals": [
+          "rsi_osob",
+          "rsi_trend_combo"
+        ],
+        "signal_combination": "majority_vote",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 25
+          },
+          "ema_fast": {
+            "period": 37
+          },
+          "ema_slow": {
+            "period": 41
+          },
+          "sma_fast": {
+            "period": 12
+          },
+          "sma_slow": {
+            "period": 113
+          },
+          "macd_main": {
+            "fast_period": 17,
+            "slow_period": 40,
+            "signal_period": 4
+          },
+          "bb_main": {
+            "period": 38,
+            "std_dev": 2.3
+          },
+          "stoch_main": {
+            "k_period": 9,
+            "d_period": 6
+          },
+          "resistance_main": {
+            "period": 13
+          },
+          "support_main": {
+            "period": 52
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 68,
+            "oversold": 35
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 65,
+            "oversold": 16
+          },
+          "macd_cross": {},
+          "bb_reversion": {},
+          "stoch_reversal": {
+            "overbought": 78,
+            "oversold": 23
+          },
+          "breakout_sr": {
+            "penetration_pct": 0.015
+          },
+          "rsi_divergence": {
+            "lookback_period": 32
+          }
+        }
+      },
+      "metrics": {
+        "total_return": 43.04676387372101,
+        "max_drawdown": 0.0,
+        "win_rate": 50.0,
+        "total_trades": 8,
+        "sharpe_ratio": 6.725250665665778
+      },
+      "train_metrics": {
+        "total_return": 59.556065274761494,
+        "max_drawdown": 0.0,
+        "win_rate": 71.42857142857143,
+        "total_trades": 7,
+        "sharpe_ratio": 13.548413312593427
+      },
+      "test_metrics": {
+        "total_return": 43.04676387372101,
+        "max_drawdown": 0.0,
+        "win_rate": 50.0,
+        "total_trades": 8,
+        "sharpe_ratio": 6.725250665665778
+      }
+    },
+    {
+      "index": 2,
+      "score": 0.0,
+      "passed": false,
+      "passed_relaxed": false,
+      "train_passed": false,
+      "test_passed": false,
+      "candidate": {
+        "active_signals": [
+          "ema_cross",
+          "sma_cross",
+          "macd_cross"
+        ],
+        "signal_combination": "and_signals",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 19
+          },
+          "ema_fast": {
+            "period": 22
+          },
+          "ema_slow": {
+            "period": 138
+          },
+          "sma_fast": {
+            "period": 45
+          },
+          "sma_slow": {
+            "period": 196
+          },
+          "macd_main": {
+            "fast_period": 14,
+            "slow_period": 27,
+            "signal_period": 14
+          },
+          "bb_main": {
+            "period": 34,
+            "std_dev": 1.6
+          },
+          "stoch_main": {
+            "k_period": 15,
+            "d_period": 8
+          },
+          "resistance_main": {
+            "period": 12
+          },
+          "support_main": {
+            "period": 30
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 77,
+            "oversold": 23
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 67,
+            "oversold": 21
+          },
+          "macd_cross": {},
+          "bb_reversion": {},
+          "stoch_reversal": {
+            "overbought": 85,
+            "oversold": 16
+          },
+          "breakout_sr": {
+            "penetration_pct": 0.016
+          },
+          "rsi_divergence": {
+            "lookback_period": 33
+          }
+        }
+      },
+      "metrics": {
+        "total_return": 0.0,
+        "max_drawdown": 0.0,
+        "win_rate": 0.0,
+        "total_trades": 0,
+        "sharpe_ratio": 0.0
+      },
+      "train_metrics": {
+        "total_return": 0.0,
+        "max_drawdown": 0.0,
+        "win_rate": 0.0,
+        "total_trades": 0,
+        "sharpe_ratio": 0.0
+      },
+      "test_metrics": {
+        "total_return": 0.0,
+        "max_drawdown": 0.0,
+        "win_rate": 0.0,
+        "total_trades": 0,
+        "sharpe_ratio": 0.0
+      }
+    },
+    {
+      "index": 5,
+      "score": 0.0,
+      "passed": false,
+      "passed_relaxed": false,
+      "train_passed": false,
+      "test_passed": false,
+      "candidate": {
+        "active_signals": [
+          "sma_cross",
+          "stoch_reversal",
+          "rsi_divergence"
+        ],
+        "signal_combination": "and_signals",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 13
+          },
+          "ema_fast": {
+            "period": 39
+          },
+          "ema_slow": {
+            "period": 116
+          },
+          "sma_fast": {
+            "period": 49
+          },
+          "sma_slow": {
+            "period": 71
+          },
+          "macd_main": {
+            "fast_period": 17,
+            "slow_period": 29,
+            "signal_period": 10
+          },
+          "bb_main": {
+            "period": 37,
+            "std_dev": 2.9000000000000004
+          },
+          "stoch_main": {
+            "k_period": 24,
+            "d_period": 5
+          },
+          "resistance_main": {
+            "period": 17
+          },
+          "support_main": {
+            "period": 25
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 72,
+            "oversold": 17
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 75,
+            "oversold": 15
+          },
+          "macd_cross": {},
+          "bb_reversion": {},
+          "stoch_reversal": {
+            "overbought": 82,
+            "oversold": 17
+          },
+          "breakout_sr": {
+            "penetration_pct": 0.001
+          },
+          "rsi_divergence": {
+            "lookback_period": 12
+          }
+        }
+      },
+      "metrics": {
+        "total_return": 0.0,
+        "max_drawdown": 0.0,
+        "win_rate": 0.0,
+        "total_trades": 0,
+        "sharpe_ratio": 0.0
+      },
+      "train_metrics": {
+        "total_return": 0.0,
+        "max_drawdown": 0.0,
+        "win_rate": 0.0,
+        "total_trades": 0,
+        "sharpe_ratio": 0.0
+      },
+      "test_metrics": {
+        "total_return": 0.0,
+        "max_drawdown": 0.0,
+        "win_rate": 0.0,
+        "total_trades": 0,
+        "sharpe_ratio": 0.0
+      }
+    },
+    {
+      "index": 7,
+      "score": 0.0,
+      "passed": false,
+      "passed_relaxed": false,
+      "train_passed": false,
+      "test_passed": false,
+      "candidate": {
+        "active_signals": [
+          "rsi_osob",
+          "bb_reversion",
+          "breakout_sr"
+        ],
+        "signal_combination": "and_signals",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 21
+          },
+          "ema_fast": {
+            "period": 20
+          },
+          "ema_slow": {
+            "period": 131
+          },
+          "sma_fast": {
+            "period": 9
+          },
+          "sma_slow": {
+            "period": 133
+          },
+          "macd_main": {
+            "fast_period": 18,
+            "slow_period": 47,
+            "signal_period": 12
+          },
+          "bb_main": {
+            "period": 20,
+            "std_dev": 1.6
+          },
+          "stoch_main": {
+            "k_period": 8,
+            "d_period": 2
+          },
+          "resistance_main": {
+            "period": 58
+          },
+          "support_main": {
+            "period": 25
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 70,
+            "oversold": 28
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 80,
+            "oversold": 30
+          },
+          "macd_cross": {},
+          "bb_reversion": {},
+          "stoch_reversal": {
+            "overbought": 81,
+            "oversold": 22
+          },
+          "breakout_sr": {
+            "penetration_pct": 0.002
+          },
+          "rsi_divergence": {
+            "lookback_period": 18
+          }
+        }
+      },
+      "metrics": {
+        "total_return": 0.0,
+        "max_drawdown": 0.0,
+        "win_rate": 0.0,
+        "total_trades": 0,
+        "sharpe_ratio": 0.0
+      },
+      "train_metrics": {
+        "total_return": 0.0,
+        "max_drawdown": 0.0,
+        "win_rate": 0.0,
+        "total_trades": 0,
+        "sharpe_ratio": 0.0
+      },
+      "test_metrics": {
+        "total_return": 0.0,
+        "max_drawdown": 0.0,
+        "win_rate": 0.0,
+        "total_trades": 0,
+        "sharpe_ratio": 0.0
+      }
+    },
+    {
+      "index": 16,
+      "score": 0.0,
+      "passed": false,
+      "passed_relaxed": false,
+      "train_passed": false,
+      "test_passed": false,
+      "candidate": {
+        "active_signals": [
+          "ema_cross",
+          "bb_reversion",
+          "breakout_sr",
+          "rsi_divergence"
+        ],
+        "signal_combination": "and_signals",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 26
+          },
+          "ema_fast": {
+            "period": 37
+          },
+          "ema_slow": {
+            "period": 74
+          },
+          "sma_fast": {
+            "period": 40
+          },
+          "sma_slow": {
+            "period": 134
+          },
+          "macd_main": {
+            "fast_period": 8,
+            "slow_period": 43,
+            "signal_period": 11
+          },
+          "bb_main": {
+            "period": 42,
+            "std_dev": 2.3
+          },
+          "stoch_main": {
+            "k_period": 15,
+            "d_period": 8
+          },
+          "resistance_main": {
+            "period": 50
+          },
+          "support_main": {
+            "period": 27
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 81,
+            "oversold": 30
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 85,
+            "oversold": 22
+          },
+          "macd_cross": {},
+          "bb_reversion": {},
+          "stoch_reversal": {
+            "overbought": 83,
+            "oversold": 24
+          },
+          "breakout_sr": {
+            "penetration_pct": 0.003
+          },
+          "rsi_divergence": {
+            "lookback_period": 26
+          }
+        }
+      },
+      "metrics": {
+        "total_return": 0.0,
+        "max_drawdown": 0.0,
+        "win_rate": 0.0,
+        "total_trades": 0,
+        "sharpe_ratio": 0.0
+      },
+      "train_metrics": {
+        "total_return": 0.0,
+        "max_drawdown": 0.0,
+        "win_rate": 0.0,
+        "total_trades": 0,
+        "sharpe_ratio": 0.0
+      },
+      "test_metrics": {
+        "total_return": 0.0,
+        "max_drawdown": 0.0,
+        "win_rate": 0.0,
+        "total_trades": 0,
+        "sharpe_ratio": 0.0
+      }
+    },
+    {
+      "index": 18,
+      "score": 0.0,
+      "passed": false,
+      "passed_relaxed": false,
+      "train_passed": false,
+      "test_passed": false,
+      "candidate": {
+        "active_signals": [
+          "rsi_osob",
+          "ema_cross",
+          "rsi_trend_combo",
+          "bb_reversion"
+        ],
+        "signal_combination": "and_signals",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 17
+          },
+          "ema_fast": {
+            "period": 30
+          },
+          "ema_slow": {
+            "period": 112
+          },
+          "sma_fast": {
+            "period": 15
+          },
+          "sma_slow": {
+            "period": 139
+          },
+          "macd_main": {
+            "fast_period": 8,
+            "slow_period": 39,
+            "signal_period": 12
+          },
+          "bb_main": {
+            "period": 15,
+            "std_dev": 2.7
+          },
+          "stoch_main": {
+            "k_period": 8,
+            "d_period": 2
+          },
+          "resistance_main": {
+            "period": 51
+          },
+          "support_main": {
+            "period": 37
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 69,
+            "oversold": 29
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 70,
+            "oversold": 16
+          },
+          "macd_cross": {},
+          "bb_reversion": {},
+          "stoch_reversal": {
+            "overbought": 83,
+            "oversold": 22
+          },
+          "breakout_sr": {
+            "penetration_pct": 0.011
+          },
+          "rsi_divergence": {
+            "lookback_period": 21
+          }
+        }
+      },
+      "metrics": {
+        "total_return": 0.0,
+        "max_drawdown": 0.0,
+        "win_rate": 0.0,
+        "total_trades": 0,
+        "sharpe_ratio": 0.0
+      },
+      "train_metrics": {
+        "total_return": 0.0,
+        "max_drawdown": 0.0,
+        "win_rate": 0.0,
+        "total_trades": 0,
+        "sharpe_ratio": 0.0
+      },
+      "test_metrics": {
+        "total_return": 0.0,
+        "max_drawdown": 0.0,
+        "win_rate": 0.0,
+        "total_trades": 0,
+        "sharpe_ratio": 0.0
+      }
+    },
+    {
+      "index": 20,
+      "score": 0.0,
+      "passed": false,
+      "passed_relaxed": false,
+      "train_passed": false,
+      "test_passed": false,
+      "candidate": {
+        "active_signals": [
+          "rsi_osob",
+          "macd_cross",
+          "breakout_sr",
+          "rsi_divergence"
+        ],
+        "signal_combination": "and_signals",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 13
+          },
+          "ema_fast": {
+            "period": 9
+          },
+          "ema_slow": {
+            "period": 95
+          },
+          "sma_fast": {
+            "period": 49
+          },
+          "sma_slow": {
+            "period": 180
+          },
+          "macd_main": {
+            "fast_period": 9,
+            "slow_period": 23,
+            "signal_period": 8
+          },
+          "bb_main": {
+            "period": 21,
+            "std_dev": 1.6
+          },
+          "stoch_main": {
+            "k_period": 19,
+            "d_period": 6
+          },
+          "resistance_main": {
+            "period": 37
+          },
+          "support_main": {
+            "period": 52
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 76,
+            "oversold": 17
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 81,
+            "oversold": 35
+          },
+          "macd_cross": {},
+          "bb_reversion": {},
+          "stoch_reversal": {
+            "overbought": 85,
+            "oversold": 10
+          },
+          "breakout_sr": {
+            "penetration_pct": 0.014000000000000002
+          },
+          "rsi_divergence": {
+            "lookback_period": 39
+          }
+        }
+      },
+      "metrics": {
+        "total_return": 0.0,
+        "max_drawdown": 0.0,
+        "win_rate": 0.0,
+        "total_trades": 0,
+        "sharpe_ratio": 0.0
+      },
+      "train_metrics": {
+        "total_return": 0.0,
+        "max_drawdown": 0.0,
+        "win_rate": 0.0,
+        "total_trades": 0,
+        "sharpe_ratio": 0.0
+      },
+      "test_metrics": {
+        "total_return": 0.0,
+        "max_drawdown": 0.0,
+        "win_rate": 0.0,
+        "total_trades": 0,
+        "sharpe_ratio": 0.0
+      }
+    },
+    {
+      "index": 21,
+      "score": 0.0,
+      "passed": false,
+      "passed_relaxed": false,
+      "train_passed": false,
+      "test_passed": false,
+      "candidate": {
+        "active_signals": [
+          "ema_cross",
+          "sma_cross",
+          "rsi_trend_combo",
+          "bb_reversion"
+        ],
+        "signal_combination": "and_signals",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 20
+          },
+          "ema_fast": {
+            "period": 22
+          },
+          "ema_slow": {
+            "period": 61
+          },
+          "sma_fast": {
+            "period": 20
+          },
+          "sma_slow": {
+            "period": 42
+          },
+          "macd_main": {
+            "fast_period": 10,
+            "slow_period": 48,
+            "signal_period": 11
+          },
+          "bb_main": {
+            "period": 29,
+            "std_dev": 2.9000000000000004
+          },
+          "stoch_main": {
+            "k_period": 20,
+            "d_period": 4
+          },
+          "resistance_main": {
+            "period": 11
+          },
+          "support_main": {
+            "period": 41
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 75,
+            "oversold": 20
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 80,
+            "oversold": 21
+          },
+          "macd_cross": {},
+          "bb_reversion": {},
+          "stoch_reversal": {
+            "overbought": 86,
+            "oversold": 18
+          },
+          "breakout_sr": {
+            "penetration_pct": 0.011
+          },
+          "rsi_divergence": {
+            "lookback_period": 25
+          }
+        }
+      },
+      "metrics": {
+        "total_return": 0.0,
+        "max_drawdown": 0.0,
+        "win_rate": 0.0,
+        "total_trades": 0,
+        "sharpe_ratio": 0.0
+      },
+      "train_metrics": {
+        "total_return": 0.0,
+        "max_drawdown": 0.0,
+        "win_rate": 0.0,
+        "total_trades": 0,
+        "sharpe_ratio": 0.0
+      },
+      "test_metrics": {
+        "total_return": 0.0,
+        "max_drawdown": 0.0,
+        "win_rate": 0.0,
+        "total_trades": 0,
+        "sharpe_ratio": 0.0
+      }
+    },
+    {
+      "index": 22,
+      "score": 0.0,
+      "passed": false,
+      "passed_relaxed": false,
+      "train_passed": false,
+      "test_passed": false,
+      "candidate": {
+        "active_signals": [
+          "rsi_osob",
+          "bb_reversion",
+          "stoch_reversal",
+          "rsi_divergence"
+        ],
+        "signal_combination": "and_signals",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 21
+          },
+          "ema_fast": {
+            "period": 6
+          },
+          "ema_slow": {
+            "period": 31
+          },
+          "sma_fast": {
+            "period": 23
+          },
+          "sma_slow": {
+            "period": 76
+          },
+          "macd_main": {
+            "fast_period": 12,
+            "slow_period": 42,
+            "signal_period": 7
+          },
+          "bb_main": {
+            "period": 33,
+            "std_dev": 2.6
+          },
+          "stoch_main": {
+            "k_period": 23,
+            "d_period": 6
+          },
+          "resistance_main": {
+            "period": 43
+          },
+          "support_main": {
+            "period": 32
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 78,
+            "oversold": 38
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 82,
+            "oversold": 25
+          },
+          "macd_cross": {},
+          "bb_reversion": {},
+          "stoch_reversal": {
+            "overbought": 86,
+            "oversold": 24
+          },
+          "breakout_sr": {
+            "penetration_pct": 0.009000000000000001
+          },
+          "rsi_divergence": {
+            "lookback_period": 27
+          }
+        }
+      },
+      "metrics": {
+        "total_return": 0.0,
+        "max_drawdown": 0.0,
+        "win_rate": 0.0,
+        "total_trades": 0,
+        "sharpe_ratio": 0.0
+      },
+      "train_metrics": {
+        "total_return": 0.0,
+        "max_drawdown": 0.0,
+        "win_rate": 0.0,
+        "total_trades": 0,
+        "sharpe_ratio": 0.0
+      },
+      "test_metrics": {
+        "total_return": 0.0,
+        "max_drawdown": 0.0,
+        "win_rate": 0.0,
+        "total_trades": 0,
+        "sharpe_ratio": 0.0
+      }
+    },
+    {
+      "index": 23,
+      "score": 0.0,
+      "passed": false,
+      "passed_relaxed": false,
+      "train_passed": false,
+      "test_passed": false,
+      "candidate": {
+        "active_signals": [
+          "rsi_osob",
+          "macd_cross"
+        ],
+        "signal_combination": "and_signals",
+        "indicator_params": {
+          "rsi_main": {
+            "period": 15
+          },
+          "ema_fast": {
+            "period": 38
+          },
+          "ema_slow": {
+            "period": 96
+          },
+          "sma_fast": {
+            "period": 23
+          },
+          "sma_slow": {
+            "period": 45
+          },
+          "macd_main": {
+            "fast_period": 9,
+            "slow_period": 29,
+            "signal_period": 7
+          },
+          "bb_main": {
+            "period": 37,
+            "std_dev": 2.0
+          },
+          "stoch_main": {
+            "k_period": 17,
+            "d_period": 2
+          },
+          "resistance_main": {
+            "period": 55
+          },
+          "support_main": {
+            "period": 44
+          }
+        },
+        "signal_params": {
+          "rsi_osob": {
+            "overbought": 69,
+            "oversold": 23
+          },
+          "ema_cross": {},
+          "sma_cross": {},
+          "rsi_trend_combo": {
+            "overbought": 66,
+            "oversold": 16
+          },
+          "macd_cross": {},
+          "bb_reversion": {},
+          "stoch_reversal": {
+            "overbought": 84,
+            "oversold": 14
+          },
+          "breakout_sr": {
+            "penetration_pct": 0.016
+          },
+          "rsi_divergence": {
+            "lookback_period": 14
+          }
+        }
+      },
+      "metrics": {
+        "total_return": 0.0,
+        "max_drawdown": 0.0,
+        "win_rate": 0.0,
+        "total_trades": 0,
+        "sharpe_ratio": 0.0
+      },
+      "train_metrics": {
+        "total_return": 0.0,
+        "max_drawdown": 0.0,
+        "win_rate": 0.0,
+        "total_trades": 0,
+        "sharpe_ratio": 0.0
+      },
+      "test_metrics": {
+        "total_return": 0.0,
+        "max_drawdown": 0.0,
+        "win_rate": 0.0,
+        "total_trades": 0,
+        "sharpe_ratio": 0.0
+      }
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-"""Generated strategy: Strategy_FAST_20260218_195208_03"""
+"""Generated strategy: Strategy_FAST_20260220_080627_06"""
 from simple_strategy.strategies.strategy_builder import StrategyBuilder
 from simple_strategy.strategies.indicators_library import ema, rsi
 from simple_strategy.strategies.signals_library import overbought_oversold, rsi_mean_reversion_with_trend
@@ -10,10 +10,10 @@ def create_strategy(symbols=None, timeframes=None, **params):
     timeframes = timeframes or ['1', '5']
     builder = StrategyBuilder(symbols=symbols, timeframes=timeframes)
     builder.add_indicator('ema_fast', ema, period=30)
-    builder.add_indicator('ema_slow', ema, period=82)
-    builder.add_indicator('rsi_main', rsi, period=13)
-    builder.add_signal_rule('rsi_osob', overbought_oversold, indicator='rsi_main', overbought=77, oversold=28)
-    builder.add_signal_rule('rsi_trend_combo', rsi_mean_reversion_with_trend, rsi='rsi_main', ema_fast='ema_fast', ema_slow='ema_slow', overbought=78, oversold=23)
-    builder.set_signal_combination('majority_vote')
-    builder.set_strategy_info('Strategy_FAST_20260218_195208_03', '1.0.0')
+    builder.add_indicator('ema_slow', ema, period=70)
+    builder.add_indicator('rsi_main', rsi, period=18)
+    builder.add_signal_rule('rsi_osob', overbought_oversold, indicator='rsi_main', overbought=82, oversold=15)
+    builder.add_signal_rule('rsi_trend_combo', rsi_mean_reversion_with_trend, rsi='rsi_main', ema_fast='ema_fast', ema_slow='ema_slow', overbought=75, oversold=20)
+    builder.set_signal_combination('unanimous')
+    builder.set_strategy_info('Strategy_FAST_20260220_080627_06', '1.0.0')
     return builder.build()

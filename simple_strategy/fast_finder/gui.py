@@ -54,7 +54,7 @@ class FastStrategyFinderGUI:
         self.status_var = tk.StringVar(value="IDLE")
         self.progress_var = tk.StringVar(value="Progress: 0/0")
         self.best_var = tk.StringVar(value="Best Score: -")
-        self.elapsed_var = tk.StringVar(value="Elapsed: 0s")
+        self.elapsed_var = tk.StringVar(value="Elapsed: 0h 0m 0s")
         self.run_dir_var = tk.StringVar(value="Run Dir: -")
 
     def _build_layout(self) -> None:
@@ -207,6 +207,21 @@ class FastStrategyFinderGUI:
         self.log_text.insert("end", text + "\n")
         self.log_text.see("end")
 
+    @staticmethod
+    def _format_duration_hms(total_seconds: float) -> str:
+        seconds = max(0, int(round(float(total_seconds))))
+        hours, remainder = divmod(seconds, 3600)
+        minutes, secs = divmod(remainder, 60)
+        return f"{hours}h {minutes}m {secs}s"
+
+    @staticmethod
+    def _result_rank_key(row: Dict[str, Any]) -> tuple:
+        replay_passed = bool(row.get("replay_passed", False))
+        replay_score = float(row.get("replay_score", row.get("score", -1e9)))
+        score = float(row.get("score", -1e9))
+        row_index = int(row.get("index", 10**9))
+        return (replay_passed, replay_score, score, -row_index)
+
     def _build_run_config(self) -> Dict[str, Any]:
         return {
             "quality_preset": self.quality_preset_var.get().strip(),
@@ -267,7 +282,7 @@ class FastStrategyFinderGUI:
         self.status_var.set("RUNNING")
         self.progress_var.set("Progress: 0/0")
         self.best_var.set("Best Score: -")
-        self.elapsed_var.set("Elapsed: 0s")
+        self.elapsed_var.set("Elapsed: 0h 0m 0s")
         self.start_btn.config(state="disabled")
         self.stop_btn.config(state="normal")
         self._append_log(
@@ -278,6 +293,7 @@ class FastStrategyFinderGUI:
                 regime=bool(config.get("enable_regime_filter", False)),
             )
         )
+        self._append_log("Ranking mode: replay-first (full-window replay is prioritized).")
 
         def _progress(done: int, total: int, best_score: float, row: Dict[str, Any]) -> None:
             self.root.after(0, lambda: self._on_progress(done, total, best_score, row))
@@ -300,7 +316,7 @@ class FastStrategyFinderGUI:
         self.progress_var.set(f"Progress: {done}/{total}")
         self.best_var.set(f"Best Score: {best_score:.4f}")
         elapsed = 0 if self.run_started_ts is None else int(time.time() - self.run_started_ts)
-        self.elapsed_var.set(f"Elapsed: {elapsed}s")
+        self.elapsed_var.set(f"Elapsed: {self._format_duration_hms(elapsed)}")
 
         metrics = row.get("metrics", {})
         self._append_log(
@@ -336,10 +352,10 @@ class FastStrategyFinderGUI:
         stopped = bool(result.get("stopped", False))
         self.status_var.set("STOPPED" if stopped else "COMPLETE")
         self._append_log(
-            "Run complete. evaluated={evaluated}/{requested} elapsed={elapsed:.2f}s".format(
+            "Run complete. evaluated={evaluated}/{requested} elapsed={elapsed}".format(
                 evaluated=int(result.get("evaluated", 0)),
                 requested=int(result.get("requested_candidates", 0)),
-                elapsed=float(result.get("elapsed_seconds", 0.0)),
+                elapsed=self._format_duration_hms(float(result.get("elapsed_seconds", 0.0))),
             )
         )
 
@@ -351,15 +367,23 @@ class FastStrategyFinderGUI:
 
         top_results = result.get("top_results", []) or []
         if top_results:
-            best = top_results[0]
+            ordered = sorted(top_results, key=self._result_rank_key, reverse=True)
+            best = ordered[0]
             metrics = best.get("metrics", {})
+            replay_metrics = best.get("replay_metrics", {})
             self._append_log(
-                "Best result: score={score:.4f} return={ret:.2f}% dd={dd:.2f}% win={win:.2f}% trades={trades}".format(
+                "Best result (replay-ranked): score={score:.4f} return={ret:.2f}% dd={dd:.2f}% win={win:.2f}% trades={trades} "
+                "replay_pass={replay_pass} replay_score={replay_score:.4f} replay_return={replay_ret:.2f}% replay_dd={replay_dd:.2f}% replay_trades={replay_trades}".format(
                     score=float(best.get("score", 0.0)),
                     ret=float(metrics.get("total_return", 0.0)),
                     dd=float(metrics.get("max_drawdown", 0.0)),
                     win=float(metrics.get("win_rate", 0.0)),
                     trades=int(metrics.get("total_trades", 0)),
+                    replay_pass=bool(best.get("replay_passed", False)),
+                    replay_score=float(best.get("replay_score", 0.0)),
+                    replay_ret=float(replay_metrics.get("total_return", 0.0)),
+                    replay_dd=float(replay_metrics.get("max_drawdown", 0.0)),
+                    replay_trades=int(replay_metrics.get("total_trades", 0)),
                 )
             )
 

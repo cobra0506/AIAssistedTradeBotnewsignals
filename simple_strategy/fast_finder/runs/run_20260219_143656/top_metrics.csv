@@ -1,0 +1,11 @@
+rank,score,passed,passed_relaxed,train_passed,test_passed,return_pct,max_drawdown_pct,win_rate_pct,trades,sharpe_ratio,train_return_pct,train_drawdown_pct,train_win_rate_pct,train_trades,signals,combination
+1,86.98834617573577,False,False,False,False,54.19888715215224,0.0,66.66666666666666,3,18.55726752192731,57.00777148841273,0.0,100.0,3,"rsi_osob,rsi_trend_combo",and_signals
+2,0.0,False,False,False,False,0.0,0.0,0.0,0,0.0,0.0,0.0,0.0,0,"rsi_osob,sma_cross,rsi_trend_combo,macd_cross",and_signals
+3,0.0,False,False,False,False,0.0,0.0,0.0,0,0.0,0.0,0.0,0.0,0,"rsi_osob,ema_cross,sma_cross,stoch_reversal",and_signals
+4,0.0,False,False,False,False,0.0,0.0,0.0,0,0.0,0.0,0.0,0.0,0,"sma_cross,macd_cross,bb_reversion,stoch_reversal",and_signals
+5,0.0,False,False,False,False,0.0,0.0,0.0,0,0.0,0.0,0.0,0.0,0,"rsi_osob,sma_cross,rsi_trend_combo,macd_cross",and_signals
+6,0.0,False,False,False,False,0.0,0.0,0.0,0,0.0,0.0,0.0,0.0,0,"rsi_osob,ema_cross,sma_cross,rsi_trend_combo",and_signals
+7,0.0,False,False,False,False,0.0,0.0,0.0,0,0.0,0.0,0.0,0.0,0,"ema_cross,sma_cross,macd_cross,bb_reversion",and_signals
+8,0.0,False,False,False,False,0.0,0.0,0.0,0,0.0,0.0,0.0,0.0,0,"macd_cross,stoch_reversal,breakout_sr,rsi_divergence",and_signals
+9,0.0,False,False,False,False,0.0,0.0,0.0,0,0.0,0.0,0.0,0.0,0,"rsi_osob,sma_cross,rsi_trend_combo,macd_cross",and_signals
+10,0.0,False,False,False,False,0.0,0.0,0.0,0,0.0,0.0,0.0,0.0,0,"rsi_osob,ema_cross,stoch_reversal,breakout_sr",and_signals

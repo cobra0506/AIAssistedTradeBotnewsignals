@@ -1,0 +1,18 @@
+Fast Lego Strategy Finder Summary
+=================================
+Generated at: 2026-02-19T12:17:28.508892Z
+Stopped: False
+Elapsed seconds: 5733.29
+Evaluated: 250
+Fallback: triggered=True reason=strict_gate_zero_passes strict=0 relaxed=0
+
+#1 score=57.9979 pass=False pass_relaxed=False test_return=43.05% test_dd=0.00% test_win=50.00% test_trades=8 train_return=59.56% train_dd=0.00% signals=['rsi_osob', 'rsi_trend_combo']
+#2 score=0.0000 pass=False pass_relaxed=False test_return=0.00% test_dd=0.00% test_win=0.00% test_trades=0 train_return=0.00% train_dd=0.00% signals=['ema_cross', 'sma_cross', 'macd_cross']
+#3 score=0.0000 pass=False pass_relaxed=False test_return=0.00% test_dd=0.00% test_win=0.00% test_trades=0 train_return=0.00% train_dd=0.00% signals=['sma_cross', 'stoch_reversal', 'rsi_divergence']
+#4 score=0.0000 pass=False pass_relaxed=False test_return=0.00% test_dd=0.00% test_win=0.00% test_trades=0 train_return=0.00% train_dd=0.00% signals=['rsi_osob', 'bb_reversion', 'breakout_sr']
+#5 score=0.0000 pass=False pass_relaxed=False test_return=0.00% test_dd=0.00% test_win=0.00% test_trades=0 train_return=0.00% train_dd=0.00% signals=['ema_cross', 'bb_reversion', 'breakout_sr', 'rsi_divergence']
+#6 score=0.0000 pass=False pass_relaxed=False test_return=0.00% test_dd=0.00% test_win=0.00% test_trades=0 train_return=0.00% train_dd=0.00% signals=['rsi_osob', 'ema_cross', 'rsi_trend_combo', 'bb_reversion']
+#7 score=0.0000 pass=False pass_relaxed=False test_return=0.00% test_dd=0.00% test_win=0.00% test_trades=0 train_return=0.00% train_dd=0.00% signals=['rsi_osob', 'macd_cross', 'breakout_sr', 'rsi_divergence']
+#8 score=0.0000 pass=False pass_relaxed=False test_return=0.00% test_dd=0.00% test_win=0.00% test_trades=0 train_return=0.00% train_dd=0.00% signals=['ema_cross', 'sma_cross', 'rsi_trend_combo', 'bb_reversion']
+#9 score=0.0000 pass=False pass_relaxed=False test_return=0.00% test_dd=0.00% test_win=0.00% test_trades=0 train_return=0.00% train_dd=0.00% signals=['rsi_osob', 'bb_reversion', 'stoch_reversal', 'rsi_divergence']
+#10 score=0.0000 pass=False pass_relaxed=False test_return=0.00% test_dd=0.00% test_win=0.00% test_trades=0 train_return=0.00% train_dd=0.00% signals=['rsi_osob', 'macd_cross']

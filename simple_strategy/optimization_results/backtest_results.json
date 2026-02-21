@@ -1,6 +1,6 @@
 {
     "AE_INNER_OPT": {
-        "last_backtest": "2026-02-16 09:55:12",
+        "last_backtest": "2026-02-18 06:59:55",
         "symbols": [
             "BNBUSDT",
             "XRPUSDT",
@@ -26,7 +26,83 @@
         ],
         "start_date": "2025-11-16",
         "end_date": "2025-12-31",
-        "duration": "0h 9m 1.31s",
+        "duration": "0h 2m 39.37s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -7980.813129015387,
+        "metrics": {
+            "win_rate": 39.29273084479371,
+            "sharpe_ratio": -1.6504379977969654,
+            "max_drawdown": 99.8743783111124,
+            "total_return": -79.80813129015387,
+            "total_trades": 1018
+        }
+    },
+    "AE_G007_I0010": {
+        "last_backtest": "2026-02-18 00:44:57",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 4m 14.42s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -7453.995023867243,
+        "metrics": {
+            "win_rate": 38.42432619212163,
+            "sharpe_ratio": -1.2977733150746384,
+            "max_drawdown": 99.87503125943904,
+            "total_return": -74.53995023867242,
+            "total_trades": 1447
+        }
+    },
+    "AE_G007_I0013": {
+        "last_backtest": "2026-02-18 00:45:23",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 2m 40.64s",
         "initial_balance": 10000.0,
         "net_profit_loss": 0.0,
         "metrics": {
@@ -37,8 +113,8 @@
             "total_trades": 0
         }
     },
-    "AE_G004_I0006": {
-        "last_backtest": "2026-02-16 09:45:26",
+    "AE_G007_I0012": {
+        "last_backtest": "2026-02-18 00:47:46",
         "symbols": [
             "BNBUSDT",
             "XRPUSDT",
@@ -64,19 +140,1577 @@
         ],
         "start_date": "2025-11-16",
         "end_date": "2025-12-31",
-        "duration": "0h 3m 7.78s",
+        "duration": "0h 2m 55.23s",
         "initial_balance": 10000.0,
-        "net_profit_loss": 9303.381061354035,
+        "net_profit_loss": -7453.995023867243,
+        "metrics": {
+            "win_rate": 38.42432619212163,
+            "sharpe_ratio": -1.2977733150746384,
+            "max_drawdown": 99.87503125943904,
+            "total_return": -74.53995023867242,
+            "total_trades": 1447
+        }
+    },
+    "AE_G007_I0014": {
+        "last_backtest": "2026-02-18 00:54:10",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 0m 54.58s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": 0.0,
+        "metrics": {
+            "win_rate": 0.0,
+            "sharpe_ratio": 0.0,
+            "max_drawdown": 0.0,
+            "total_return": 0.0,
+            "total_trades": 0
+        }
+    },
+    "AE_G007_I0015": {
+        "last_backtest": "2026-02-18 01:01:24",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 0m 51.99s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -7669.203412312061,
+        "metrics": {
+            "win_rate": 28.313967275314205,
+            "sharpe_ratio": -1.3615932482386108,
+            "max_drawdown": 100.00573821703891,
+            "total_return": -76.6920341231206,
+            "total_trades": 4217
+        }
+    },
+    "AE_G008_I0002": {
+        "last_backtest": "2026-02-18 01:28:24",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 2m 14.11s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": 0.0,
+        "metrics": {
+            "win_rate": 0.0,
+            "sharpe_ratio": 0.0,
+            "max_drawdown": 0.0,
+            "total_return": 0.0,
+            "total_trades": 0
+        }
+    },
+    "AE_G008_I0000": {
+        "last_backtest": "2026-02-18 01:32:19",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 2m 37.56s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": 0.0,
+        "metrics": {
+            "win_rate": 0.0,
+            "sharpe_ratio": 0.0,
+            "max_drawdown": 0.0,
+            "total_return": 0.0,
+            "total_trades": 0
+        }
+    },
+    "AE_G008_I0003": {
+        "last_backtest": "2026-02-18 01:47:56",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 2m 54.83s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -226.1167924163102,
+        "metrics": {
+            "win_rate": 60.78431372549019,
+            "sharpe_ratio": -0.032240848276991224,
+            "max_drawdown": 30.546328008976413,
+            "total_return": -2.261167924163102,
+            "total_trades": 408
+        }
+    },
+    "AE_G008_I0004": {
+        "last_backtest": "2026-02-18 01:57:18",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 2m 7.63s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": 0.0,
+        "metrics": {
+            "win_rate": 0.0,
+            "sharpe_ratio": 0.0,
+            "max_drawdown": 0.0,
+            "total_return": 0.0,
+            "total_trades": 0
+        }
+    },
+    "AE_G008_I0005": {
+        "last_backtest": "2026-02-18 02:04:50",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 3m 17.03s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": 0.0,
+        "metrics": {
+            "win_rate": 0.0,
+            "sharpe_ratio": 0.0,
+            "max_drawdown": 0.0,
+            "total_return": 0.0,
+            "total_trades": 0
+        }
+    },
+    "AE_G008_I0001": {
+        "last_backtest": "2026-02-18 02:18:21",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 8m 37.34s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -7669.203412312061,
+        "metrics": {
+            "win_rate": 28.313967275314205,
+            "sharpe_ratio": -1.3615932482386108,
+            "max_drawdown": 100.00573821703891,
+            "total_return": -76.6920341231206,
+            "total_trades": 4217
+        }
+    },
+    "AE_G008_I0007": {
+        "last_backtest": "2026-02-18 02:28:29",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 3m 30.85s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": 0.0,
+        "metrics": {
+            "win_rate": 0.0,
+            "sharpe_ratio": 0.0,
+            "max_drawdown": 0.0,
+            "total_return": 0.0,
+            "total_trades": 0
+        }
+    },
+    "AE_G008_I0006": {
+        "last_backtest": "2026-02-18 02:43:04",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 5m 26.99s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -7453.995023867243,
+        "metrics": {
+            "win_rate": 38.42432619212163,
+            "sharpe_ratio": -1.2977733150746384,
+            "max_drawdown": 99.87503125943904,
+            "total_return": -74.53995023867242,
+            "total_trades": 1447
+        }
+    },
+    "AE_G008_I0008": {
+        "last_backtest": "2026-02-18 02:43:31",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 4m 11.18s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": 0.0,
+        "metrics": {
+            "win_rate": 0.0,
+            "sharpe_ratio": 0.0,
+            "max_drawdown": 0.0,
+            "total_return": 0.0,
+            "total_trades": 0
+        }
+    },
+    "AE_G008_I0009": {
+        "last_backtest": "2026-02-18 02:47:41",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 2m 56.45s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -9027.05016714851,
+        "metrics": {
+            "win_rate": 0.0,
+            "sharpe_ratio": -30.420162258859445,
+            "max_drawdown": 90.60013880458511,
+            "total_return": -90.2705016714851,
+            "total_trades": 3
+        }
+    },
+    "AE_G008_I0010": {
+        "last_backtest": "2026-02-18 03:03:41",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 2m 12.27s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": 0.0,
+        "metrics": {
+            "win_rate": 0.0,
+            "sharpe_ratio": 0.0,
+            "max_drawdown": 0.0,
+            "total_return": 0.0,
+            "total_trades": 0
+        }
+    },
+    "AE_G008_I0012": {
+        "last_backtest": "2026-02-18 03:10:16",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 1m 39.61s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": 0.0,
+        "metrics": {
+            "win_rate": 0.0,
+            "sharpe_ratio": 0.0,
+            "max_drawdown": 0.0,
+            "total_return": 0.0,
+            "total_trades": 0
+        }
+    },
+    "AE_G008_I0011": {
+        "last_backtest": "2026-02-18 03:19:28",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 1m 44.20s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -226.1167924163102,
+        "metrics": {
+            "win_rate": 60.78431372549019,
+            "sharpe_ratio": -0.032240848276991224,
+            "max_drawdown": 30.546328008976413,
+            "total_return": -2.261167924163102,
+            "total_trades": 408
+        }
+    },
+    "AE_G008_I0015": {
+        "last_backtest": "2026-02-18 03:30:51",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 1m 23.85s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -7453.995023867243,
+        "metrics": {
+            "win_rate": 38.42432619212163,
+            "sharpe_ratio": -1.2977733150746384,
+            "max_drawdown": 99.87503125943904,
+            "total_return": -74.53995023867242,
+            "total_trades": 1447
+        }
+    },
+    "AE_G008_I0013": {
+        "last_backtest": "2026-02-18 03:31:34",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 2m 11.38s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -7669.203412312061,
+        "metrics": {
+            "win_rate": 28.313967275314205,
+            "sharpe_ratio": -1.3615932482386108,
+            "max_drawdown": 100.00573821703891,
+            "total_return": -76.6920341231206,
+            "total_trades": 4217
+        }
+    },
+    "AE_G008_I0014": {
+        "last_backtest": "2026-02-18 03:33:29",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 0m 40.95s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -7669.203412312061,
+        "metrics": {
+            "win_rate": 28.313967275314205,
+            "sharpe_ratio": -1.3615932482386108,
+            "max_drawdown": 100.00573821703891,
+            "total_return": -76.6920341231206,
+            "total_trades": 4217
+        }
+    },
+    "AE_G009_I0002": {
+        "last_backtest": "2026-02-18 03:55:46",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 1m 58.70s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": 0.0,
+        "metrics": {
+            "win_rate": 0.0,
+            "sharpe_ratio": 0.0,
+            "max_drawdown": 0.0,
+            "total_return": 0.0,
+            "total_trades": 0
+        }
+    },
+    "AE_G009_I0000": {
+        "last_backtest": "2026-02-18 03:58:06",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 1m 42.94s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": 0.0,
+        "metrics": {
+            "win_rate": 0.0,
+            "sharpe_ratio": 0.0,
+            "max_drawdown": 0.0,
+            "total_return": 0.0,
+            "total_trades": 0
+        }
+    },
+    "AE_G009_I0004": {
+        "last_backtest": "2026-02-18 04:18:47",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 2m 38.58s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": 0.0,
+        "metrics": {
+            "win_rate": 0.0,
+            "sharpe_ratio": 0.0,
+            "max_drawdown": 0.0,
+            "total_return": 0.0,
+            "total_trades": 0
+        }
+    },
+    "AE_G009_I0003": {
+        "last_backtest": "2026-02-18 04:19:41",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 2m 43.36s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -226.1167924163102,
+        "metrics": {
+            "win_rate": 60.78431372549019,
+            "sharpe_ratio": -0.032240848276991224,
+            "max_drawdown": 30.546328008976413,
+            "total_return": -2.261167924163102,
+            "total_trades": 408
+        }
+    },
+    "AE_G009_I0005": {
+        "last_backtest": "2026-02-18 04:25:30",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 1m 55.97s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": 0.0,
+        "metrics": {
+            "win_rate": 0.0,
+            "sharpe_ratio": 0.0,
+            "max_drawdown": 0.0,
+            "total_return": 0.0,
+            "total_trades": 0
+        }
+    },
+    "AE_G009_I0006": {
+        "last_backtest": "2026-02-18 04:42:44",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 2m 13.54s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": 0.0,
+        "metrics": {
+            "win_rate": 0.0,
+            "sharpe_ratio": 0.0,
+            "max_drawdown": 0.0,
+            "total_return": 0.0,
+            "total_trades": 0
+        }
+    },
+    "AE_G009_I0001": {
+        "last_backtest": "2026-02-18 04:42:59",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 7m 24.76s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -7669.203412312061,
+        "metrics": {
+            "win_rate": 28.313967275314205,
+            "sharpe_ratio": -1.3615932482386108,
+            "max_drawdown": 100.00573821703891,
+            "total_return": -76.6920341231206,
+            "total_trades": 4217
+        }
+    },
+    "AE_G009_I0008": {
+        "last_backtest": "2026-02-18 04:44:28",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 1m 17.80s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -8800.418982085486,
+        "metrics": {
+            "win_rate": 0.0,
+            "sharpe_ratio": -30.031695943419408,
+            "max_drawdown": 88.33382695395485,
+            "total_return": -88.00418982085486,
+            "total_trades": 3
+        }
+    },
+    "AE_G009_I0009": {
+        "last_backtest": "2026-02-18 05:04:32",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 1m 42.17s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": 0.0,
+        "metrics": {
+            "win_rate": 0.0,
+            "sharpe_ratio": 0.0,
+            "max_drawdown": 0.0,
+            "total_return": 0.0,
+            "total_trades": 0
+        }
+    },
+    "AE_G009_I0011": {
+        "last_backtest": "2026-02-18 05:08:37",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 2m 5.00s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": 0.0,
+        "metrics": {
+            "win_rate": 0.0,
+            "sharpe_ratio": 0.0,
+            "max_drawdown": 0.0,
+            "total_return": 0.0,
+            "total_trades": 0
+        }
+    },
+    "AE_G009_I0007": {
+        "last_backtest": "2026-02-18 05:23:07",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 5m 25.98s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -7669.203412312061,
+        "metrics": {
+            "win_rate": 28.313967275314205,
+            "sharpe_ratio": -1.3615932482386108,
+            "max_drawdown": 100.00573821703891,
+            "total_return": -76.6920341231206,
+            "total_trades": 4217
+        }
+    },
+    "AE_G009_I0012": {
+        "last_backtest": "2026-02-18 05:23:51",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2026-01-01",
+        "end_date": "2026-01-31",
+        "duration": "0h 0m 38.91s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -4379.946242752278,
+        "metrics": {
+            "win_rate": 16.153846153846153,
+            "sharpe_ratio": -3.625615647557152,
+            "max_drawdown": 53.522667081704476,
+            "total_return": -43.79946242752277,
+            "total_trades": 130
+        }
+    },
+    "AE_G009_I0010": {
+        "last_backtest": "2026-02-18 05:33:35",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 4m 42.44s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -7669.203412312061,
+        "metrics": {
+            "win_rate": 28.313967275314205,
+            "sharpe_ratio": -1.3615932482386108,
+            "max_drawdown": 100.00573821703891,
+            "total_return": -76.6920341231206,
+            "total_trades": 4217
+        }
+    },
+    "AE_G009_I0014": {
+        "last_backtest": "2026-02-18 05:45:32",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 1m 52.15s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -7453.995023867243,
+        "metrics": {
+            "win_rate": 38.42432619212163,
+            "sharpe_ratio": -1.2977733150746384,
+            "max_drawdown": 99.87503125943904,
+            "total_return": -74.53995023867242,
+            "total_trades": 1447
+        }
+    },
+    "AE_G009_I0015": {
+        "last_backtest": "2026-02-18 05:46:06",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 1m 26.15s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -7453.995023867243,
+        "metrics": {
+            "win_rate": 38.42432619212163,
+            "sharpe_ratio": -1.2977733150746384,
+            "max_drawdown": 99.87503125943904,
+            "total_return": -74.53995023867242,
+            "total_trades": 1447
+        }
+    },
+    "AE_G009_I0013": {
+        "last_backtest": "2026-02-18 05:46:42",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 2m 7.45s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -7669.203412312061,
+        "metrics": {
+            "win_rate": 28.313967275314205,
+            "sharpe_ratio": -1.3615932482386108,
+            "max_drawdown": 100.00573821703891,
+            "total_return": -76.6920341231206,
+            "total_trades": 4217
+        }
+    },
+    "AE_G010_I0002": {
+        "last_backtest": "2026-02-18 06:09:43",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 2m 5.99s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": 0.0,
+        "metrics": {
+            "win_rate": 0.0,
+            "sharpe_ratio": 0.0,
+            "max_drawdown": 0.0,
+            "total_return": 0.0,
+            "total_trades": 0
+        }
+    },
+    "AE_G010_I0000": {
+        "last_backtest": "2026-02-18 06:10:26",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 1m 22.42s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": 0.0,
+        "metrics": {
+            "win_rate": 0.0,
+            "sharpe_ratio": 0.0,
+            "max_drawdown": 0.0,
+            "total_return": 0.0,
+            "total_trades": 0
+        }
+    },
+    "AE_G010_I0003": {
+        "last_backtest": "2026-02-18 06:32:47",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 3m 5.15s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -226.1167924163102,
+        "metrics": {
+            "win_rate": 60.78431372549019,
+            "sharpe_ratio": -0.032240848276991224,
+            "max_drawdown": 30.546328008976413,
+            "total_return": -2.261167924163102,
+            "total_trades": 408
+        }
+    },
+    "AE_G010_I0004": {
+        "last_backtest": "2026-02-18 06:34:14",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 2m 41.28s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": 0.0,
+        "metrics": {
+            "win_rate": 0.0,
+            "sharpe_ratio": 0.0,
+            "max_drawdown": 0.0,
+            "total_return": 0.0,
+            "total_trades": 0
+        }
+    },
+    "AE_G010_I0005": {
+        "last_backtest": "2026-02-18 06:34:56",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 1m 56.22s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": 0.0,
+        "metrics": {
+            "win_rate": 0.0,
+            "sharpe_ratio": 0.0,
+            "max_drawdown": 0.0,
+            "total_return": 0.0,
+            "total_trades": 0
+        }
+    },
+    "AE_G000_I0000": {
+        "last_backtest": "2026-02-18 06:36:04",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2024-01-01",
+        "end_date": "2024-01-02",
+        "duration": "0h 0m 0.02s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": 0.0,
+        "metrics": {
+            "win_rate": 0.0,
+            "sharpe_ratio": 0.0,
+            "max_drawdown": 0.0,
+            "total_return": 0.0,
+            "total_trades": 0
+        }
+    },
+    "AE_G000_I0001": {
+        "last_backtest": "2026-02-18 06:36:04",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2024-01-01",
+        "end_date": "2024-01-02",
+        "duration": "0h 0m 0.01s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": 366.85308789090595,
         "metrics": {
             "win_rate": 100.0,
-            "sharpe_ratio": 28.46676057888018,
+            "sharpe_ratio": 0.0,
             "max_drawdown": 0.0,
-            "total_return": 93.03381061354037,
-            "total_trades": 3
+            "total_return": 3.66853087890906,
+            "total_trades": 1
         }
     },
-    "AE_G000_I0013": {
-        "last_backtest": "2026-02-16 09:55:00",
+    "AE_G000_I0002": {
+        "last_backtest": "2026-02-18 06:36:04",
         "symbols": [
             "BNBUSDT",
             "XRPUSDT",
@@ -100,9 +1734,47 @@
         "timeframes": [
             "1m"
         ],
-        "start_date": "2025-11-16",
-        "end_date": "2025-12-31",
-        "duration": "0h 3m 59.24s",
+        "start_date": "2024-01-01",
+        "end_date": "2024-01-02",
+        "duration": "0h 0m 0.03s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -394.51889539989884,
+        "metrics": {
+            "win_rate": 33.33333333333333,
+            "sharpe_ratio": -12.381119726587139,
+            "max_drawdown": 4.588499130120235,
+            "total_return": -3.945188953998988,
+            "total_trades": 3
+        }
+    },
+    "AE_G000_I0003": {
+        "last_backtest": "2026-02-18 06:36:04",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2024-01-01",
+        "end_date": "2024-01-02",
+        "duration": "0h 0m 0.02s",
         "initial_balance": 10000.0,
         "net_profit_loss": 0.0,
         "metrics": {
@@ -113,8 +1785,46 @@
             "total_trades": 0
         }
     },
-    "AE_G004_I0007": {
-        "last_backtest": "2026-02-16 09:54:36",
+    "AE_FINAL_SEGMENT": {
+        "last_backtest": "2026-02-18 06:36:05",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2024-01-03",
+        "end_date": "2024-01-04",
+        "duration": "0h 0m 0.02s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": 0.0,
+        "metrics": {
+            "win_rate": 0.0,
+            "sharpe_ratio": 0.0,
+            "max_drawdown": 0.0,
+            "total_return": 0.0,
+            "total_trades": 0
+        }
+    },
+    "AE_G010_I0007": {
+        "last_backtest": "2026-02-18 06:53:08",
         "symbols": [
             "BNBUSDT",
             "XRPUSDT",
@@ -140,15 +1850,419 @@
         ],
         "start_date": "2025-11-16",
         "end_date": "2025-12-31",
-        "duration": "0h 5m 57.67s",
+        "duration": "0h 1m 35.57s",
         "initial_balance": 10000.0,
-        "net_profit_loss": -9442.305757725328,
+        "net_profit_loss": -8800.418982085486,
         "metrics": {
             "win_rate": 0.0,
-            "sharpe_ratio": -28.963115752558593,
-            "max_drawdown": 94.75269471035328,
-            "total_return": -94.42305757725327,
+            "sharpe_ratio": -30.031695943419408,
+            "max_drawdown": 88.33382695395485,
+            "total_return": -88.00418982085486,
             "total_trades": 3
+        }
+    },
+    "AE_G010_I0001": {
+        "last_backtest": "2026-02-18 06:57:15",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 6m 21.28s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -7669.203412312061,
+        "metrics": {
+            "win_rate": 28.313967275314205,
+            "sharpe_ratio": -1.3615932482386108,
+            "max_drawdown": 100.00573821703891,
+            "total_return": -76.6920341231206,
+            "total_trades": 4217
+        }
+    },
+    "AE_G010_I0008": {
+        "last_backtest": "2026-02-18 06:57:25",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT",
+            "SUSHIUSDT",
+            "ARBUSDT",
+            "OPUSDT",
+            "NEARUSDT",
+            "GRTUSDT"
+        ],
+        "timeframes": [
+            "1m"
+        ],
+        "start_date": "2025-11-16",
+        "end_date": "2025-12-31",
+        "duration": "0h 1m 45.53s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": 0.0,
+        "metrics": {
+            "win_rate": 0.0,
+            "sharpe_ratio": 0.0,
+            "max_drawdown": 0.0,
+            "total_return": 0.0,
+            "total_trades": 0
+        }
+    },
+    "Strategy_FAST_20260218_093807_01": {
+        "last_backtest": "2026-02-19 12:36:24",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT"
+        ],
+        "timeframes": [
+            "5m"
+        ],
+        "start_date": "2025-07-01",
+        "end_date": "2025-12-31",
+        "duration": "0h 0m 42.54s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -7766.195223187789,
+        "metrics": {
+            "win_rate": 39.917231000752444,
+            "sharpe_ratio": -0.6393179374429006,
+            "max_drawdown": 99.99577236589775,
+            "total_return": -77.66195223187789,
+            "total_trades": 2658
+        }
+    },
+    "Strategy_FAST_20260218_184544_01": {
+        "last_backtest": "2026-02-19 12:37:51",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT"
+        ],
+        "timeframes": [
+            "5m"
+        ],
+        "start_date": "2025-07-01",
+        "end_date": "2025-12-31",
+        "duration": "0h 0m 39.98s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -8160.674047359234,
+        "metrics": {
+            "win_rate": 42.7293934681182,
+            "sharpe_ratio": -0.897188556955773,
+            "max_drawdown": 99.99423947455601,
+            "total_return": -81.60674047359234,
+            "total_trades": 2572
+        }
+    },
+    "Strategy_FAST_20260218_195208_03": {
+        "last_backtest": "2026-02-19 12:01:59",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT"
+        ],
+        "timeframes": [
+            "5m"
+        ],
+        "start_date": "2025-07-01",
+        "end_date": "2025-12-31",
+        "duration": "0h 0m 54.16s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": 0.0,
+        "metrics": {
+            "win_rate": 0.0,
+            "sharpe_ratio": 0.0,
+            "max_drawdown": 0.0,
+            "total_return": 0.0,
+            "total_trades": 0
+        }
+    },
+    "Mean_Reversion_Bollinger": {
+        "last_backtest": "2026-02-21 23:55:04",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "NEARUSDT"
+        ],
+        "timeframes": [
+            "1m",
+            "5m"
+        ],
+        "start_date": "2026-01-01",
+        "end_date": "2026-02-15",
+        "duration": "0h 0m 18.02s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -2185.697551508235,
+        "metrics": {
+            "win_rate": 32.78688524590164,
+            "sharpe_ratio": -4.180937682555208,
+            "max_drawdown": 24.373225515082414,
+            "total_return": -21.85697551508235,
+            "total_trades": 61
+        }
+    },
+    "Trend_Following": {
+        "last_backtest": "2026-02-19 12:35:16",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT"
+        ],
+        "timeframes": [
+            "5m"
+        ],
+        "start_date": "2025-07-01",
+        "end_date": "2025-12-31",
+        "duration": "0h 0m 32.43s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -7477.122308755726,
+        "metrics": {
+            "win_rate": 25.83826429980276,
+            "sharpe_ratio": -1.159603656207604,
+            "max_drawdown": 99.79698589881333,
+            "total_return": -74.77122308755726,
+            "total_trades": 2028
+        }
+    },
+    "Mean_Reversion_Bidirectional": {
+        "last_backtest": "2026-02-21 23:55:44",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "NEARUSDT"
+        ],
+        "timeframes": [
+            "1m",
+            "5m"
+        ],
+        "start_date": "2026-01-01",
+        "end_date": "2026-02-15",
+        "duration": "0h 0m 17.66s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -76.87323579301538,
+        "metrics": {
+            "win_rate": 40.0,
+            "sharpe_ratio": -2.4087113951226873,
+            "max_drawdown": 0.9749823579301483,
+            "total_return": -0.7687323579301538,
+            "total_trades": 5
+        }
+    },
+    "Simple_Frequent_Trading": {
+        "last_backtest": "2026-02-19 12:26:41",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT"
+        ],
+        "timeframes": [
+            "5m"
+        ],
+        "start_date": "2025-07-01",
+        "end_date": "2025-12-31",
+        "duration": "0h 0m 58.48s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -7642.315508303371,
+        "metrics": {
+            "win_rate": 25.32368455468852,
+            "sharpe_ratio": -1.076092115283441,
+            "max_drawdown": 100.0,
+            "total_return": -76.4231550830337,
+            "total_trades": 45878
+        }
+    },
+    "Multi_Timeframe_Scalping": {
+        "last_backtest": "2026-02-19 12:27:41",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "ATOMUSDT",
+            "ALGOUSDT",
+            "VETUSDT",
+            "ICPUSDT",
+            "FILUSDT",
+            "AAVEUSDT",
+            "COMPUSDT",
+            "CRVUSDT",
+            "SNXUSDT"
+        ],
+        "timeframes": [
+            "5m"
+        ],
+        "start_date": "2025-07-01",
+        "end_date": "2025-12-31",
+        "duration": "0h 0m 59.60s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -7894.409463673018,
+        "metrics": {
+            "win_rate": 21.55416568326646,
+            "sharpe_ratio": -1.43516532393312,
+            "max_drawdown": 100.0,
+            "total_return": -78.94409463673017,
+            "total_trades": 16948
+        }
+    },
+    "Strategy_FAST_20260220_080627_01": {
+        "last_backtest": "2026-02-20 09:54:33",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "NEARUSDT"
+        ],
+        "timeframes": [
+            "1m",
+            "5m"
+        ],
+        "start_date": "2026-01-01",
+        "end_date": "2026-02-15",
+        "duration": "0h 0m 25.75s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -7742.16027181362,
+        "metrics": {
+            "win_rate": 45.65859421145895,
+            "sharpe_ratio": -1.6177370368087918,
+            "max_drawdown": 98.93008926404163,
+            "total_return": -77.4216027181362,
+            "total_trades": 1693
+        }
+    },
+    "Strategy_FAST_20260221_090208_01": {
+        "last_backtest": "2026-02-21 23:52:13",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "NEARUSDT"
+        ],
+        "timeframes": [
+            "1m",
+            "5m"
+        ],
+        "start_date": "2026-01-01",
+        "end_date": "2026-02-15",
+        "duration": "0h 0m 20.39s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": 1555.9085693439501,
+        "metrics": {
+            "win_rate": 57.407407407407405,
+            "sharpe_ratio": 3.1032032410603008,
+            "max_drawdown": 0.0,
+            "total_return": 15.559085693439501,
+            "total_trades": 54
+        }
+    },
+    "Mean_Reversion_Scalping": {
+        "last_backtest": "2026-02-21 23:56:22",
+        "symbols": [
+            "BNBUSDT",
+            "XRPUSDT",
+            "ADAUSDT",
+            "DOTUSDT",
+            "NEARUSDT"
+        ],
+        "timeframes": [
+            "1m",
+            "5m"
+        ],
+        "start_date": "2026-01-01",
+        "end_date": "2026-02-15",
+        "duration": "0h 0m 21.40s",
+        "initial_balance": 10000.0,
+        "net_profit_loss": -7360.056434130408,
+        "metrics": {
+            "win_rate": 34.932126696832576,
+            "sharpe_ratio": -3.777531092460581,
+            "max_drawdown": 93.88861495934286,
+            "total_return": -73.60056434130408,
+            "total_trades": 1105
         }
     }
 }

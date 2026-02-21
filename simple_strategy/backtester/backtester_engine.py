@@ -207,6 +207,50 @@ class BacktesterEngine:
             total += abs(entry_price * quantity) * max(0.0, stop_loss_pct)
         return float(total)
 
+    def _cap_quantity_with_global_rules(
+        self,
+        entry_price: float,
+        quantity: float,
+    ) -> Tuple[float, Optional[str]]:
+        """
+        Reduce order size to fit global exposure limits.
+        Returns (adjusted_quantity, block_reason_if_any).
+        """
+        if entry_price <= 0.0 or quantity <= 0.0:
+            return 0.0, 'invalid_order_size'
+
+        rules = self.global_rules
+        if not rules.enabled:
+            return quantity, None
+
+        base_balance = float(getattr(self, 'initial_balance', getattr(self, 'balance', 0.0)))
+        if base_balance <= 0.0:
+            return 0.0, 'invalid_account_balance'
+
+        planned_notional = abs(entry_price * quantity)
+        adjusted_notional = planned_notional
+
+        max_notional_allowed = max(0.0, base_balance * float(rules.max_notional_exposure_pct))
+        if max_notional_allowed > 0.0:
+            remaining_notional = max(0.0, max_notional_allowed - self._total_open_notional())
+            if remaining_notional <= 0.0:
+                return 0.0, 'max_notional_exposure_exceeded'
+            adjusted_notional = min(adjusted_notional, remaining_notional)
+
+        stop_loss_pct = max(0.0, float(rules.position_stop_loss_pct))
+        max_total_open_risk = max(0.0, base_balance * float(rules.max_total_open_risk_pct))
+        if max_total_open_risk > 0.0 and stop_loss_pct > 0.0:
+            remaining_risk = max(0.0, max_total_open_risk - self._total_open_risk())
+            if remaining_risk <= 0.0:
+                return 0.0, 'max_total_open_risk_exceeded'
+            risk_capped_notional = remaining_risk / stop_loss_pct
+            adjusted_notional = min(adjusted_notional, max(0.0, risk_capped_notional))
+
+        if adjusted_notional <= 0.0:
+            return 0.0, 'invalid_order_size'
+
+        return float(adjusted_notional / entry_price), None
+
     def _expected_move_pct(self) -> float:
         for attr in ('expected_move_pct', 'take_profit_pct', 'target_profit_pct', 'tp_pct'):
             value = getattr(self.strategy, attr, None)
@@ -568,7 +612,12 @@ class BacktesterEngine:
                                     )
                                     stop_price = entry_price * (1.0 - stop_loss_pct)
                                     quantity = self.get_order_size(symbol, entry_price, stop_price)
+                                    quantity, cap_block_reason = self._cap_quantity_with_global_rules(
+                                        entry_price=entry_price,
+                                        quantity=quantity,
+                                    )
                                     if quantity <= 0:
+                                        self._record_global_block(cap_block_reason or 'invalid_order_size')
                                         continue
                                     allowed, reason = self._can_open_with_global_rules(
                                         symbol=symbol,
@@ -615,7 +664,12 @@ class BacktesterEngine:
                                     )
                                     stop_price = entry_price * (1.0 + stop_loss_pct)
                                     quantity = self.get_order_size(symbol, entry_price, stop_price)
+                                    quantity, cap_block_reason = self._cap_quantity_with_global_rules(
+                                        entry_price=entry_price,
+                                        quantity=quantity,
+                                    )
                                     if quantity <= 0:
+                                        self._record_global_block(cap_block_reason or 'invalid_order_size')
                                         continue
                                     allowed, reason = self._can_open_with_global_rules(
                                         symbol=symbol,

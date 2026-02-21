@@ -45,11 +45,16 @@ DEFAULT_FAST_CONFIG: Dict[str, Any] = {
     "slippage_pct": 0.00030,
     "max_positions": 3,
     "risk_per_trade": 0.02,
+    "enable_global_rules": True,
+    "global_rules_profile": "balanced",
+    "min_24h_notional_usdt": 50_000_000.0,
     "enable_mtf_context_filter": False,
     "enable_regime_filter": False,
     "context_fast_period": 20,
     "context_slow_period": 50,
     "regime_symbol": "",
+    "replay_top_n": 30,
+    "require_replay_pass": True,
     "enable_train_test_split": True,
     "train_ratio": 0.70,
     "min_test_return_pct": 0.0,
@@ -382,6 +387,37 @@ def _score(metrics: Dict[str, float]) -> float:
     )
 
 
+def _format_duration_hms(total_seconds: float) -> str:
+    seconds = max(0, int(round(float(total_seconds))))
+    hours, remainder = divmod(seconds, 3600)
+    minutes, secs = divmod(remainder, 60)
+    return f"{hours}h {minutes}m {secs}s"
+
+
+def _build_backtest_config(run_config: Dict[str, Any]) -> Dict[str, Any]:
+    profile = str(run_config.get("global_rules_profile", "balanced")).strip().lower() or "balanced"
+    global_rules_payload = run_config.get("global_rules")
+    if isinstance(global_rules_payload, dict):
+        global_rules = dict(global_rules_payload)
+    else:
+        global_rules = {}
+    if "min_24h_notional_usdt" not in global_rules:
+        global_rules["min_24h_notional_usdt"] = float(run_config.get("min_24h_notional_usdt", 50_000_000.0))
+
+    return {
+        "fee_pct": float(run_config.get("fee_pct", 0.00055)),
+        "spread_pct": float(run_config.get("spread_pct", 0.00040)),
+        "slippage_pct": float(run_config.get("slippage_pct", 0.00030)),
+        "max_positions": int(run_config.get("max_positions", 3)),
+        "risk_per_trade": float(run_config.get("risk_per_trade", 0.02)),
+        "enable_global_rules": bool(run_config.get("enable_global_rules", False)),
+        "global_rules_profile": profile,
+        "global_rules": global_rules,
+        "debug_signals": False,
+        "print_trade_logs": False,
+    }
+
+
 def _passes_thresholds(metrics: Dict[str, float], config: Dict[str, Any]) -> bool:
     return (
         float(metrics.get("total_return", 0.0)) >= float(config.get("min_return_pct", 0.0))
@@ -442,10 +478,108 @@ def _rank_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return sorted(
         rows,
         key=lambda row: (
+            -float(row.get("replay_score", row.get("score", -1e9))),
             -float(row.get("score", -1e9)),
             int(row.get("index", 10**9)),
         ),
     )
+
+
+def _run_replay_for_row(
+    row: Dict[str, Any],
+    search_space: Dict[str, Any],
+    run_config: Dict[str, Any],
+    full_data: Dict[str, Dict[str, pd.DataFrame]],
+    feeder: DataFeeder,
+) -> Dict[str, Any]:
+    local_builder = CandidateBuilder(
+        search_space=search_space,
+        max_active_signals=int(run_config.get("max_active_signals", 3)),
+    )
+    strategy = local_builder.build_strategy(
+        candidate=row.get("candidate", {}),
+        symbols=run_config["symbols"],
+        timeframes=run_config["timeframes"],
+        strategy_name=f"FAST_REPLAY_{int(row.get('index', -1)):05d}",
+    )
+    strategy = _attach_context_signal_filters(strategy, run_config)
+
+    backtest_config = _build_backtest_config(run_config)
+    engine = BacktesterEngine(data_feeder=feeder, strategy=strategy, config=backtest_config)
+    engine._save_backtest_results = lambda *args, **kwargs: None
+    result = engine.run_backtest(
+        symbols=run_config["symbols"],
+        timeframes=run_config["timeframes"],
+        start_date=str(run_config["start_date"]),
+        end_date=str(run_config["end_date"]),
+        config=backtest_config,
+        strategy=strategy,
+        data=full_data,
+        initial_balance=float(run_config.get("initial_balance", 10000.0)),
+    )
+
+    replay_metrics = {
+        "total_return": float(result.get("total_return", 0.0)),
+        "max_drawdown": float(result.get("max_drawdown", 0.0)),
+        "win_rate": float(result.get("win_rate", 0.0)),
+        "total_trades": int(result.get("total_trades", 0)),
+        "sharpe_ratio": float(result.get("sharpe_ratio", 0.0)),
+    }
+    replay_passed = _passes_thresholds(replay_metrics, run_config)
+    return {
+        "replay_metrics": replay_metrics,
+        "replay_score": _score(replay_metrics),
+        "replay_passed": bool(replay_passed),
+    }
+
+
+def _replay_top_candidates(
+    all_results: List[Dict[str, Any]],
+    search_space: Dict[str, Any],
+    run_config: Dict[str, Any],
+    full_data: Dict[str, Dict[str, pd.DataFrame]],
+    feeder: DataFeeder,
+    workers: int,
+    top_k: int,
+) -> None:
+    if not all_results:
+        return
+
+    ranked = _rank_rows(all_results)
+    replay_top_n = max(top_k, int(run_config.get("replay_top_n", top_k)))
+    replay_rows = ranked[: min(len(ranked), replay_top_n)]
+    if not replay_rows:
+        return
+
+    with ThreadPoolExecutor(max_workers=max(1, workers)) as executor:
+        futures = {
+            executor.submit(
+                _run_replay_for_row,
+                row=row,
+                search_space=search_space,
+                run_config=run_config,
+                full_data=full_data,
+                feeder=feeder,
+            ): row
+            for row in replay_rows
+        }
+
+        for future, row in futures.items():
+            try:
+                replay_result = future.result()
+            except Exception:
+                replay_result = {
+                    "replay_metrics": {
+                        "total_return": 0.0,
+                        "max_drawdown": 100.0,
+                        "win_rate": 0.0,
+                        "total_trades": 0,
+                        "sharpe_ratio": 0.0,
+                    },
+                    "replay_score": -1e9,
+                    "replay_passed": False,
+                }
+            row.update(replay_result)
 
 
 def _apply_quality_preset(
@@ -483,15 +617,7 @@ def _evaluate_candidate(
         start_date: str,
         end_date: str,
     ) -> Dict[str, float]:
-        backtest_config = {
-            "fee_pct": float(run_config.get("fee_pct", 0.00055)),
-            "spread_pct": float(run_config.get("spread_pct", 0.00040)),
-            "slippage_pct": float(run_config.get("slippage_pct", 0.00030)),
-            "max_positions": int(run_config.get("max_positions", 3)),
-            "risk_per_trade": float(run_config.get("risk_per_trade", 0.02)),
-            "debug_signals": False,
-            "print_trade_logs": False,
-        }
+        backtest_config = _build_backtest_config(run_config)
 
         engine = BacktesterEngine(data_feeder=feeder, strategy=strategy_obj, config=backtest_config)
         engine._save_backtest_results = lambda *args, **kwargs: None
@@ -579,6 +705,18 @@ def _select_top_results(
     ranked = _rank_rows(all_results)
     selected: List[Dict[str, Any]] = []
     selected_row_ids: Set[int] = set()
+    require_replay = bool(run_config.get("require_replay_pass", True))
+
+    def _row_replay_allowed(row: Dict[str, Any]) -> bool:
+        if not require_replay:
+            return True
+        return "replay_passed" in row
+
+    def _row_replay_ok(row: Dict[str, Any]) -> bool:
+        if not require_replay:
+            return True
+        return bool(row.get("replay_passed", False))
+
     fallback_info: Dict[str, Any] = {
         "triggered": False,
         "reason": "",
@@ -586,7 +724,7 @@ def _select_top_results(
         "relaxed_pass_count": 0,
     }
 
-    strict_rows = [row for row in ranked if bool(row.get("passed", False))]
+    strict_rows = [row for row in ranked if bool(row.get("passed", False)) and _row_replay_ok(row)]
     fallback_info["strict_pass_count"] = len(strict_rows)
     if len(strict_rows) < top_k:
         fallback_info["triggered"] = True
@@ -605,11 +743,13 @@ def _select_top_results(
         relaxed_test_gate = _build_test_gate_config(relaxed_config)
         relaxed_rows: List[Dict[str, Any]] = []
         for row in ranked:
+            if not _row_replay_allowed(row):
+                continue
             train_metrics = row.get("train_metrics", row.get("metrics", {}))
             test_metrics = row.get("test_metrics", row.get("metrics", {}))
             relaxed_train_ok = _passes_thresholds(train_metrics, relaxed_config)
             relaxed_test_ok = _passes_thresholds(test_metrics, relaxed_test_gate)
-            relaxed_ok = bool(relaxed_train_ok and relaxed_test_ok)
+            relaxed_ok = bool(relaxed_train_ok and relaxed_test_ok and _row_replay_ok(row))
             row["passed_relaxed"] = relaxed_ok
             if relaxed_ok:
                 relaxed_rows.append(row)
@@ -628,6 +768,8 @@ def _select_top_results(
                     return selected[:top_k], fallback_info
 
     for row in ranked:
+        if not _row_replay_allowed(row):
+            continue
         row_id = id(row)
         if row_id in selected_row_ids:
             continue
@@ -648,10 +790,12 @@ def _write_reports(
     stopped: bool,
     fallback_info: Dict[str, Any],
 ) -> None:
+    elapsed_hms = _format_duration_hms(elapsed_seconds)
     payload = {
         "generated_at": datetime.utcnow().isoformat() + "Z",
         "stopped": bool(stopped),
         "elapsed_seconds": float(elapsed_seconds),
+        "elapsed_hms": elapsed_hms,
         "config": run_config,
         "evaluated": len(all_results),
         "fallback": fallback_info,
@@ -664,7 +808,7 @@ def _write_reports(
     summary_lines.append("=================================")
     summary_lines.append(f"Generated at: {payload['generated_at']}")
     summary_lines.append(f"Stopped: {stopped}")
-    summary_lines.append(f"Elapsed seconds: {elapsed_seconds:.2f}")
+    summary_lines.append(f"Elapsed: {elapsed_hms}")
     summary_lines.append(f"Evaluated: {len(all_results)}")
     summary_lines.append(
         "Fallback: triggered={triggered} reason={reason} strict={strict} relaxed={relaxed}".format(
@@ -678,11 +822,14 @@ def _write_reports(
     for rank, row in enumerate(top_results, start=1):
         metrics = row.get("metrics", {})
         train_metrics = row.get("train_metrics", {})
+        replay_metrics = row.get("replay_metrics", {})
         signals = row.get("candidate", {}).get("active_signals", [])
         summary_lines.append(
             "#{rank} score={score:.4f} pass={passed} pass_relaxed={pass_relaxed} "
             "test_return={ret:.2f}% test_dd={dd:.2f}% test_win={win:.2f}% test_trades={trades} "
-            "train_return={train_ret:.2f}% train_dd={train_dd:.2f}% signals={signals}".format(
+            "train_return={train_ret:.2f}% train_dd={train_dd:.2f}% "
+            "replay_pass={replay_pass} replay_return={replay_ret:.2f}% replay_dd={replay_dd:.2f}% replay_trades={replay_trades} "
+            "signals={signals}".format(
                 rank=rank,
                 score=float(row.get("score", 0.0)),
                 passed=bool(row.get("passed", False)),
@@ -693,6 +840,10 @@ def _write_reports(
                 trades=int(metrics.get("total_trades", 0)),
                 train_ret=float(train_metrics.get("total_return", 0.0)),
                 train_dd=float(train_metrics.get("max_drawdown", 0.0)),
+                replay_pass=bool(row.get("replay_passed", False)),
+                replay_ret=float(replay_metrics.get("total_return", 0.0)),
+                replay_dd=float(replay_metrics.get("max_drawdown", 0.0)),
+                replay_trades=int(replay_metrics.get("total_trades", 0)),
                 signals=signals,
             )
         )
@@ -718,6 +869,12 @@ def _write_reports(
                 "train_drawdown_pct",
                 "train_win_rate_pct",
                 "train_trades",
+                "replay_passed",
+                "replay_score",
+                "replay_return_pct",
+                "replay_drawdown_pct",
+                "replay_win_rate_pct",
+                "replay_trades",
                 "signals",
                 "combination",
             ],
@@ -726,6 +883,7 @@ def _write_reports(
         for rank, row in enumerate(top_results, start=1):
             metrics = row.get("metrics", {})
             train_metrics = row.get("train_metrics", {})
+            replay_metrics = row.get("replay_metrics", {})
             candidate = row.get("candidate", {})
             writer.writerow(
                 {
@@ -744,6 +902,12 @@ def _write_reports(
                     "train_drawdown_pct": float(train_metrics.get("max_drawdown", 0.0)),
                     "train_win_rate_pct": float(train_metrics.get("win_rate", 0.0)),
                     "train_trades": int(train_metrics.get("total_trades", 0)),
+                    "replay_passed": bool(row.get("replay_passed", False)),
+                    "replay_score": float(row.get("replay_score", 0.0)),
+                    "replay_return_pct": float(replay_metrics.get("total_return", 0.0)),
+                    "replay_drawdown_pct": float(replay_metrics.get("max_drawdown", 0.0)),
+                    "replay_win_rate_pct": float(replay_metrics.get("win_rate", 0.0)),
+                    "replay_trades": int(replay_metrics.get("total_trades", 0)),
                     "signals": ",".join(candidate.get("active_signals", [])),
                     "combination": candidate.get("signal_combination", "majority_vote"),
                 }
@@ -767,6 +931,7 @@ def _export_strategy_files(
 
     published_files: List[str] = []
     published_count = 0
+    require_replay = bool(run_config.get("require_replay_pass", True))
     for rank, row in enumerate(top_results, start=1):
         module_name = f"Strategy_FAST_{run_suffix}_{rank:02d}"
         module_text = render_strategy_module(
@@ -779,7 +944,8 @@ def _export_strategy_files(
         run_module_path = strategies_dir / f"{module_name}.py"
         run_module_path.write_text(module_text, encoding="utf-8")
 
-        qualifies_for_publish = bool(row.get("passed", False) or row.get("passed_relaxed", False))
+        replay_ok = bool(row.get("replay_passed", False)) if require_replay else True
+        qualifies_for_publish = bool((row.get("passed", False) or row.get("passed_relaxed", False)) and replay_ok)
         if qualifies_for_publish and published_count < publish_top_n:
             target_path = publish_dir / f"{module_name}.py"
             target_path.write_text(module_text, encoding="utf-8")
@@ -954,6 +1120,15 @@ def run_fast_finder(
                 break
 
     elapsed = time.perf_counter() - started
+    _replay_top_candidates(
+        all_results=all_results,
+        search_space=search_space,
+        run_config=run_config,
+        full_data=data,
+        feeder=feeder,
+        workers=workers,
+        top_k=top_k,
+    )
     top_results, fallback_info = _select_top_results(
         all_results=all_results,
         top_k=top_k,
@@ -1015,11 +1190,16 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", default=DEFAULT_FAST_CONFIG["output_dir"])
     parser.add_argument("--search-space-path", default="")
     parser.add_argument("--seed", type=int, default=DEFAULT_FAST_CONFIG["seed"])
+    parser.add_argument("--disable-global-rules", action="store_true")
+    parser.add_argument("--global-rules-profile", choices=["safe", "balanced", "aggressive"], default=DEFAULT_FAST_CONFIG["global_rules_profile"])
+    parser.add_argument("--min-24h-notional-usdt", type=float, default=DEFAULT_FAST_CONFIG["min_24h_notional_usdt"])
     parser.add_argument("--enable-mtf-context-filter", action="store_true", default=None)
     parser.add_argument("--enable-regime-filter", action="store_true", default=None)
     parser.add_argument("--context-fast-period", type=int, default=DEFAULT_FAST_CONFIG["context_fast_period"])
     parser.add_argument("--context-slow-period", type=int, default=DEFAULT_FAST_CONFIG["context_slow_period"])
     parser.add_argument("--regime-symbol", default="")
+    parser.add_argument("--replay-top-n", type=int, default=DEFAULT_FAST_CONFIG["replay_top_n"])
+    parser.add_argument("--allow-without-replay", action="store_true")
     return parser.parse_args()
 
 
@@ -1051,9 +1231,14 @@ def main() -> int:
         "output_dir": args.output_dir,
         "search_space_path": args.search_space_path,
         "seed": args.seed,
+        "enable_global_rules": not bool(args.disable_global_rules),
+        "global_rules_profile": args.global_rules_profile,
+        "min_24h_notional_usdt": float(args.min_24h_notional_usdt),
         "context_fast_period": args.context_fast_period,
         "context_slow_period": args.context_slow_period,
         "regime_symbol": args.regime_symbol,
+        "replay_top_n": args.replay_top_n,
+        "require_replay_pass": not bool(args.allow_without_replay),
     }
     if args.enable_mtf_context_filter is not None:
         config["enable_mtf_context_filter"] = args.enable_mtf_context_filter
@@ -1063,7 +1248,7 @@ def main() -> int:
     result = run_fast_finder(config_override=config)
     print(f"Run directory: {result['run_dir']}")
     print(f"Evaluated: {result['evaluated']}/{result['requested_candidates']}")
-    print(f"Elapsed seconds: {result['elapsed_seconds']:.2f}")
+    print(f"Elapsed: {_format_duration_hms(float(result['elapsed_seconds']))}")
     if result["top_results"]:
         best = result["top_results"][0]
         metrics = best.get("metrics", {})

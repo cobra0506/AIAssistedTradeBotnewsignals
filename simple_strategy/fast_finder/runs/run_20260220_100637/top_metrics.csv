@@ -1,0 +1,3 @@
+rank,score,passed,passed_relaxed,train_passed,test_passed,return_pct,max_drawdown_pct,win_rate_pct,trades,sharpe_ratio,train_return_pct,train_drawdown_pct,train_win_rate_pct,train_trades,replay_passed,replay_score,replay_return_pct,replay_drawdown_pct,replay_win_rate_pct,replay_trades,signals,combination
+1,0.18714839295979946,True,False,True,True,-5.017553001255095,5.34755300125511,25.0,8,-8.136160719135331,4.696598792627271,0.0,61.53846153846154,26,True,14.807899074985748,7.561663376922502,0.0,59.45945945945946,37,rsi_osob,unanimous
+2,0.0,True,False,True,True,0.0,0.0,0.0,0,0.0,0.0,0.0,0.0,0,True,0.0,0.0,0.0,0.0,0,sma_cross,majority_vote

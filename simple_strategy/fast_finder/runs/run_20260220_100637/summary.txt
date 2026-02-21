@@ -1,0 +1,10 @@
+Fast Lego Strategy Finder Summary
+=================================
+Generated at: 2026-02-20T08:06:41.700683Z
+Stopped: False
+Elapsed seconds: 1.62
+Evaluated: 2
+Fallback: triggered=False reason= strict=2 relaxed=0
+
+#1 score=0.1871 pass=True pass_relaxed=False test_return=-5.02% test_dd=5.35% test_win=25.00% test_trades=8 train_return=4.70% train_dd=0.00% replay_pass=True replay_return=7.56% replay_dd=0.00% replay_trades=37 signals=['rsi_osob']
+#2 score=0.0000 pass=True pass_relaxed=False test_return=0.00% test_dd=0.00% test_win=0.00% test_trades=0 train_return=0.00% train_dd=0.00% replay_pass=True replay_return=0.00% replay_dd=0.00% replay_trades=0 signals=['sma_cross']

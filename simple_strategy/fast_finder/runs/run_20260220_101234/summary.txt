@@ -1,0 +1,18 @@
+Fast Lego Strategy Finder Summary
+=================================
+Generated at: 2026-02-21T06:52:17.894803Z
+Stopped: False
+Elapsed seconds: 80790.22
+Evaluated: 3000
+Fallback: triggered=True reason=strict_gate_zero_passes strict=0 relaxed=0
+
+#1 score=9.4597 pass=False pass_relaxed=False test_return=13.65% test_dd=0.00% test_win=76.92% test_trades=13 train_return=-9.94% train_dd=11.59% replay_pass=True replay_return=15.79% replay_dd=0.00% replay_trades=53 signals=['rsi_trend_combo', 'bb_reversion']
+#2 score=12.7882 pass=False pass_relaxed=False test_return=10.45% test_dd=0.00% test_win=100.00% test_trades=4 train_return=-5.58% train_dd=5.79% replay_pass=False replay_return=4.87% replay_dd=0.00% replay_trades=9 signals=['rsi_osob', 'rsi_trend_combo', 'bb_reversion']
+#3 score=13.2382 pass=False pass_relaxed=False test_return=0.51% test_dd=0.60% test_win=40.74% test_trades=27 train_return=21.49% train_dd=0.00% replay_pass=False replay_return=2.77% replay_dd=0.28% replay_trades=74 signals=['ema_cross', 'sma_cross', 'rsi_trend_combo', 'stoch_reversal']
+#4 score=2.3015 pass=False pass_relaxed=False test_return=0.00% test_dd=0.00% test_win=0.00% test_trades=0 train_return=0.12% train_dd=0.00% replay_pass=False replay_return=0.12% replay_dd=0.00% replay_trades=2 signals=['rsi_trend_combo', 'bb_reversion']
+#5 score=3.3521 pass=False pass_relaxed=False test_return=-0.43% test_dd=0.52% test_win=50.00% test_trades=2 train_return=-0.65% train_dd=0.94% replay_pass=False replay_return=-1.09% replay_dd=1.46% replay_trades=9 signals=['rsi_osob', 'bb_reversion', 'rsi_divergence']
+#6 score=0.8445 pass=False pass_relaxed=False test_return=-1.61% test_dd=1.69% test_win=50.00% test_trades=2 train_return=-0.62% train_dd=0.91% replay_pass=False replay_return=-2.23% replay_dd=2.60% replay_trades=9 signals=['rsi_osob', 'rsi_trend_combo', 'bb_reversion', 'rsi_divergence']
+#7 score=2.7877 pass=False pass_relaxed=False test_return=-0.32% test_dd=0.57% test_win=50.00% test_trades=6 train_return=-0.86% train_dd=1.31% replay_pass=False replay_return=-1.18% replay_dd=1.88% replay_trades=17 signals=['ema_cross', 'sma_cross']
+#8 score=0.0000 pass=False pass_relaxed=False test_return=0.00% test_dd=0.00% test_win=0.00% test_trades=0 train_return=0.00% train_dd=0.00% replay_pass=False replay_return=0.00% replay_dd=0.00% replay_trades=0 signals=['rsi_osob', 'ema_cross', 'sma_cross', 'rsi_trend_combo']
+#9 score=0.0000 pass=False pass_relaxed=False test_return=0.00% test_dd=0.00% test_win=0.00% test_trades=0 train_return=0.00% train_dd=0.00% replay_pass=False replay_return=0.00% replay_dd=0.00% replay_trades=0 signals=['ema_cross', 'sma_cross', 'rsi_trend_combo', 'macd_cross']
+#10 score=0.0000 pass=False pass_relaxed=False test_return=0.00% test_dd=0.00% test_win=0.00% test_trades=0 train_return=0.00% train_dd=0.00% replay_pass=False replay_return=0.00% replay_dd=0.00% replay_trades=0 signals=['rsi_osob', 'sma_cross', 'macd_cross', 'stoch_reversal']
