@@ -1013,6 +1013,40 @@ class PaperTradingEngine:
         except (TypeError, ValueError):
             return float(default)
 
+    @staticmethod
+    def _safe_float_or_none(value):
+        """Return float(value) or None for empty/invalid values."""
+        try:
+            if value is None:
+                return None
+            if isinstance(value, str) and not value.strip():
+                return None
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _parse_wallet_balances(self, wallet_data):
+        """
+        Parse Bybit wallet balances with fallbacks.
+        Some accounts return empty strings for totalAvailableBalance/totalMarginBalance.
+        """
+        if not isinstance(wallet_data, dict):
+            return {'available_balance': 0.0, 'margin_balance': 0.0}
+
+        available_balance = self._safe_float_or_none(wallet_data.get('totalAvailableBalance'))
+        margin_balance = self._safe_float_or_none(wallet_data.get('totalMarginBalance'))
+        wallet_balance = self._safe_float_or_none(wallet_data.get('totalWalletBalance'))
+
+        if margin_balance is None:
+            margin_balance = wallet_balance if wallet_balance is not None else 0.0
+        if available_balance is None:
+            available_balance = margin_balance if margin_balance is not None else 0.0
+
+        return {
+            'available_balance': float(available_balance),
+            'margin_balance': float(margin_balance),
+        }
+
     def _estimate_spread_bps(self, symbol, current_price=None, snapshot=None):
         snap = snapshot if isinstance(snapshot, dict) else self._get_symbol_market_snapshot(symbol)
         bid = self._safe_float(snap.get('bid1Price', 0.0))
@@ -1391,7 +1425,7 @@ class PaperTradingEngine:
             
             if result and 'list' in result and result['list']:
                 wallet_data = result['list'][0]
-                balance = float(wallet_data.get('totalAvailableBalance', '0'))
+                balance = self._parse_wallet_balances(wallet_data)['available_balance']
                 self.log_message(f"ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Connection successful! Balance: ${balance}")
                 return True
             else:
@@ -1416,14 +1450,7 @@ class PaperTradingEngine:
             
             if result and 'list' in result and result['list']:
                 wallet_data = result['list'][0]
-                # Bybit API provides these fields
-                available_balance = float(wallet_data.get('totalAvailableBalance', '0'))
-                margin_balance = float(wallet_data.get('totalMarginBalance', '0'))
-                
-                return {
-                    'available_balance': available_balance,
-                    'margin_balance': margin_balance
-                }
+                return self._parse_wallet_balances(wallet_data)
             else:
                 return {'available_balance': 0.0, 'margin_balance': 0.0}
                 
@@ -1443,15 +1470,27 @@ class PaperTradingEngine:
         self.log_message("ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ¢â‚¬Å¾ Syncing positions from exchange...")
         
         try:
-            result, error = self.make_request("GET", "/v5/position/list", params={"category": "linear"})
+            all_positions = []
+            sync_errors = []
+            for settle_coin in ("USDT", "USDC"):
+                result, error = self.make_request(
+                    "GET",
+                    "/v5/position/list",
+                    params={"category": "linear", "settleCoin": settle_coin},
+                )
+                if error:
+                    sync_errors.append(f"{settle_coin}: {error}")
+                    continue
+                if result and 'list' in result:
+                    all_positions.extend(result['list'])
             
-            if error:
-                self.log_message(f"ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â Could not sync positions: {error}")
+            if not all_positions and sync_errors:
+                self.log_message("Could not sync positions: " + " | ".join(sync_errors))
                 return
 
-            if result and 'list' in result:
+            if all_positions:
                 synced_count = 0
-                for pos in result['list']:
+                for pos in all_positions:
                     # Only process positions that actually have size
                     size = float(pos.get('size', 0))
                     if size <= 0:

@@ -89,6 +89,35 @@ class APIConnector:
                 
         except Exception as e:
             return None, str(e)
+
+    @staticmethod
+    def _safe_float_or_none(value):
+        try:
+            if value is None:
+                return None
+            if isinstance(value, str) and not value.strip():
+                return None
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _parse_wallet_balances(self, wallet_data):
+        if not isinstance(wallet_data, dict):
+            return {'available_balance': 0.0, 'margin_balance': 0.0}
+
+        available_balance = self._safe_float_or_none(wallet_data.get('totalAvailableBalance'))
+        margin_balance = self._safe_float_or_none(wallet_data.get('totalMarginBalance'))
+        wallet_balance = self._safe_float_or_none(wallet_data.get('totalWalletBalance'))
+
+        if margin_balance is None:
+            margin_balance = wallet_balance if wallet_balance is not None else 0.0
+        if available_balance is None:
+            available_balance = margin_balance if margin_balance is not None else 0.0
+
+        return {
+            'available_balance': float(available_balance),
+            'margin_balance': float(margin_balance),
+        }
     
     def test_connection(self):
         """Test the connection - EXACT working method"""
@@ -102,7 +131,7 @@ class APIConnector:
             
             if result and 'list' in result and result['list']:
                 wallet_data = result['list'][0]
-                balance = float(wallet_data.get('totalAvailableBalance', '0'))
+                balance = self._parse_wallet_balances(wallet_data)['available_balance']
                 self.log_message(f"✅ Connection successful! Balance: ${balance}")
                 return True
             else:
@@ -123,14 +152,7 @@ class APIConnector:
             
             if result and 'list' in result and result['list']:
                 wallet_data = result['list'][0]
-                # Bybit API provides these fields
-                available_balance = float(wallet_data.get('totalAvailableBalance', '0'))
-                margin_balance = float(wallet_data.get('totalMarginBalance', '0'))
-                
-                return {
-                    'available_balance': available_balance,
-                    'margin_balance': margin_balance
-                }
+                return self._parse_wallet_balances(wallet_data)
             else:
                 return {'available_balance': 0.0, 'margin_balance': 0.0}
                 
