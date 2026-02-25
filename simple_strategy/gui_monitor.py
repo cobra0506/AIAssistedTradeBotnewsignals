@@ -739,7 +739,7 @@ class SimpleStrategyGUI:
         
         # Timeframes
         ttk.Label(config_frame, text="Timeframes (comma-separated):").grid(row=1, column=0, sticky="w", padx=5, pady=5)
-        self.timeframes_var = tk.StringVar(value="5m")
+        self.timeframes_var = tk.StringVar(value="1m")
         ttk.Entry(config_frame, textvariable=self.timeframes_var, width=40).grid(row=1, column=1, padx=5, pady=5)
         
         # Date Range
@@ -788,6 +788,37 @@ class SimpleStrategyGUI:
         ttk.Label(trading_frame, text="Min 24h Notional (USDT):").grid(row=5, column=0, sticky="w", padx=5, pady=2)
         self.min_24h_notional_var = tk.StringVar(value="50000000")
         ttk.Entry(trading_frame, textvariable=self.min_24h_notional_var, width=15).grid(row=5, column=1, padx=5, pady=2)
+
+        ttk.Label(trading_frame, text="Risk Exit Mode:").grid(row=6, column=0, sticky="w", padx=5, pady=2)
+        self.risk_exit_mode_var = tk.StringVar(value="none")
+        self.risk_exit_mode_combo = ttk.Combobox(
+            trading_frame,
+            textvariable=self.risk_exit_mode_var,
+            values=["none", "fixed", "trailing", "atr"],
+            width=12,
+            state="readonly",
+        )
+        self.risk_exit_mode_combo.grid(row=6, column=1, sticky="w", padx=5, pady=2)
+
+        ttk.Label(trading_frame, text="Fixed/Trailing SL (%):").grid(row=7, column=0, sticky="w", padx=5, pady=2)
+        self.risk_sl_pct_var = tk.StringVar(value="2.0")
+        self.risk_sl_pct_entry = ttk.Entry(trading_frame, textvariable=self.risk_sl_pct_var, width=15)
+        self.risk_sl_pct_entry.grid(row=7, column=1, padx=5, pady=2)
+
+        ttk.Label(trading_frame, text="ATR Period:").grid(row=8, column=0, sticky="w", padx=5, pady=2)
+        self.risk_atr_period_var = tk.StringVar(value="14")
+        self.risk_atr_period_entry = ttk.Entry(trading_frame, textvariable=self.risk_atr_period_var, width=15)
+        self.risk_atr_period_entry.grid(row=8, column=1, padx=5, pady=2)
+
+        ttk.Label(trading_frame, text="ATR SL Multiplier:").grid(row=9, column=0, sticky="w", padx=5, pady=2)
+        self.risk_atr_sl_mult_var = tk.StringVar(value="1.3")
+        self.risk_atr_sl_mult_entry = ttk.Entry(trading_frame, textvariable=self.risk_atr_sl_mult_var, width=15)
+        self.risk_atr_sl_mult_entry.grid(row=9, column=1, padx=5, pady=2)
+
+        ttk.Label(trading_frame, text="ATR TP Multiplier:").grid(row=10, column=0, sticky="w", padx=5, pady=2)
+        self.risk_atr_tp_mult_var = tk.StringVar(value="1.7")
+        self.risk_atr_tp_mult_entry = ttk.Entry(trading_frame, textvariable=self.risk_atr_tp_mult_var, width=15)
+        self.risk_atr_tp_mult_entry.grid(row=10, column=1, padx=5, pady=2)
 
         # Run Backtest Button
         self.run_btn = ttk.Button(config_frame, text="🚀 Run Backtest", command=self.run_backtest)
@@ -1105,9 +1136,27 @@ class SimpleStrategyGUI:
             max_positions = int(self.max_positions_var.get())
             risk_per_trade = float(self.risk_per_trade_var.get()) / 100.0
             min_24h_notional_usdt = float(self.min_24h_notional_var.get())
+            risk_exit_mode = str(self.risk_exit_mode_var.get()).strip().lower()
+            risk_sl_pct = float(self.risk_sl_pct_var.get()) / 100.0
+            risk_atr_period = int(float(self.risk_atr_period_var.get()))
+            risk_atr_sl_mult = float(self.risk_atr_sl_mult_var.get())
+            risk_atr_tp_mult = float(self.risk_atr_tp_mult_var.get())
         except ValueError:
             messagebox.showerror("Error", "Invalid trading settings!")
             return
+        if risk_exit_mode not in {'none', 'fixed', 'trailing', 'atr'}:
+            messagebox.showerror("Error", "Risk Exit Mode must be one of: none, fixed, trailing, atr")
+            return
+        if risk_exit_mode in {'fixed', 'trailing'} and risk_sl_pct <= 0:
+            messagebox.showerror("Error", "Fixed/Trailing SL % must be greater than 0.")
+            return
+        if risk_exit_mode == 'atr':
+            if risk_atr_period < 2:
+                messagebox.showerror("Error", "ATR Period must be at least 2.")
+                return
+            if risk_atr_sl_mult <= 0 or risk_atr_tp_mult <= 0:
+                messagebox.showerror("Error", "ATR multipliers must be greater than 0.")
+                return
         enable_global_rules = bool(self.enable_global_rules_var.get())
         global_rules_profile = str(self.global_rules_profile_var.get()).strip().lower() or "balanced"
         
@@ -1164,6 +1213,11 @@ class SimpleStrategyGUI:
                     tk.END,
                     f"Min 24h Notional: ${min_24h_notional_usdt:,.0f}\n",
                 )
+                self.results_text.insert(
+                    tk.END,
+                    f"Risk Exit: {risk_exit_mode} | SL {risk_sl_pct*100:.2f}% | "
+                    f"ATR({risk_atr_period}) SLx{risk_atr_sl_mult:.2f} TPx{risk_atr_tp_mult:.2f}\n",
+                )
                 self.results_text.insert(tk.END, f"=" * 50 + "\n\n")
                 
                 # Check data files
@@ -1199,6 +1253,11 @@ class SimpleStrategyGUI:
                         'global_rules': {
                             'min_24h_notional_usdt': min_24h_notional_usdt,
                         },
+                        'risk_exit_mode': risk_exit_mode,
+                        'risk_sl_pct': risk_sl_pct,
+                        'risk_atr_period': risk_atr_period,
+                        'risk_atr_sl_multiplier': risk_atr_sl_mult,
+                        'risk_atr_tp_multiplier': risk_atr_tp_mult,
                     }
                 )
 

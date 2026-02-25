@@ -63,6 +63,12 @@ class BacktesterEngine:
             'blocked_reasons': {},
             'emergency_closes': 0,
         }
+        self.risk_exit_mode = 'none'
+        self.risk_sl_pct = 0.02
+        self.risk_atr_period = 14
+        self.risk_atr_sl_multiplier = 1.3
+        self.risk_atr_tp_multiplier = 1.7
+        self._refresh_risk_exit_config()
         
         # Backtester state
         self.is_running = False
@@ -143,11 +149,143 @@ class BacktesterEngine:
             merged.update(runtime_config)
             self.config = merged
         self.global_rules = resolve_global_rules(self.config)
+        self._refresh_risk_exit_config()
         self._global_rule_stats = {
             'blocked_signals': 0,
             'blocked_reasons': {},
             'emergency_closes': 0,
         }
+
+    @staticmethod
+    def _normalize_pct(value: Any, default: float = 0.02) -> float:
+        try:
+            pct = float(value)
+        except (TypeError, ValueError):
+            pct = float(default)
+        if pct > 1.0:
+            pct = pct / 100.0
+        return max(0.0001, min(0.99, pct))
+
+    def _refresh_risk_exit_config(self) -> None:
+        mode = str(self.config.get('risk_exit_mode', 'none')).strip().lower()
+        if mode not in {'none', 'fixed', 'trailing', 'atr'}:
+            mode = 'none'
+        self.risk_exit_mode = mode
+        self.risk_sl_pct = self._normalize_pct(self.config.get('risk_sl_pct', 0.02), default=0.02)
+        try:
+            self.risk_atr_period = max(2, int(float(self.config.get('risk_atr_period', 14))))
+        except (TypeError, ValueError):
+            self.risk_atr_period = 14
+        try:
+            self.risk_atr_sl_multiplier = max(0.1, float(self.config.get('risk_atr_sl_multiplier', 1.3)))
+        except (TypeError, ValueError):
+            self.risk_atr_sl_multiplier = 1.3
+        try:
+            self.risk_atr_tp_multiplier = max(0.1, float(self.config.get('risk_atr_tp_multiplier', 1.7)))
+        except (TypeError, ValueError):
+            self.risk_atr_tp_multiplier = 1.7
+
+    def _calculate_atr_at_index(self, df: pd.DataFrame, row_index: int, period: int) -> Optional[float]:
+        if df is None or df.empty or row_index <= 0:
+            return None
+        p = max(2, int(period))
+        start_idx = max(0, row_index - (p * 3))
+        window = df.iloc[start_idx:row_index + 1]
+        if len(window) < (p + 1):
+            return None
+
+        high = pd.to_numeric(window['high'], errors='coerce')
+        low = pd.to_numeric(window['low'], errors='coerce')
+        close = pd.to_numeric(window['close'], errors='coerce')
+        prev_close = close.shift(1)
+
+        true_range = pd.concat(
+            [
+                (high - low).abs(),
+                (high - prev_close).abs(),
+                (low - prev_close).abs(),
+            ],
+            axis=1,
+        ).max(axis=1)
+        atr_series = true_range.rolling(window=p, min_periods=p).mean()
+        if atr_series.empty:
+            return None
+        try:
+            atr = float(atr_series.iloc[-1])
+        except (TypeError, ValueError):
+            return None
+        if not np.isfinite(atr) or atr <= 0.0:
+            return None
+        return atr
+
+    def _build_position_exit_config(
+        self,
+        symbol: str,
+        timeframe: str,
+        df: pd.DataFrame,
+        row_index: int,
+        entry_price: float,
+        is_short: bool,
+    ) -> Dict[str, Any]:
+        mode = self.risk_exit_mode
+        entry = float(entry_price)
+        config: Dict[str, Any] = {
+            'risk_exit_mode': mode,
+            'risk_sl_pct': float(self.risk_sl_pct),
+            'risk_atr_period': int(self.risk_atr_period),
+            'risk_atr_sl_multiplier': float(self.risk_atr_sl_multiplier),
+            'risk_atr_tp_multiplier': float(self.risk_atr_tp_multiplier),
+        }
+
+        if mode == 'none':
+            fallback_pct = (
+                float(self.global_rules.position_stop_loss_pct) if self.global_rules.enabled else 0.01
+            )
+            config['stop_loss_pct'] = max(0.0001, fallback_pct)
+            if is_short:
+                config['risk_stop_price'] = entry * (1.0 + config['stop_loss_pct'])
+            else:
+                config['risk_stop_price'] = entry * (1.0 - config['stop_loss_pct'])
+            return config
+
+        if mode in {'fixed', 'trailing'}:
+            sl_pct = max(0.0001, float(self.risk_sl_pct))
+            config['stop_loss_pct'] = sl_pct
+            if is_short:
+                config['risk_stop_price'] = entry * (1.0 + sl_pct)
+                if mode == 'trailing':
+                    config['risk_low_watermark'] = entry
+            else:
+                config['risk_stop_price'] = entry * (1.0 - sl_pct)
+                if mode == 'trailing':
+                    config['risk_high_watermark'] = entry
+            return config
+
+        if mode == 'atr':
+            atr_value = self._calculate_atr_at_index(df=df, row_index=row_index, period=self.risk_atr_period)
+            if atr_value is None:
+                sl_pct = max(0.0001, float(self.risk_sl_pct))
+                config['risk_exit_mode'] = 'fixed'
+                config['stop_loss_pct'] = sl_pct
+                if is_short:
+                    config['risk_stop_price'] = entry * (1.0 + sl_pct)
+                else:
+                    config['risk_stop_price'] = entry * (1.0 - sl_pct)
+                return config
+
+            config['risk_atr_value'] = float(atr_value)
+            sl_dist = atr_value * float(self.risk_atr_sl_multiplier)
+            tp_dist = atr_value * float(self.risk_atr_tp_multiplier)
+            if is_short:
+                config['risk_stop_price'] = entry + sl_dist
+                config['risk_take_profit_price'] = entry - tp_dist
+            else:
+                config['risk_stop_price'] = entry - sl_dist
+                config['risk_take_profit_price'] = entry + tp_dist
+            config['stop_loss_pct'] = max(0.0001, abs(entry - float(config['risk_stop_price'])) / max(entry, 1e-12))
+            return config
+
+        return config
 
     @staticmethod
     def _timeframe_to_minutes(timeframe: str) -> int:
@@ -334,15 +472,18 @@ class BacktesterEngine:
         timestamp: Any,
     ) -> Optional[str]:
         rules = self.global_rules
-        if not rules.enabled or not rules.emergency_close_enabled:
-            return None
-
         position = self.positions.get(symbol)
         if position is None:
             return None
+        mode = str(position.get('risk_exit_mode', 'none')).strip().lower()
+        has_configured_exit = mode in {'fixed', 'trailing', 'atr'}
+        global_emergency_enabled = bool(rules.enabled and rules.emergency_close_enabled)
+
+        if not has_configured_exit and not global_emergency_enabled:
+            return None
 
         entry_ts = position.get('entry_timestamp')
-        if entry_ts is not None:
+        if entry_ts is not None and global_emergency_enabled:
             try:
                 hold_minutes = (pd.Timestamp(timestamp) - pd.Timestamp(entry_ts)).total_seconds() / 60.0
                 if hold_minutes >= float(rules.max_hold_minutes):
@@ -357,14 +498,57 @@ class BacktesterEngine:
         stop_loss_pct = max(0.0, float(position.get('stop_loss_pct', rules.position_stop_loss_pct)))
         is_short = bool(position.get('is_short', False))
 
-        if is_short:
-            stop_price = entry_price * (1.0 + stop_loss_pct)
-            if current_price >= stop_price:
-                return 'stop_loss_hit'
+        if mode == 'fixed':
+            stop_price = float(position.get('risk_stop_price', 0.0))
+            if stop_price > 0.0:
+                if is_short and current_price >= stop_price:
+                    return 'fixed_stop_loss_hit'
+                if (not is_short) and current_price <= stop_price:
+                    return 'fixed_stop_loss_hit'
+
+        elif mode == 'trailing':
+            sl_pct = max(0.0001, float(position.get('risk_sl_pct', stop_loss_pct)))
+            if is_short:
+                low_watermark = float(position.get('risk_low_watermark', entry_price))
+                low_watermark = min(low_watermark, current_price)
+                position['risk_low_watermark'] = low_watermark
+                stop_price = low_watermark * (1.0 + sl_pct)
+                position['risk_stop_price'] = stop_price
+                if current_price >= stop_price:
+                    return 'trailing_stop_loss_hit'
+            else:
+                high_watermark = float(position.get('risk_high_watermark', entry_price))
+                high_watermark = max(high_watermark, current_price)
+                position['risk_high_watermark'] = high_watermark
+                stop_price = high_watermark * (1.0 - sl_pct)
+                position['risk_stop_price'] = stop_price
+                if current_price <= stop_price:
+                    return 'trailing_stop_loss_hit'
+
+        elif mode == 'atr':
+            stop_price = float(position.get('risk_stop_price', 0.0))
+            take_profit_price = float(position.get('risk_take_profit_price', 0.0))
+            if stop_price > 0.0:
+                if is_short and current_price >= stop_price:
+                    return 'atr_stop_loss_hit'
+                if (not is_short) and current_price <= stop_price:
+                    return 'atr_stop_loss_hit'
+            if take_profit_price > 0.0:
+                if is_short and current_price <= take_profit_price:
+                    return 'atr_take_profit_hit'
+                if (not is_short) and current_price >= take_profit_price:
+                    return 'atr_take_profit_hit'
         else:
-            stop_price = entry_price * (1.0 - stop_loss_pct)
-            if current_price <= stop_price:
-                return 'stop_loss_hit'
+            if not global_emergency_enabled:
+                return None
+            if is_short:
+                stop_price = entry_price * (1.0 + stop_loss_pct)
+                if current_price >= stop_price:
+                    return 'stop_loss_hit'
+            else:
+                stop_price = entry_price * (1.0 - stop_loss_pct)
+                if current_price <= stop_price:
+                    return 'stop_loss_hit'
 
         return None
 
@@ -495,7 +679,10 @@ class BacktesterEngine:
                 for timeframe in data_with_indicators[symbol]:
                     df = data_with_indicators[symbol][timeframe]
 
-                    use_builder_signals = hasattr(strategy, 'builder')
+                    use_builder_signals = (
+                        hasattr(strategy, 'builder')
+                        and not bool(getattr(strategy, 'force_strategy_generate_signals', False))
+                    )
                     signals_series = None
                     if use_builder_signals:
                         try:
@@ -605,12 +792,23 @@ class BacktesterEngine:
                                     continue
                                 if symbol not in self.positions:
                                     entry_price = self.get_execution_price(current_price, 'price_up')
-                                    stop_loss_pct = (
-                                        self.global_rules.position_stop_loss_pct
-                                        if self.global_rules.enabled
-                                        else 0.01
+                                    exit_config = self._build_position_exit_config(
+                                        symbol=symbol,
+                                        timeframe=timeframe,
+                                        df=df,
+                                        row_index=i,
+                                        entry_price=entry_price,
+                                        is_short=False,
                                     )
-                                    stop_price = entry_price * (1.0 - stop_loss_pct)
+                                    stop_loss_pct = float(
+                                        exit_config.get(
+                                            'stop_loss_pct',
+                                            self.global_rules.position_stop_loss_pct if self.global_rules.enabled else 0.01,
+                                        )
+                                    )
+                                    stop_price = float(
+                                        exit_config.get('risk_stop_price', entry_price * (1.0 - stop_loss_pct))
+                                    )
                                     quantity = self.get_order_size(symbol, entry_price, stop_price)
                                     quantity, cap_block_reason = self._cap_quantity_with_global_rules(
                                         entry_price=entry_price,
@@ -638,6 +836,20 @@ class BacktesterEngine:
                                         'entry_timestamp': timestamp,
                                         'is_short': False,
                                         'stop_loss_pct': stop_loss_pct,
+                                        'risk_exit_mode': exit_config.get('risk_exit_mode', self.risk_exit_mode),
+                                        'risk_sl_pct': exit_config.get('risk_sl_pct', self.risk_sl_pct),
+                                        'risk_stop_price': exit_config.get('risk_stop_price'),
+                                        'risk_take_profit_price': exit_config.get('risk_take_profit_price'),
+                                        'risk_high_watermark': exit_config.get('risk_high_watermark'),
+                                        'risk_low_watermark': exit_config.get('risk_low_watermark'),
+                                        'risk_atr_period': exit_config.get('risk_atr_period', self.risk_atr_period),
+                                        'risk_atr_value': exit_config.get('risk_atr_value'),
+                                        'risk_atr_sl_multiplier': exit_config.get(
+                                            'risk_atr_sl_multiplier', self.risk_atr_sl_multiplier
+                                        ),
+                                        'risk_atr_tp_multiplier': exit_config.get(
+                                            'risk_atr_tp_multiplier', self.risk_atr_tp_multiplier
+                                        ),
                                         'owner_strategy': strategy.name if hasattr(strategy, 'name') else strategy.__class__.__name__,
                                         'entry_timeframe': timeframe,
                                     }
@@ -657,12 +869,23 @@ class BacktesterEngine:
                                     continue
                                 if symbol not in self.positions:
                                     entry_price = self.get_execution_price(current_price, 'price_down')
-                                    stop_loss_pct = (
-                                        self.global_rules.position_stop_loss_pct
-                                        if self.global_rules.enabled
-                                        else 0.01
+                                    exit_config = self._build_position_exit_config(
+                                        symbol=symbol,
+                                        timeframe=timeframe,
+                                        df=df,
+                                        row_index=i,
+                                        entry_price=entry_price,
+                                        is_short=True,
                                     )
-                                    stop_price = entry_price * (1.0 + stop_loss_pct)
+                                    stop_loss_pct = float(
+                                        exit_config.get(
+                                            'stop_loss_pct',
+                                            self.global_rules.position_stop_loss_pct if self.global_rules.enabled else 0.01,
+                                        )
+                                    )
+                                    stop_price = float(
+                                        exit_config.get('risk_stop_price', entry_price * (1.0 + stop_loss_pct))
+                                    )
                                     quantity = self.get_order_size(symbol, entry_price, stop_price)
                                     quantity, cap_block_reason = self._cap_quantity_with_global_rules(
                                         entry_price=entry_price,
@@ -690,6 +913,20 @@ class BacktesterEngine:
                                         'entry_timestamp': timestamp,
                                         'is_short': True,
                                         'stop_loss_pct': stop_loss_pct,
+                                        'risk_exit_mode': exit_config.get('risk_exit_mode', self.risk_exit_mode),
+                                        'risk_sl_pct': exit_config.get('risk_sl_pct', self.risk_sl_pct),
+                                        'risk_stop_price': exit_config.get('risk_stop_price'),
+                                        'risk_take_profit_price': exit_config.get('risk_take_profit_price'),
+                                        'risk_high_watermark': exit_config.get('risk_high_watermark'),
+                                        'risk_low_watermark': exit_config.get('risk_low_watermark'),
+                                        'risk_atr_period': exit_config.get('risk_atr_period', self.risk_atr_period),
+                                        'risk_atr_value': exit_config.get('risk_atr_value'),
+                                        'risk_atr_sl_multiplier': exit_config.get(
+                                            'risk_atr_sl_multiplier', self.risk_atr_sl_multiplier
+                                        ),
+                                        'risk_atr_tp_multiplier': exit_config.get(
+                                            'risk_atr_tp_multiplier', self.risk_atr_tp_multiplier
+                                        ),
                                         'owner_strategy': strategy.name if hasattr(strategy, 'name') else strategy.__class__.__name__,
                                         'entry_timeframe': timeframe,
                                     }

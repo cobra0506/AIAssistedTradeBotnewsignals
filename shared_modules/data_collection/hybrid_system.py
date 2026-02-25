@@ -22,6 +22,8 @@ class HybridTradingSystem:
         self.data_fetcher = OptimizedDataFetcher(config)
         self.csv_manager = CSVManager(config)
         self.is_initialized = False
+        self._last_stale_recovery_at = 0.0
+        self._stale_recovery_cursor = 0
         # Use shared WebSocket manager
         from .shared_websocket_manager import SharedWebSocketManager
         self.shared_ws_manager = SharedWebSocketManager()
@@ -70,13 +72,29 @@ class HybridTradingSystem:
         # Setup WebSocket if enabled (NON-BLOCKING NOW)
         if self.config.ENABLE_WEBSOCKET and self.websocket_handler:
             logger.info(f"[WS] Setting up WebSocket for real-time updates...")
-            
-            # Update symbols in the WebSocket handler
-            self.websocket_handler.symbols = symbols_to_use
-            self.websocket_handler.config.TIMEFRAMES = timeframes
-            
-            # Start WebSocket connection (this will now return immediately)
-            await self.websocket_handler.connect()
+
+            desired_symbols = list(symbols_to_use)
+            desired_timeframes = list(timeframes)
+
+            # Keep handler state aligned even when no reconnect is needed.
+            self.websocket_handler.symbols = desired_symbols
+            self.websocket_handler.intervals = desired_timeframes
+            self.websocket_handler.config.TIMEFRAMES = desired_timeframes
+
+            alive_tasks = [
+                task for task in self.websocket_handler.listener_tasks
+                if not task.done()
+            ]
+            if self.websocket_handler.running and alive_tasks and hasattr(
+                self.websocket_handler, "reconfigure_subscriptions"
+            ):
+                await self.websocket_handler.reconfigure_subscriptions(
+                    symbols=desired_symbols,
+                    intervals=desired_timeframes,
+                )
+            else:
+                # Start WebSocket connection (this will now return immediately)
+                await self.websocket_handler.connect()
             
             # Give WebSocket a moment to establish connection
             await asyncio.sleep(1)
@@ -275,6 +293,76 @@ class HybridTradingSystem:
                         logger.debug(f"[OK] Updated {symbol}_{timeframe} with real-time data")
                     else:
                         logger.error(f"[FAIL] Failed to update {symbol}_{timeframe} with real-time data")
+
+        await self._recover_stale_entry_symbols(symbols_to_use)
+
+    def _find_stale_symbols(self, symbols: List[str], timeframe: str, stale_after_sec: int) -> List[str]:
+        """Return symbols whose latest CSV candle is older than stale_after_sec."""
+        now_ms = int(time.time() * 1000)
+        stale_symbols: List[str] = []
+        stale_threshold_ms = int(max(1, stale_after_sec) * 1000)
+        for symbol in symbols:
+            csv_path = os.path.join(self.config.DATA_DIR, f"{symbol}_{timeframe}.csv")
+            latest_ts = 0
+            try:
+                if os.path.exists(csv_path):
+                    with open(csv_path, "r", encoding="utf-8", errors="ignore") as candle_file:
+                        rows = candle_file.readlines()
+                    if rows:
+                        last_line = rows[-1].strip()
+                        if last_line and "," in last_line:
+                            latest_ts = int(float(last_line.split(",", 1)[0].strip()))
+            except Exception:
+                latest_ts = 0
+
+            if latest_ts <= 0 or (now_ms - latest_ts) > stale_threshold_ms:
+                stale_symbols.append(symbol)
+        return stale_symbols
+
+    async def _recover_stale_entry_symbols(self, symbols_to_use: List[str]):
+        """
+        Backfill stale 1m symbols in small rolling batches so they can rejoin trading quickly.
+        This complements WebSocket streaming instead of replacing it.
+        """
+        if not symbols_to_use:
+            return
+        if '1' not in self.websocket_handler.config.TIMEFRAMES:
+            return
+
+        stale_symbols = self._find_stale_symbols(symbols_to_use, timeframe='1', stale_after_sec=180)
+        if not stale_symbols:
+            return
+
+        now = time.time()
+        if now - self._last_stale_recovery_at < 20:
+            return
+        self._last_stale_recovery_at = now
+
+        stale_symbols = sorted(stale_symbols)
+        batch_size = 60
+        start_idx = self._stale_recovery_cursor % len(stale_symbols)
+        end_idx = min(start_idx + batch_size, len(stale_symbols))
+        selected = stale_symbols[start_idx:end_idx]
+        if len(selected) < batch_size and len(stale_symbols) > len(selected):
+            selected.extend(stale_symbols[: batch_size - len(selected)])
+        self._stale_recovery_cursor = (start_idx + len(selected)) % len(stale_symbols)
+
+        end_time_ms = int(now * 1000)
+        logger.warning(
+            f"[RECOVERY] Detected {len(stale_symbols)} stale 1m symbols; "
+            f"refreshing {len(selected)} via REST fallback"
+        )
+
+        refreshed = 0
+        for symbol in selected:
+            try:
+                ok = await self.data_fetcher._fetch_limited_data(symbol, '1', end_time_ms)
+                if ok:
+                    refreshed += 1
+            except Exception as e:
+                logger.error(f"[RECOVERY] Failed stale refresh for {symbol}_1: {e}")
+
+        logger.info(f"[RECOVERY] Refreshed {refreshed}/{len(selected)} stale 1m symbols")
 
     async def close(self):
         """Clean up resources"""

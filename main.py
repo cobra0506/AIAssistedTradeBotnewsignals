@@ -6,6 +6,7 @@ import sys
 import os
 import json
 import time
+import signal
 from datetime import datetime
 from simple_strategy.trading.parameter_gui import ParameterGUI
 
@@ -17,6 +18,9 @@ class TradingBotDashboard:
         self.auto_evolve_process = None
         self.ae_status_refresh_ms = 5000
         self.ae_status_job = None
+        self.data_collection_process = None
+        self.data_collection_startup_log_path = None
+        self.paper_data_status_job = None
         self.create_widgets()
     
     def create_widgets(self):
@@ -240,6 +244,19 @@ class TradingBotDashboard:
                                             font=("Arial", 10, "bold"), foreground="blue")
         self.bybit_balance_label.pack(side="left", padx=5)
 
+        # Data feed status (collector + CSV freshness)
+        data_status_frame = ttk.Frame(paper_frame)
+        data_status_frame.pack(fill="x", pady=5)
+        ttk.Label(data_status_frame, text="Data Feed Status:").pack(side="left", padx=5)
+        self.paper_data_status_var = tk.StringVar(value="Checking...")
+        self.paper_data_status_label = ttk.Label(
+            data_status_frame,
+            textvariable=self.paper_data_status_var,
+            font=("Arial", 9, "bold"),
+            foreground="gray",
+        )
+        self.paper_data_status_label.pack(side="left", padx=5)
+
         global_rules_frame = ttk.LabelFrame(paper_frame, text="Global Rules", padding=6)
         global_rules_frame.pack(fill="x", pady=5)
         ttk.Label(global_rules_frame, text="Enable:").grid(row=0, column=0, sticky="w", padx=5, pady=2)
@@ -261,6 +278,63 @@ class TradingBotDashboard:
         ttk.Entry(global_rules_frame, textvariable=self.paper_min_24h_notional_var, width=14).grid(
             row=2, column=1, sticky="w", padx=5, pady=2
         )
+        ttk.Label(global_rules_frame, text="Enable Exchange SL:").grid(row=3, column=0, sticky="w", padx=5, pady=2)
+        self.paper_enable_exchange_sl_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            global_rules_frame,
+            variable=self.paper_enable_exchange_sl_var,
+            command=self._toggle_paper_exchange_sl_controls,
+        ).grid(
+            row=3, column=1, sticky="w", padx=5, pady=2
+        )
+        ttk.Label(global_rules_frame, text="Use Trailing Stop:").grid(row=4, column=0, sticky="w", padx=5, pady=2)
+        self.paper_enable_exchange_trailing_var = tk.BooleanVar(value=False)
+        self.paper_exchange_trailing_check = ttk.Checkbutton(
+            global_rules_frame,
+            variable=self.paper_enable_exchange_trailing_var,
+            command=self._update_paper_exchange_sl_mode_label,
+        )
+        self.paper_exchange_trailing_check.grid(row=4, column=1, sticky="w", padx=5, pady=2)
+        ttk.Label(global_rules_frame, text="Exchange SL %:").grid(row=5, column=0, sticky="w", padx=5, pady=2)
+        self.paper_exchange_sl_pct_var = tk.StringVar(value="2.0")
+        self.paper_exchange_sl_pct_entry = ttk.Entry(
+            global_rules_frame, textvariable=self.paper_exchange_sl_pct_var, width=14
+        )
+        self.paper_exchange_sl_pct_entry.grid(row=5, column=1, sticky="w", padx=5, pady=2)
+        self.paper_exchange_sl_mode_var = tk.StringVar(value="No stop loss")
+        self.paper_exchange_sl_mode_label = ttk.Label(
+            global_rules_frame,
+            textvariable=self.paper_exchange_sl_mode_var,
+            font=("Arial", 9, "bold"),
+            foreground="gray",
+        )
+        self.paper_exchange_sl_mode_label.grid(row=6, column=0, columnspan=2, sticky="w", padx=5, pady=2)
+        ttk.Label(global_rules_frame, text="Use ATR Stop+TP:").grid(row=7, column=0, sticky="w", padx=5, pady=2)
+        self.paper_enable_atr_exit_var = tk.BooleanVar(value=False)
+        self.paper_enable_atr_exit_check = ttk.Checkbutton(
+            global_rules_frame,
+            variable=self.paper_enable_atr_exit_var,
+            command=self._toggle_paper_atr_controls,
+        )
+        self.paper_enable_atr_exit_check.grid(row=7, column=1, sticky="w", padx=5, pady=2)
+        ttk.Label(global_rules_frame, text="ATR Period:").grid(row=8, column=0, sticky="w", padx=5, pady=2)
+        self.paper_atr_period_var = tk.StringVar(value="14")
+        self.paper_atr_period_entry = ttk.Entry(global_rules_frame, textvariable=self.paper_atr_period_var, width=14)
+        self.paper_atr_period_entry.grid(row=8, column=1, sticky="w", padx=5, pady=2)
+        ttk.Label(global_rules_frame, text="ATR SL Multiplier:").grid(row=9, column=0, sticky="w", padx=5, pady=2)
+        self.paper_atr_sl_mult_var = tk.StringVar(value="1.3")
+        self.paper_atr_sl_mult_entry = ttk.Entry(global_rules_frame, textvariable=self.paper_atr_sl_mult_var, width=14)
+        self.paper_atr_sl_mult_entry.grid(row=9, column=1, sticky="w", padx=5, pady=2)
+        ttk.Label(global_rules_frame, text="ATR TP Multiplier:").grid(row=10, column=0, sticky="w", padx=5, pady=2)
+        self.paper_atr_tp_mult_var = tk.StringVar(value="1.7")
+        self.paper_atr_tp_mult_entry = ttk.Entry(global_rules_frame, textvariable=self.paper_atr_tp_mult_var, width=14)
+        self.paper_atr_tp_mult_entry.grid(row=10, column=1, sticky="w", padx=5, pady=2)
+        self.paper_exchange_sl_pct_var.trace_add("write", lambda *_: self._update_paper_exchange_sl_mode_label())
+        self.paper_atr_period_var.trace_add("write", lambda *_: self._update_paper_exchange_sl_mode_label())
+        self.paper_atr_sl_mult_var.trace_add("write", lambda *_: self._update_paper_exchange_sl_mode_label())
+        self.paper_atr_tp_mult_var.trace_add("write", lambda *_: self._update_paper_exchange_sl_mode_label())
+        self._toggle_paper_atr_controls()
+        self._toggle_paper_exchange_sl_controls()
         
         # Start button (changed to OPEN like backtesting)
         button_frame = ttk.Frame(paper_frame)
@@ -278,6 +352,7 @@ class TradingBotDashboard:
         # Initialize trading engine
         self.paper_trading_engine = None
         self.trading_running = False
+        self._refresh_paper_data_status()
 
     def get_current_bybit_balance(self):
         """Fetch and display the current Bybit balance using the existing PaperTradingEngine"""
@@ -314,6 +389,210 @@ class TradingBotDashboard:
         finally:
             # Re-enable button
             self.get_balance_btn.config(state="normal")
+
+    def _is_pid_alive(self, pid):
+        """Return True if a process id is alive."""
+        if not pid:
+            return False
+        try:
+            os.kill(int(pid), 0)
+            return True
+        except PermissionError:
+            return True
+        except Exception:
+            return False
+
+    def _format_age(self, age_seconds):
+        if age_seconds is None:
+            return "unknown"
+        if age_seconds < 60:
+            return f"{int(age_seconds)}s ago"
+        return f"{int(age_seconds // 60)}m ago"
+
+    def _get_data_collector_state(self):
+        """Read collector status and CSV freshness."""
+        state = {
+            "collector_running": False,
+            "data_age_sec": None,
+            "data_files": 0,
+            "symbol_count": 0,
+            "symbols_with_1m": 0,
+            "fresh_1m_symbols": 0,
+        }
+        project_root = os.path.dirname(__file__)
+        data_dir = os.path.join(project_root, "data")
+        status_path = os.path.join(data_dir, "collection_status.json")
+
+        if os.path.exists(status_path):
+            try:
+                with open(status_path, "r", encoding="utf-8") as f:
+                    status = json.load(f)
+                running_flag = bool(status.get("running", False))
+                pid = status.get("pid")
+                state["collector_running"] = running_flag and self._is_pid_alive(pid)
+            except Exception:
+                state["collector_running"] = False
+
+        if os.path.isdir(data_dir):
+            latest_mtime = None
+            symbols = set()
+            for filename in os.listdir(data_dir):
+                if not filename.endswith(".csv"):
+                    continue
+                full_path = os.path.join(data_dir, filename)
+                try:
+                    mtime = os.path.getmtime(full_path)
+                except Exception:
+                    continue
+                latest_mtime = mtime if latest_mtime is None else max(latest_mtime, mtime)
+                state["data_files"] += 1
+                stem = filename[:-4]
+                if "_" in stem:
+                    symbols.add(stem.split("_", 1)[0])
+                if stem.endswith("_1"):
+                    state["symbols_with_1m"] += 1
+                    try:
+                        with open(full_path, "r", encoding="utf-8", errors="ignore") as candle_file:
+                            rows = candle_file.readlines()
+                        if rows:
+                            last_line = rows[-1].strip()
+                            if last_line and "," in last_line:
+                                ts_str = last_line.split(",", 1)[0].strip()
+                                ts_ms = int(float(ts_str))
+                                age_sec = max(0.0, time.time() - (ts_ms / 1000.0))
+                                if age_sec <= 180:
+                                    state["fresh_1m_symbols"] += 1
+                    except Exception:
+                        pass
+            state["symbol_count"] = len(symbols)
+            if latest_mtime is not None:
+                state["data_age_sec"] = max(0.0, time.time() - latest_mtime)
+
+        return state
+
+    def _refresh_paper_data_status(self):
+        """Refresh paper-trader data readiness visual."""
+        if not hasattr(self, "paper_data_status_var"):
+            return
+
+        state = self._get_data_collector_state()
+        age_text = self._format_age(state["data_age_sec"])
+        is_fresh = state["data_age_sec"] is not None and state["data_age_sec"] <= 180
+        fresh_1m = int(state.get("fresh_1m_symbols", 0))
+        total_1m = int(state.get("symbols_with_1m", 0))
+        coverage = (fresh_1m / total_1m) if total_1m > 0 else 0.0
+        coverage_text = f"{fresh_1m}/{total_1m} 1m fresh" if total_1m > 0 else "no 1m files"
+
+        if state["collector_running"] and is_fresh and coverage >= 0.95:
+            text = (
+                f"LIVE: collector running | symbols {state['symbol_count']} | "
+                f"latest {age_text} | {coverage_text}"
+            )
+            color = "green"
+        elif state["collector_running"] and coverage > 0:
+            text = (
+                f"PARTIAL LIVE: collector running | symbols {state['symbol_count']} | "
+                f"{coverage_text} | latest {age_text}"
+            )
+            color = "orange"
+        elif state["collector_running"]:
+            text = (
+                f"Collector running, waiting for fresh candles | symbols {state['symbol_count']} | "
+                f"latest {age_text} | {coverage_text}"
+            )
+            color = "orange"
+        elif state["data_files"] == 0:
+            text = "Collector OFF: no CSV data found"
+            color = "red"
+        else:
+            text = (
+                f"Collector OFF: stale data | symbols {state['symbol_count']} | "
+                f"latest {age_text}"
+            )
+            color = "red"
+
+        self.paper_data_status_var.set(text)
+        self.paper_data_status_label.config(foreground=color)
+        if self.paper_data_status_job is not None:
+            try:
+                self.root.after_cancel(self.paper_data_status_job)
+            except Exception:
+                pass
+        self.paper_data_status_job = self.root.after(5000, self._refresh_paper_data_status)
+
+    def _confirm_paper_trading_with_stale_data(self):
+        """Warn before starting paper trading if collector is not running."""
+        state = self._get_data_collector_state()
+        if state["collector_running"]:
+            return True
+
+        age_text = self._format_age(state["data_age_sec"])
+        message = (
+            "Data collector is not running.\n\n"
+            f"Symbols in CSV: {state['symbol_count']}\n"
+            f"Latest candle: {age_text}\n\n"
+            "Paper trader may use stale data.\n"
+            "Continue anyway?"
+        )
+        return messagebox.askyesno("Data Collector Not Running", message)
+
+    def _toggle_paper_exchange_sl_controls(self):
+        """Enable/disable trailing toggle and % input from the Exchange SL toggle."""
+        enabled = bool(self.paper_enable_exchange_sl_var.get())
+        trailing_state = "normal" if enabled else "disabled"
+        pct_state = "normal" if enabled else "disabled"
+        self.paper_exchange_trailing_check.config(state=trailing_state)
+        self.paper_exchange_sl_pct_entry.config(state=pct_state)
+        if not enabled:
+            self.paper_enable_exchange_trailing_var.set(False)
+        self._update_paper_exchange_sl_mode_label()
+
+    def _toggle_paper_atr_controls(self):
+        enabled = bool(self.paper_enable_atr_exit_var.get())
+        state = "normal" if enabled else "disabled"
+        self.paper_atr_period_entry.config(state=state)
+        self.paper_atr_sl_mult_entry.config(state=state)
+        self.paper_atr_tp_mult_entry.config(state=state)
+        self._update_paper_exchange_sl_mode_label()
+
+    def _update_paper_exchange_sl_mode_label(self):
+        """Show a clear exchange stop mode summary."""
+        use_atr = bool(self.paper_enable_atr_exit_var.get()) if hasattr(self, "paper_enable_atr_exit_var") else False
+        enabled = bool(self.paper_enable_exchange_sl_var.get())
+        trailing = bool(self.paper_enable_exchange_trailing_var.get()) and enabled
+        try:
+            pct_value = float(self.paper_exchange_sl_pct_var.get())
+            pct_text = f"{pct_value:.2f}%"
+        except Exception:
+            pct_text = "invalid %"
+        try:
+            atr_period = int(float(self.paper_atr_period_var.get()))
+        except Exception:
+            atr_period = 0
+        try:
+            atr_sl = float(self.paper_atr_sl_mult_var.get())
+        except Exception:
+            atr_sl = 0.0
+        try:
+            atr_tp = float(self.paper_atr_tp_mult_var.get())
+        except Exception:
+            atr_tp = 0.0
+
+        if use_atr:
+            text = f"ATR stop loss x{atr_sl:.2f}, take profit x{atr_tp:.2f} (period {atr_period})"
+            color = "purple"
+        elif not enabled:
+            text = "No stop loss"
+            color = "gray"
+        elif trailing:
+            text = f"Trailing stop loss {pct_text}"
+            color = "green"
+        else:
+            text = f"Stop loss {pct_text}"
+            color = "blue"
+
+        self.paper_exchange_sl_mode_var.set(text)
+        self.paper_exchange_sl_mode_label.config(foreground=color)
 
     def create_live_trading_tab(self):
         # Live Trading Tab
@@ -743,14 +1022,33 @@ class TradingBotDashboard:
     def start_data_collection(self):
         try:
             # Start data collection using the launcher script in data_collection folder
-            launcher_path = os.path.join(os.path.dirname(__file__), 
-                                      "shared_modules", "data_collection", "launch_data_collection.py")
-            self.data_collection_process = subprocess.Popen([sys.executable, launcher_path])
+            project_root = os.path.dirname(__file__)
+            launcher_path = os.path.join(
+                os.path.dirname(__file__),
+                "shared_modules",
+                "data_collection",
+                "launch_data_collection.py",
+            )
+            startup_log_path = self._create_startup_log_path("data_collector_startup")
+            creation_flags = 0
+            if os.name == "nt":
+                creation_flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+            with open(startup_log_path, "a", encoding="utf-8") as startup_log_file:
+                self.data_collection_process = subprocess.Popen(
+                    [sys.executable, launcher_path],
+                    stdout=startup_log_file,
+                    stderr=startup_log_file,
+                    cwd=project_root,
+                    creationflags=creation_flags,
+                )
+            self.data_collection_startup_log_path = startup_log_path
             
             # Update UI
             self.dc_status.set("🟢 RUNNING")
             self.dc_start_btn.config(state="disabled")
             self.dc_stop_btn.config(state="normal")
+            self._refresh_paper_data_status()
+            self.root.after(1500, self._verify_data_collection_process_alive)
         except Exception as e:
             messagebox.showerror("Error", f"Failed to start data collection: {e}")
     
@@ -759,13 +1057,59 @@ class TradingBotDashboard:
             try:
                 self.data_collection_process.terminate()
                 self.data_collection_process = None
+                self.data_collection_startup_log_path = None
                 
                 # Update UI
                 self.dc_status.set("🔴 STOPPED")
                 self.dc_start_btn.config(state="normal")
                 self.dc_stop_btn.config(state="disabled")
+                self._refresh_paper_data_status()
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to stop data collection: {e}")
+
+    def _verify_data_collection_process_alive(self):
+        """Show a clear error when collector exits right after launch."""
+        process = self.data_collection_process
+        if process is None:
+            return
+        exit_code = process.poll()
+        if exit_code is None:
+            return
+
+        self.data_collection_process = None
+        self.dc_status.set("🔴 STOPPED")
+        self.dc_start_btn.config(state="normal")
+        self.dc_stop_btn.config(state="disabled")
+        self._refresh_paper_data_status()
+        startup_hint = ""
+        if self.data_collection_startup_log_path:
+            startup_hint = f"\nStartup log: {self.data_collection_startup_log_path}"
+        self.data_collection_startup_log_path = None
+        messagebox.showerror(
+            "Data Collection Failed",
+            f"Data collector exited immediately (code {exit_code}).\n"
+            f"Open it again and check latest file in Logs/ for details.{startup_hint}",
+        )
+
+    def _create_startup_log_path(self, prefix):
+        logs_dir = os.path.join(os.path.dirname(__file__), "Logs")
+        os.makedirs(logs_dir, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        return os.path.join(logs_dir, f"{prefix}_{timestamp}.log")
+
+    def _verify_paper_trader_process_alive(self, process, startup_log_path):
+        if process is None:
+            return
+        exit_code = process.poll()
+        if exit_code is None:
+            return
+        startup_hint = ""
+        if startup_log_path:
+            startup_hint = f"\nStartup log: {startup_log_path}"
+        messagebox.showerror(
+            "Paper Trader Failed",
+            f"Paper trader closed right after launch (code {exit_code}).{startup_hint}",
+        )
 
     def load_paper_trading_options(self):
         """Load demo accounts and strategies for paper trading"""
@@ -831,12 +1175,27 @@ class TradingBotDashboard:
             
             # Open paper trading window like backtesting
             try:
+                project_root = os.path.dirname(__file__)
                 launcher_path = os.path.join(os.path.dirname(__file__), 
                                         "simple_strategy", "trading", "paper_trading_launcher.py")
+                startup_log_path = self._create_startup_log_path("paper_trader_startup")
+                creation_flags = 0
+                if os.name == "nt":
+                    creation_flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
                 
                 # Pass parameters as command line arguments
-                subprocess.Popen([sys.executable, launcher_path, 
-                                account, strategy, balance])
+                with open(startup_log_path, "a", encoding="utf-8") as startup_log_file:
+                    paper_process = subprocess.Popen(
+                        [sys.executable, launcher_path, account, strategy, balance],
+                        stdout=startup_log_file,
+                        stderr=startup_log_file,
+                        cwd=project_root,
+                        creationflags=creation_flags,
+                    )
+                self.root.after(
+                    2500,
+                    lambda p=paper_process, lp=startup_log_path: self._verify_paper_trader_process_alive(p, lp),
+                )
                 
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to open paper trader: {e}")
@@ -929,6 +1288,41 @@ class TradingBotDashboard:
             strategy = self.paper_strategy_var.get()
             balance = self.paper_balance_var.get()
             min_24h_notional_usdt = float(self.paper_min_24h_notional_var.get())
+            enable_exchange_sl = bool(self.paper_enable_exchange_sl_var.get())
+            enable_exchange_trailing = bool(self.paper_enable_exchange_trailing_var.get())
+            exchange_sl_pct_input = float(self.paper_exchange_sl_pct_var.get())
+            enable_atr_exit = bool(self.paper_enable_atr_exit_var.get())
+            atr_period = 14
+            atr_sl_mult = 1.3
+            atr_tp_mult = 1.7
+            if enable_atr_exit:
+                atr_period = int(float(self.paper_atr_period_var.get()))
+                atr_sl_mult = float(self.paper_atr_sl_mult_var.get())
+                atr_tp_mult = float(self.paper_atr_tp_mult_var.get())
+
+            if enable_atr_exit:
+                if atr_period < 2:
+                    messagebox.showerror("Invalid ATR", "ATR period must be at least 2.")
+                    return
+                if atr_sl_mult <= 0 or atr_tp_mult <= 0:
+                    messagebox.showerror("Invalid ATR", "ATR multipliers must be greater than 0.")
+                    return
+
+            if not enable_atr_exit and enable_exchange_sl and exchange_sl_pct_input <= 0:
+                messagebox.showerror("Invalid Stop Loss", "Exchange SL % must be greater than 0.")
+                return
+            if not enable_atr_exit and enable_exchange_trailing and not enable_exchange_sl:
+                messagebox.showerror("Invalid Stop Mode", "Enable Exchange SL before enabling trailing stop.")
+                return
+            exchange_sl_pct = max(0.0001, exchange_sl_pct_input / 100.0)
+            risk_exit_mode = (
+                'atr' if enable_atr_exit
+                else 'trailing' if (enable_exchange_sl and enable_exchange_trailing)
+                else 'fixed' if enable_exchange_sl
+                else 'none'
+            )
+            enable_exchange_stop_loss = risk_exit_mode in {'fixed', 'trailing', 'atr'}
+            enable_exchange_trailing_stop = risk_exit_mode == 'trailing'
             global_rules_config = {
                 'enable_global_rules': bool(self.paper_enable_global_rules_var.get()),
                 'global_rules_profile': str(self.paper_global_rules_profile_var.get()).strip().lower() or "balanced",
@@ -940,7 +1334,10 @@ class TradingBotDashboard:
             if not account or not strategy:
                 messagebox.showerror("Error", "Please select both account and strategy!")
                 return
-            
+
+            if not self._confirm_paper_trading_with_stale_data():
+                return
+             
             # Initialize and start trading engine
             from simple_strategy.trading.paper_trading_engine import PaperTradingEngine
             self.paper_trading_engine = PaperTradingEngine(
@@ -948,6 +1345,14 @@ class TradingBotDashboard:
                 strategy,
                 balance,
                 global_rules_config=global_rules_config,
+                enable_exchange_stop_loss=enable_exchange_stop_loss,
+                enable_exchange_trailing_stop=enable_exchange_trailing_stop,
+                exchange_stop_loss_pct=exchange_sl_pct,
+                risk_exit_mode=risk_exit_mode,
+                risk_sl_pct=exchange_sl_pct,
+                risk_atr_period=atr_period,
+                risk_atr_sl_multiplier=atr_sl_mult,
+                risk_atr_tp_multiplier=atr_tp_mult,
             )
             
             # Start trading in a separate thread to avoid freezing GUI
@@ -978,7 +1383,31 @@ class TradingBotDashboard:
         except Exception as e:
             messagebox.showerror("Error", f"Failed to stop paper trading: {str(e)}")
 
+def _handle_gui_sigint(_signum, _frame):
+    # Prevent accidental Ctrl+C in terminal from killing the dashboard.
+    print("Ctrl+C ignored while GUI is running. Close the window to exit.")
+
 if __name__ == "__main__":
+    try:
+        signal.signal(signal.SIGINT, _handle_gui_sigint)
+    except Exception:
+        pass
+
     root = tk.Tk()
     app = TradingBotDashboard(root)
-    root.mainloop()
+
+    while True:
+        try:
+            root.mainloop()
+            break
+        except KeyboardInterrupt:
+            try:
+                if root.winfo_exists():
+                    messagebox.showwarning(
+                        "Interrupt Ignored",
+                        "Ctrl+C was pressed in the terminal.\nThe dashboard will stay open.",
+                    )
+                else:
+                    break
+            except Exception:
+                break

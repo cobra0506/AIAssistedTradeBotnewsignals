@@ -53,6 +53,8 @@ class DataCollectionGUI:
         self.completed_symbols = 0
         self.current_symbol = ""
         self.current_timeframe = ""
+        self.historical_ready = False
+        self._historical_completion_notified = False
         
         # System stats
         self.memory_usage = "0 MB"
@@ -102,6 +104,15 @@ class DataCollectionGUI:
         ttk.Label(status_frame, text="Progress:").grid(row=1, column=4, sticky=tk.W, pady=(5, 0))
         self.progress_label = ttk.Label(status_frame, text="0%", font=("Arial", 10, "bold"))
         self.progress_label.grid(row=1, column=5, sticky=tk.W, padx=(10, 20), pady=(5, 0))
+
+        ttk.Label(status_frame, text="Paper Trader Ready:").grid(row=2, column=0, sticky=tk.W, pady=(5, 0))
+        self.historical_status_label = ttk.Label(
+            status_frame,
+            text="Waiting for historical data...",
+            foreground="orange",
+            font=("Arial", 10, "bold"),
+        )
+        self.historical_status_label.grid(row=2, column=1, columnspan=7, sticky=tk.W, padx=(10, 0), pady=(5, 0))
         
         # Configuration Panel
         config_frame = ttk.LabelFrame(main_frame, text="Configuration Options", padding="10")
@@ -193,6 +204,12 @@ class DataCollectionGUI:
         """Update progress display"""
         self.historical_progress = percent
         self.progress_label.config(text=f"{percent:.1f}%")
+
+    def set_historical_status(self, text, color="black"):
+        """Update historical readiness label from any thread."""
+        def _apply():
+            self.historical_status_label.config(text=text, foreground=color)
+        self.root.after(0, _apply)
         
     # NEW: Method to start data monitoring
     def start_data_monitor(self):
@@ -375,6 +392,8 @@ class DataCollectionGUI:
         """Start data collection"""
         try:
             self.running = True
+            self.historical_ready = False
+            self._historical_completion_notified = False
             self.start_button.config(state="disabled")
             self.stop_button.config(state="normal")
             self.test_button.config(state="disabled")
@@ -382,6 +401,7 @@ class DataCollectionGUI:
             
             self.log_message(f"Starting data collection with config: {self.get_config_summary()}")
             self.update_activity("Initializing data collection system...")
+            self.set_historical_status("Historical data in progress...", "blue")
             
             # Disable config changes during collection
             for child in self.root.winfo_children():
@@ -412,7 +432,9 @@ class DataCollectionGUI:
             self.log_message("Stopping data collection...")
             self.update_activity("Data collection stopped")
             self.update_status(connection="Disconnected", websocket="Disconnected")
-            
+            if not self.historical_ready:
+                self.set_historical_status("Not ready (collection stopped before completion)", "orange")
+             
         except Exception as e:
             messagebox.showerror("Error", f"Failed to stop collection: {e}")
             
@@ -497,6 +519,31 @@ class DataCollectionGUI:
                 self.total_symbols = len(symbols)
                 self.update_status(symbols=self.total_symbols)
                 self.log_message(f"📊 Processing {self.total_symbols} symbols...")
+
+                async def ensure_websocket_symbol_coverage():
+                    """Ensure WebSocket subscriptions match the active symbol universe."""
+                    ws = self.hybrid_system.websocket_handler
+                    if not ws:
+                        return
+
+                    ws.symbols = list(symbols)
+                    ws.intervals = list(self.gui_config.TIMEFRAMES)
+                    ws.config.TIMEFRAMES = list(self.gui_config.TIMEFRAMES)
+
+                    if ws.connection or getattr(ws, "connections", None):
+                        if hasattr(ws, "reconfigure_subscriptions"):
+                            await ws.reconfigure_subscriptions(
+                                symbols=list(symbols),
+                                intervals=list(self.gui_config.TIMEFRAMES),
+                            )
+                        else:
+                            await ws._subscribe_to_symbols_in_batches(ws.connection)
+                        total_pairs = len(ws.symbols) * len(ws.intervals)
+                        self.log_message(
+                            f"🌐 WebSocket subscriptions refreshed to {total_pairs} symbol/timeframe pairs"
+                        )
+                    else:
+                        self.log_message("⚠️ WebSocket connection missing; cannot refresh subscriptions yet.")
                 
                 # START WEBSOCKET FIRST (if enabled) to avoid gaps
                 websocket_task = None
@@ -510,6 +557,7 @@ class DataCollectionGUI:
                         self.hybrid_system.websocket_handler = self.hybrid_system.shared_ws_manager.get_websocket_handler()
                         
                         if self.hybrid_system.websocket_handler:
+                            await ensure_websocket_symbol_coverage()
                             self.update_status(websocket="Connected")
                             self.log_message("✅ WebSocket connected - ready for real-time data")
                             
@@ -547,6 +595,7 @@ class DataCollectionGUI:
                                             await self.hybrid_system.shared_ws_manager.initialize(self.gui_config)
                                             self.hybrid_system.websocket_handler = self.hybrid_system.shared_ws_manager.get_websocket_handler()
                                             if self.hybrid_system.websocket_handler:
+                                                await ensure_websocket_symbol_coverage()
                                                 self.update_status(websocket="Connected")
                                                 self.log_message("✅ WebSocket reconnected")
                                         except Exception as e:
@@ -617,6 +666,17 @@ class DataCollectionGUI:
                     self.log_message("✅ Historical data collection completed successfully!")
                     self.update_activity("Historical data completed + WebSocket active")
                     self.update_progress(100)
+                    self.historical_ready = True
+                    self.set_historical_status("READY - historical data complete. You can start paper trader.", "green")
+                    if not self._historical_completion_notified:
+                        self._historical_completion_notified = True
+                        self.root.after(
+                            0,
+                            lambda: messagebox.showinfo(
+                                "Historical Data Complete",
+                                "Historical data collection is complete.\nYou can start paper trader now.",
+                            ),
+                        )
                     
                     # Check what data was actually collected
                     self.update_activity("Verifying collected data...")
@@ -650,6 +710,8 @@ class DataCollectionGUI:
                 else:
                     self.log_message("❌ Historical data collection failed for all symbols")
                     self.update_activity("Historical data failed + WebSocket active")
+                    self.historical_ready = False
+                    self.set_historical_status("NOT READY - historical data failed.", "red")
                     
                 # If WebSocket is running, keep the monitor going
                 if self.gui_config.ENABLE_WEBSOCKET and websocket_task:
@@ -691,7 +753,19 @@ class DataCollectionGUI:
             
     def run(self):
         """Start the GUI"""
-        self.root.mainloop()
+        while True:
+            try:
+                self.root.mainloop()
+                break
+            except KeyboardInterrupt:
+                # Ignore terminal Ctrl+C so the collector window keeps running.
+                try:
+                    if self.root.winfo_exists():
+                        self.log_message("Keyboard interrupt ignored while GUI is running.")
+                        continue
+                except Exception:
+                    pass
+                break
 
 def main():
     """Main function to run the GUI"""

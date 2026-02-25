@@ -6,11 +6,24 @@ import sys
 import os
 import json
 import random
+import time
+import traceback
 from datetime import datetime
 
 # Add project root to Python path
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, project_root)
+
+def write_launcher_crash_log(error):
+    logs_dir = os.path.join(project_root, "Logs")
+    os.makedirs(logs_dir, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    crash_log_path = os.path.join(logs_dir, f"paper_trader_launcher_crash_{timestamp}.log")
+    with open(crash_log_path, "w", encoding="utf-8") as f:
+        f.write(f"{datetime.now().isoformat()} Paper trader launcher crashed\n")
+        f.write(f"Error: {error}\n\n")
+        f.write(traceback.format_exc())
+    return crash_log_path
 
 class PaperTradingLauncher:
     def __init__(self, api_account=None, strategy_name=None, simulated_balance=None):
@@ -34,10 +47,17 @@ class PaperTradingLauncher:
         # Create GUI window
         self.root = tk.Tk()
         self.root.title(f"Paper Trading - {strategy_name}")
-        self.root.geometry("800x600")
+        self.root.geometry("1180x720")
+        self.root.minsize(1024, 680)
         
         # Initialize trading engine
         self.trading_engine = None
+        self.graceful_stop_window = None
+        self.graceful_stop_status_var = None
+        self.graceful_stop_count_var = None
+        self.graceful_close_now_btn = None
+        self.graceful_safely_close_btn = None
+        self._graceful_stop_after_id = None
         
         self.create_widgets()
         
@@ -45,10 +65,12 @@ class PaperTradingLauncher:
         # Header with performance info
         header_frame = ttk.Frame(self.root)
         header_frame.pack(fill="x", padx=10, pady=5)
-        
+        header_frame.columnconfigure(0, weight=1)
+        header_frame.columnconfigure(1, weight=0)
+
         # Left side - Strategy and Account info
         left_frame = ttk.Frame(header_frame)
-        left_frame.pack(side="left", fill="x", expand=True)
+        left_frame.grid(row=0, column=0, sticky="ew", padx=(0, 12))
         
         ttk.Label(left_frame, text=f"Paper Trading: {self.strategy_name}", 
                 font=("Arial", 14, "bold")).pack(anchor="w")
@@ -68,21 +90,21 @@ class PaperTradingLauncher:
         optimized_params = pm.get_parameters(self.strategy_name)
         
         if optimized_params:
-            param_status = f"✅ Using optimized parameters (Last: {optimized_params.get('last_optimized', 'Unknown')})"
+            param_status = f"ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ Using optimized parameters (Last: {optimized_params.get('last_optimized', 'Unknown')})"
             param_color = "green"
         else:
-            param_status = "⚠️ Using default parameters (Not optimized)"
+            param_status = "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¯ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â Using default parameters (Not optimized)"
             param_color = "orange"
         
         ttk.Label(param_frame, text=param_status, foreground=param_color).pack(side="left", padx=5)
         
         # Right side - Performance info
         right_frame = ttk.Frame(header_frame)
-        right_frame.pack(side="right", fill="y")
-        
+        right_frame.grid(row=0, column=1, sticky="ne")
+
         # Performance display in header (split into two columns)
         perf_header_frame = ttk.LabelFrame(right_frame, text="Performance", padding=5)
-        perf_header_frame.pack(side="right", padx=10)
+        perf_header_frame.pack(fill="both", expand=True)
 
         left_perf_frame = ttk.Frame(perf_header_frame)
         left_perf_frame.pack(side="left", padx=5)
@@ -132,9 +154,18 @@ class PaperTradingLauncher:
         self.stop_btn = ttk.Button(control_frame, text="STOP TRADING", 
                                 command=self.stop_trading, state="disabled")
         self.stop_btn.pack(side="left", padx=5)
+
+        self.data_feed_status_var = tk.StringVar(value="Data feed: checking...")
+        self.data_feed_status_label = ttk.Label(
+            control_frame,
+            textvariable=self.data_feed_status_var,
+            font=("Arial", 9, "bold"),
+            foreground="gray",
+        )
+        self.data_feed_status_label.pack(side="left", padx=10)
         
         # Status with color
-        self.status_var = tk.StringVar(value="🔴 STOPPED")
+        self.status_var = tk.StringVar(value="ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â´ STOPPED")
         self.status_label = ttk.Label(control_frame, textvariable=self.status_var, 
                                     font=("Arial", 10, "bold"))
         self.status_label.pack(side="left", padx=20)
@@ -150,6 +181,107 @@ class PaperTradingLauncher:
         self.max_positions_var = tk.IntVar(value=20)
         max_positions_spinbox = ttk.Spinbox(max_positions_frame, from_=1, to=1000, textvariable=self.max_positions_var, width=10)
         max_positions_spinbox.pack(side="left", padx=5)
+
+        timeframe_frame = ttk.Frame(trading_controls_frame)
+        timeframe_frame.pack(fill="x", pady=2)
+        ttk.Label(timeframe_frame, text="Strategy Entry Timeframe:").pack(side="left", padx=5)
+        self.entry_timeframe_var = tk.StringVar(value="1m")
+        ttk.Entry(timeframe_frame, textvariable=self.entry_timeframe_var, width=10).pack(side="left", padx=5)
+        ttk.Label(timeframe_frame, text="Examples: 1m, 5m, 1h").pack(side="left", padx=2)
+
+        # Exchange stop-loss controls
+        exchange_sl_frame = ttk.Frame(trading_controls_frame)
+        exchange_sl_frame.pack(fill="x", pady=2)
+        self.exchange_sl_enabled_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            exchange_sl_frame,
+            text="Enable Exchange Stop Loss",
+            variable=self.exchange_sl_enabled_var,
+            command=self.toggle_exchange_sl_entry,
+        ).pack(side="left", padx=5)
+        self.exchange_trailing_enabled_var = tk.BooleanVar(value=False)
+        self.exchange_trailing_check = ttk.Checkbutton(
+            exchange_sl_frame,
+            text="Use Trailing Stop",
+            variable=self.exchange_trailing_enabled_var,
+            command=self._update_exchange_stop_mode_label,
+            state="disabled",
+        )
+        self.exchange_trailing_check.pack(side="left", padx=5)
+        self.exchange_sl_pct_var = tk.DoubleVar(value=2.0)
+        self.exchange_sl_pct_spinbox = ttk.Spinbox(
+            exchange_sl_frame,
+            from_=0.1,
+            to=20.0,
+            increment=0.1,
+            textvariable=self.exchange_sl_pct_var,
+            width=6,
+            command=self._update_exchange_stop_mode_label,
+            state="disabled",
+        )
+        self.exchange_sl_pct_spinbox.pack(side="left", padx=2)
+        self.exchange_sl_pct_spinbox.bind("<KeyRelease>", lambda _event: self._update_exchange_stop_mode_label())
+        self.exchange_sl_pct_spinbox.bind("<FocusOut>", lambda _event: self._update_exchange_stop_mode_label())
+        ttk.Label(exchange_sl_frame, text="%").pack(side="left", padx=2)
+        self.exchange_stop_mode_var = tk.StringVar(value="No stop loss")
+        self.exchange_stop_mode_label = ttk.Label(
+            trading_controls_frame,
+            textvariable=self.exchange_stop_mode_var,
+            font=("Arial", 9, "bold"),
+            foreground="gray",
+        )
+        self.exchange_stop_mode_label.pack(anchor="w", padx=8, pady=(0, 2))
+
+        atr_frame = ttk.Frame(trading_controls_frame)
+        atr_frame.pack(fill="x", pady=2)
+        self.atr_mode_enabled_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            atr_frame,
+            text="Use ATR Stop + TP",
+            variable=self.atr_mode_enabled_var,
+            command=self.toggle_atr_controls,
+        ).pack(side="left", padx=5)
+        ttk.Label(atr_frame, text="ATR Period:").pack(side="left", padx=(8, 2))
+        self.atr_period_var = tk.IntVar(value=14)
+        self.atr_period_spinbox = ttk.Spinbox(
+            atr_frame,
+            from_=2,
+            to=200,
+            textvariable=self.atr_period_var,
+            width=5,
+            state="disabled",
+            command=self._update_exchange_stop_mode_label,
+        )
+        self.atr_period_spinbox.pack(side="left", padx=2)
+        ttk.Label(atr_frame, text="SL x").pack(side="left", padx=(8, 2))
+        self.atr_sl_mult_var = tk.DoubleVar(value=1.3)
+        self.atr_sl_mult_spinbox = ttk.Spinbox(
+            atr_frame,
+            from_=0.1,
+            to=10.0,
+            increment=0.1,
+            textvariable=self.atr_sl_mult_var,
+            width=5,
+            state="disabled",
+            command=self._update_exchange_stop_mode_label,
+        )
+        self.atr_sl_mult_spinbox.pack(side="left", padx=2)
+        ttk.Label(atr_frame, text="TP x").pack(side="left", padx=(8, 2))
+        self.atr_tp_mult_var = tk.DoubleVar(value=1.7)
+        self.atr_tp_mult_spinbox = ttk.Spinbox(
+            atr_frame,
+            from_=0.1,
+            to=10.0,
+            increment=0.1,
+            textvariable=self.atr_tp_mult_var,
+            width=5,
+            state="disabled",
+            command=self._update_exchange_stop_mode_label,
+        )
+        self.atr_tp_mult_spinbox.pack(side="left", padx=2)
+        self.atr_period_spinbox.bind("<KeyRelease>", lambda _event: self._update_exchange_stop_mode_label())
+        self.atr_sl_mult_spinbox.bind("<KeyRelease>", lambda _event: self._update_exchange_stop_mode_label())
+        self.atr_tp_mult_spinbox.bind("<KeyRelease>", lambda _event: self._update_exchange_stop_mode_label())
         
         # Stop trading at percentage
         stop_percentage_frame = ttk.Frame(trading_controls_frame)
@@ -177,6 +309,131 @@ class PaperTradingLauncher:
         
         self.log_message("Paper trading window initialized")
         self.update_performance()
+        self.refresh_data_feed_status()
+        self._update_exchange_stop_mode_label()
+
+    def toggle_exchange_sl_entry(self):
+        """Enable/disable fixed or trailing stop-loss controls."""
+        enabled = bool(self.exchange_sl_enabled_var.get())
+        if enabled:
+            self.exchange_sl_pct_spinbox.config(state="normal")
+            self.exchange_trailing_check.config(state="normal")
+        else:
+            self.exchange_sl_pct_spinbox.config(state="disabled")
+            self.exchange_trailing_check.config(state="disabled")
+            self.exchange_trailing_enabled_var.set(False)
+        self._update_exchange_stop_mode_label()
+
+    def toggle_atr_controls(self):
+        """Enable/disable ATR risk controls."""
+        atr_enabled = bool(self.atr_mode_enabled_var.get())
+        state = "normal" if atr_enabled else "disabled"
+        self.atr_period_spinbox.config(state=state)
+        self.atr_sl_mult_spinbox.config(state=state)
+        self.atr_tp_mult_spinbox.config(state=state)
+        self._update_exchange_stop_mode_label()
+
+    def toggle_percentage_entry(self):
+        """Enable/disable stop-on-balance-percent control."""
+        state = "normal" if bool(self.stop_at_percentage_var.get()) else "disabled"
+        self.stop_percentage_spinbox.config(state=state)
+
+    def _update_exchange_stop_mode_label(self):
+        """Show active stop mode in plain language."""
+        try:
+            atr_enabled = bool(self.atr_mode_enabled_var.get())
+            sl_enabled = bool(self.exchange_sl_enabled_var.get())
+            trailing_enabled = bool(self.exchange_trailing_enabled_var.get())
+            sl_pct = float(self.exchange_sl_pct_var.get())
+            atr_period = int(float(self.atr_period_var.get()))
+            atr_sl_mult = float(self.atr_sl_mult_var.get())
+            atr_tp_mult = float(self.atr_tp_mult_var.get())
+        except Exception:
+            self.exchange_stop_mode_var.set("No stop loss")
+            self.exchange_stop_mode_label.config(foreground="gray")
+            return
+
+        if atr_enabled:
+            self.exchange_stop_mode_var.set(
+                f"ATR stop/TP: ATR {atr_period}, SL x{atr_sl_mult:.2f}, TP x{atr_tp_mult:.2f}"
+            )
+            self.exchange_stop_mode_label.config(foreground="green")
+            return
+
+        if not sl_enabled:
+            self.exchange_stop_mode_var.set("No stop loss")
+            self.exchange_stop_mode_label.config(foreground="gray")
+            return
+
+        if trailing_enabled:
+            self.exchange_stop_mode_var.set(f"Trailing stop loss {sl_pct:.2f}%")
+            self.exchange_stop_mode_label.config(foreground="green")
+            return
+
+        self.exchange_stop_mode_var.set(f"Stop loss {sl_pct:.2f}%")
+        self.exchange_stop_mode_label.config(foreground="green")
+
+    def update_performance_header(self, performance_data):
+        """Update header metrics without touching the log widget."""
+        if not isinstance(performance_data, dict):
+            return
+        if not hasattr(self, "perf_header_labels"):
+            return
+
+        account_value = float(
+            performance_data.get(
+                "account_value",
+                performance_data.get("current_balance", self.simulated_balance),
+            )
+        )
+        liquidation_value = float(
+            performance_data.get(
+                "liquidation_value",
+                performance_data.get("current_balance", self.simulated_balance),
+            )
+        )
+        available_balance = float(
+            performance_data.get(
+                "available_balance",
+                performance_data.get("current_balance", self.simulated_balance),
+            )
+        )
+        open_positions = int(performance_data.get("open_positions", 0))
+        realized_pnl = float(performance_data.get("realized_pnl", 0.0))
+        unrealized_pnl = float(performance_data.get("unrealized_pnl", 0.0))
+        total_trades = int(performance_data.get("total_trades", 0))
+        win_rate = float(performance_data.get("win_rate", 0.0))
+
+        updates = {
+            "account_value": f"${account_value:,.2f}",
+            "liquidation_value": f"${liquidation_value:,.2f}",
+            "available_balance": f"${available_balance:,.2f}",
+            "open_positions": f"{open_positions}",
+            "realized_pnl": f"${realized_pnl:,.2f}",
+            "unrealized_pnl": f"${unrealized_pnl:,.2f}",
+            "total_trades": f"{total_trades}",
+            "win_rate": f"{win_rate:.1f}%",
+        }
+
+        for key, value in updates.items():
+            label = self.perf_header_labels.get(key)
+            if label is None:
+                continue
+            label.config(text=value)
+
+        for key, pnl_value in (
+            ("realized_pnl", realized_pnl),
+            ("unrealized_pnl", unrealized_pnl),
+        ):
+            label = self.perf_header_labels.get(key)
+            if label is None:
+                continue
+            if pnl_value > 0:
+                label.config(foreground="green")
+            elif pnl_value < 0:
+                label.config(foreground="red")
+            else:
+                label.config(foreground="black")
 
     def update_status(self, status):
         """Update status display with appropriate colors"""
@@ -188,139 +445,201 @@ class PaperTradingLauncher:
         else:
             self.status_label.config(foreground="black")
 
-    def stop_trading(self):
-        """Stop paper trading"""
-        if self.trading_engine:
-            self.trading_engine.stop_trading()
-        
-        self.log_message("Paper trading stopped")
-        self.update_status("🔴 STOPPED")  # Use the update_status method instead
+    def _set_stopped_ui(self):
+        self.status_var.set("STOPPED")
         self.start_btn.config(state="normal")
         self.stop_btn.config(state="disabled")
 
-    def update_performance_header(self, performance_data):
-        """Update performance display in header"""
-        try:
-            if performance_data:
-                # UPDATED: Use new keys to update header performance labels
-                if 'account_value' in performance_data:
-                    account_val = performance_data['account_value']
-                    account_text = f"${account_val:.2f}"
-                    # Color code P&L based on account value vs initial balance
-                    if account_val > self.simulated_balance:
-                        self.perf_header_labels['account_value'].config(text=account_text, foreground="green")
-                    elif account_val < self.simulated_balance:
-                        self.perf_header_labels['account_value'].config(text=account_text, foreground="red")
-                    else:
-                        self.perf_header_labels['account_value'].config(text=account_text, foreground="black")
+    def _close_graceful_stop_dialog(self):
+        if self._graceful_stop_after_id is not None:
+            try:
+                self.root.after_cancel(self._graceful_stop_after_id)
+            except Exception:
+                pass
+            self._graceful_stop_after_id = None
 
-                if 'liquidation_value' in performance_data:
-                    self.perf_header_labels['liquidation_value'].config(text=f"${performance_data['liquidation_value']:.2f}")
+        if self.graceful_stop_window is not None:
+            try:
+                if self.graceful_stop_window.winfo_exists():
+                    self.graceful_stop_window.destroy()
+            except Exception:
+                pass
+        self.graceful_stop_window = None
+        self.graceful_stop_status_var = None
+        self.graceful_stop_count_var = None
+        self.graceful_close_now_btn = None
+        self.graceful_safely_close_btn = None
 
-                if 'realized_pnl' in performance_data:
-                    self.perf_header_labels['realized_pnl'].config(text=f"${performance_data['realized_pnl']:.2f}")
+    def _safe_close_after_graceful_stop(self):
+        if self.trading_engine:
+            try:
+                self.trading_engine.stop_trading(immediate=True)
+            except Exception:
+                pass
+        self.log_message("Paper trading safely stopped.")
+        self._close_graceful_stop_dialog()
+        self._set_stopped_ui()
 
-                if 'unrealized_pnl' in performance_data:
-                    self.perf_header_labels['unrealized_pnl'].config(text=f"${performance_data['unrealized_pnl']:.2f}")
-
-
-                if 'open_positions' in performance_data:
-                    self.perf_header_labels['open_positions'].config(text=str(performance_data['open_positions']))
-                
-                if 'total_trades' in performance_data:
-                    self.perf_header_labels['total_trades'].config(text=str(performance_data['total_trades']))
-                
-                if 'win_rate' in performance_data:
-                    self.perf_header_labels['win_rate'].config(text=f"{performance_data['win_rate']:.1f}%")
-                    
-        except Exception as e:
-            print(f"Error updating performance header: {e}")
-
-    def toggle_percentage_entry(self):
-        """Enable/disable the percentage entry based on checkbox state"""
-        if self.stop_at_percentage_var.get():
-            self.stop_percentage_spinbox.config(state="normal")
+    def _force_close_now_from_dialog(self):
+        if not self.trading_engine:
+            return
+        if hasattr(self.trading_engine, "request_force_close_all"):
+            self.trading_engine.request_force_close_all()
+            self.status_var.set("STOPPING (FORCE CLOSE)")
+            self.log_message("Force close requested: closing open positions now...")
         else:
-            self.stop_percentage_spinbox.config(state="disabled")
+            self.log_message("Force close API not available, stopping immediately.")
+            self.trading_engine.stop_trading(immediate=True)
+            self._safe_close_after_graceful_stop()
 
-    def start_trading(self):
-        """Start paper trading"""
+    def _refresh_graceful_stop_dialog(self):
+        if self.graceful_stop_window is None:
+            return
         try:
-            # Check for optimized parameters first
-            from simple_strategy.trading.parameter_manager import ParameterManager
-            pm = ParameterManager()
-            optimized_params = pm.get_parameters(self.strategy_name)
-            
-            if not optimized_params:
-                # Ask user what to do
-                result = messagebox.askyesno(
-                    "No Optimized Parameters",
-                    f"No optimized parameters found for '{self.strategy_name}'.\n\n"
-                    f"Do you want to continue with default parameters?\n\n"
-                    f"Yes = Use default parameters\n"
-                    f"No = Cancel and optimize first"
+            if not self.graceful_stop_window.winfo_exists():
+                self._close_graceful_stop_dialog()
+                return
+        except Exception:
+            self._close_graceful_stop_dialog()
+            return
+
+        open_positions = 0
+        is_running = False
+        graceful_requested = False
+        if self.trading_engine:
+            try:
+                if hasattr(self.trading_engine, "get_shutdown_state"):
+                    state = self.trading_engine.get_shutdown_state() or {}
+                    open_positions = int(state.get("open_positions", 0))
+                    is_running = bool(state.get("is_running", False))
+                    graceful_requested = bool(state.get("graceful_stop_requested", False))
+                else:
+                    open_positions = len(getattr(self.trading_engine, "current_positions", {}))
+                    is_running = bool(getattr(self.trading_engine, "is_running", False))
+            except Exception:
+                open_positions = len(getattr(self.trading_engine, "current_positions", {}))
+                is_running = bool(getattr(self.trading_engine, "is_running", False))
+
+        if self.graceful_stop_count_var is not None:
+            self.graceful_stop_count_var.set(f"Open positions: {open_positions}")
+
+        if self.graceful_stop_status_var is not None:
+            if open_positions > 0:
+                self.graceful_stop_status_var.set(
+                    "New trades are blocked. Waiting for open positions to close..."
                 )
-                if not result:
-                    self.log_message("Trading cancelled - no optimized parameters")
-                    return
-            
-            # Get trading control values
-            max_positions = self.max_positions_var.get()
-            stop_trading_at_percentage = self.stop_percentage_value.get() if self.stop_at_percentage_var.get() else None
-            
-            # Log the values to verify they're being read correctly
-            self.log_message(f"Starting with max_positions={max_positions}, stop_percentage={stop_trading_at_percentage}")
-            
-            # Import and create trading engine with new parameters
-            from simple_strategy.trading.paper_trading_engine import PaperTradingEngine
-            self.trading_engine = PaperTradingEngine(
-                self.api_account,
-                self.strategy_name,
-                self.simulated_balance,
-                log_callback=self.log_message,
-                status_callback=self.update_status,
-                performance_callback=self.update_performance,
-                max_positions=max_positions,
-                stop_trading_at_percentage=stop_trading_at_percentage
+            elif graceful_requested or not is_running:
+                self.graceful_stop_status_var.set(
+                    "All positions are closed. You can safely close now."
+                )
+            else:
+                self.graceful_stop_status_var.set("Waiting for shutdown state...")
+
+        if self.graceful_safely_close_btn is not None:
+            self.graceful_safely_close_btn.config(
+                state="normal" if open_positions == 0 else "disabled"
             )
-            
-            # Update max_positions in the engine's should_continue_trading method directly
-            self.trading_engine.should_continue_trading = lambda: self.check_should_continue_trading(max_positions, stop_trading_at_percentage)
-            
-            # Initialize shared data access after engine creation
-            self.trading_engine.initialize_shared_data_access()
+        if self.graceful_close_now_btn is not None and open_positions == 0:
+            self.graceful_close_now_btn.config(state="disabled")
 
-            # Start performance update timer
-            self.update_performance_timer()
-            
-            # Start trading in a separate thread
-            self.log_message("Starting paper trading...")
-            self.update_status("🟢 RUNNING")
-            self.start_btn.config(state="disabled")
-            self.stop_btn.config(state="normal")
-            
-            # Start REAL trading
-            self.start_real_trading()
-            
-        except Exception as e:
-            self.log_message(f"Error starting trading: {e}")
-            messagebox.showerror("Error", f"Failed to start trading: {e}")
+        self._graceful_stop_after_id = self.root.after(1000, self._refresh_graceful_stop_dialog)
 
-    def check_should_continue_trading(self, max_positions, stop_trading_at_percentage):
-        """Check if trading should continue based on balance and optional settings"""
-        # Check if we've reached the maximum number of open positions
-        if len(self.trading_engine.current_positions) >= max_positions:
-            self.log_message(f"🛑 Max positions reached: {len(self.trading_engine.current_positions)} >= {max_positions}")
-            return False
-        
-        # Optional: Check if balance is below a percentage threshold (if enabled)
-        if stop_trading_at_percentage:
-            min_balance = self.trading_engine.initial_balance * (stop_trading_at_percentage / 100)
-            if self.trading_engine.simulated_balance < min_balance:
-                self.log_message(f"🛑 Balance below threshold: ${self.trading_engine.simulated_balance:.2f} < ${min_balance:.2f} ({stop_trading_at_percentage}%)")
-                return False
-        
-        return True
+    def _open_graceful_stop_dialog(self):
+        if self.graceful_stop_window is not None:
+            try:
+                if self.graceful_stop_window.winfo_exists():
+                    self.graceful_stop_window.lift()
+                    self._refresh_graceful_stop_dialog()
+                    return
+            except Exception:
+                pass
+
+        win = tk.Toplevel(self.root)
+        win.title("Graceful Stop")
+        win.geometry("440x180")
+        win.transient(self.root)
+        win.grab_set()
+        self.graceful_stop_window = win
+
+        self.graceful_stop_status_var = tk.StringVar(
+            value="Graceful stop requested. New entries are disabled."
+        )
+        self.graceful_stop_count_var = tk.StringVar(value="Open positions: 0")
+
+        ttk.Label(
+            win,
+            text="Paper trader is stopping gracefully.",
+            font=("Arial", 11, "bold"),
+        ).pack(anchor="w", padx=12, pady=(12, 6))
+        ttk.Label(
+            win,
+            textvariable=self.graceful_stop_status_var,
+            wraplength=410,
+        ).pack(anchor="w", padx=12, pady=2)
+        ttk.Label(
+            win,
+            textvariable=self.graceful_stop_count_var,
+            font=("Arial", 10, "bold"),
+        ).pack(anchor="w", padx=12, pady=(4, 8))
+
+        button_row = ttk.Frame(win)
+        button_row.pack(fill="x", padx=12, pady=(4, 12))
+        self.graceful_close_now_btn = ttk.Button(
+            button_row,
+            text="Close Now",
+            command=self._force_close_now_from_dialog,
+        )
+        self.graceful_close_now_btn.pack(side="left", padx=(0, 8))
+        self.graceful_safely_close_btn = ttk.Button(
+            button_row,
+            text="Safely Close",
+            state="disabled",
+            command=self._safe_close_after_graceful_stop,
+        )
+        self.graceful_safely_close_btn.pack(side="left")
+
+        def _on_close_attempt():
+            if self.graceful_safely_close_btn and str(self.graceful_safely_close_btn.cget("state")) == "normal":
+                self._safe_close_after_graceful_stop()
+            else:
+                messagebox.showinfo(
+                    "Graceful Stop",
+                    "Use 'Close Now' or wait until open positions reach 0.",
+                )
+
+        win.protocol("WM_DELETE_WINDOW", _on_close_attempt)
+        self._refresh_graceful_stop_dialog()
+
+    def stop_trading(self, graceful=True):
+        """Stop paper trading; graceful mode blocks entries and waits for open positions to close."""
+        if not self.trading_engine:
+            self.log_message("Paper trading is not running.")
+            self._set_stopped_ui()
+            return
+
+        open_positions = len(getattr(self.trading_engine, "current_positions", {}))
+        if not graceful or open_positions == 0:
+            self.trading_engine.stop_trading(immediate=True)
+            self.log_message("Paper trading stopped.")
+            self._close_graceful_stop_dialog()
+            self._set_stopped_ui()
+            return
+
+        if hasattr(self.trading_engine, "request_graceful_stop"):
+            self.trading_engine.request_graceful_stop()
+        else:
+            self.log_message("Graceful stop API unavailable. Stopping immediately.")
+            self.trading_engine.stop_trading(immediate=True)
+            self._set_stopped_ui()
+            return
+
+        self.log_message(
+            f"Graceful stop requested with {open_positions} open position(s). "
+            "New entries are blocked until positions are closed."
+        )
+        self.status_var.set("STOPPING (GRACEFUL)")
+        self.stop_btn.config(state="disabled")
+        self._open_graceful_stop_dialog()
 
     def start_real_trading(self):
         """Start REAL trading using the trading engine"""
@@ -331,13 +650,13 @@ class PaperTradingLauncher:
                 # Start the real trading engine
                 success = self.trading_engine.start_trading()
                 if success:
-                    self.log_message("✅ Real trading started successfully")
+                    self.log_message("Real trading started successfully")
                 else:
-                    self.log_message("❌ Failed to start real trading")
-                    self.stop_trading()
+                    self.log_message("Failed to start real trading")
+                    self.stop_trading(graceful=False)
             except Exception as e:
-                self.log_message(f"❌ Error in real trading: {e}")
-                self.stop_trading()
+                self.log_message(f"Error in real trading: {e}")
+                self.stop_trading(graceful=False)
         
         # Start real trading in separate thread
         thread = threading.Thread(target=trading_loop)
@@ -353,14 +672,14 @@ class PaperTradingLauncher:
         """Check if trading should continue based on balance and optional settings"""
         # Check if we've reached the maximum number of open positions
         if len(self.trading_engine.current_positions) >= max_positions:
-            self.log_message(f"🛑 Max positions reached: {len(self.trading_engine.current_positions)} >= {max_positions}")
+            self.log_message(f"Max positions reached: {len(self.trading_engine.current_positions)} >= {max_positions}")
             return False
         
         # Optional: Check if balance is below a percentage threshold (if enabled)
         if stop_trading_at_percentage:
             min_balance = self.trading_engine.initial_balance * (stop_trading_at_percentage / 100)
             if self.trading_engine.simulated_balance < min_balance:
-                self.log_message(f"🛑 Balance below threshold: ${self.trading_engine.simulated_balance:.2f} < ${min_balance:.2f} ({stop_trading_at_percentage}%)")
+                self.log_message(f"Balance below threshold: ${self.trading_engine.simulated_balance:.2f} < ${min_balance:.2f} ({stop_trading_at_percentage}%)")
                 return False
         
         return True
@@ -369,14 +688,14 @@ class PaperTradingLauncher:
         """Check if trading should continue based on balance and optional settings"""
         # Check if we've reached the maximum number of open positions
         if len(self.trading_engine.current_positions) >= max_positions:
-            self.log_message(f"🛑 Max positions reached: {len(self.trading_engine.current_positions)} >= {max_positions}")
+            self.log_message(f"ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂºÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¹Ã…â€œ Max positions reached: {len(self.trading_engine.current_positions)} >= {max_positions}")
             return False
         
         # Optional: Check if balance is below a percentage threshold (if enabled)
         if stop_trading_at_percentage:
             min_balance = self.trading_engine.initial_balance * (stop_trading_at_percentage / 100)
             if self.trading_engine.simulated_balance < min_balance:
-                self.log_message(f"🛑 Balance below threshold: ${self.trading_engine.simulated_balance:.2f} < ${min_balance:.2f} ({stop_trading_at_percentage}%)")
+                self.log_message(f"ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂºÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¹Ã…â€œ Balance below threshold: ${self.trading_engine.simulated_balance:.2f} < ${min_balance:.2f} ({stop_trading_at_percentage}%)")
                 return False
         
         return True
@@ -387,6 +706,158 @@ class PaperTradingLauncher:
         self.log_text.insert("end", f"[{timestamp}] {message}\n")
         self.log_text.see("end")
 
+    def _is_pid_alive(self, pid):
+        if not pid:
+            return False
+        try:
+            os.kill(int(pid), 0)
+            return True
+        except PermissionError:
+            return True
+        except Exception:
+            return False
+
+    def _format_age(self, age_seconds):
+        if age_seconds is None:
+            return "unknown"
+        if age_seconds < 60:
+            return f"{int(age_seconds)}s ago"
+        return f"{int(age_seconds // 60)}m ago"
+
+    def _normalize_timeframe_input(self, value):
+        text = str(value).strip().lower()
+        if not text:
+            return "1m"
+
+        try:
+            if text.endswith("m"):
+                minutes = int(text[:-1])
+            elif text.endswith("h"):
+                minutes = int(text[:-1]) * 60
+            elif text.endswith("d"):
+                minutes = int(text[:-1]) * 1440
+            else:
+                minutes = int(text)
+        except (TypeError, ValueError):
+            return None
+
+        if minutes <= 0:
+            return None
+
+        return f"{minutes}m"
+
+    def _get_data_collector_state(self):
+        state = {
+            "collector_running": False,
+            "data_age_sec": None,
+            "data_files": 0,
+            "symbol_count": 0,
+            "symbols_with_1m": 0,
+            "fresh_1m_symbols": 0,
+        }
+        data_dir = os.path.join(project_root, "data")
+        status_path = os.path.join(data_dir, "collection_status.json")
+
+        if os.path.exists(status_path):
+            try:
+                with open(status_path, "r", encoding="utf-8") as f:
+                    status = json.load(f)
+                running_flag = bool(status.get("running", False))
+                pid = status.get("pid")
+                state["collector_running"] = running_flag and self._is_pid_alive(pid)
+            except Exception:
+                state["collector_running"] = False
+
+        if os.path.isdir(data_dir):
+            latest_mtime = None
+            symbols = set()
+            for filename in os.listdir(data_dir):
+                if not filename.endswith(".csv"):
+                    continue
+                full_path = os.path.join(data_dir, filename)
+                try:
+                    mtime = os.path.getmtime(full_path)
+                except Exception:
+                    continue
+                latest_mtime = mtime if latest_mtime is None else max(latest_mtime, mtime)
+                state["data_files"] += 1
+                stem = filename[:-4]
+                if "_" in stem:
+                    symbols.add(stem.split("_", 1)[0])
+                if stem.endswith("_1"):
+                    state["symbols_with_1m"] += 1
+                    try:
+                        with open(full_path, "r", encoding="utf-8", errors="ignore") as candle_file:
+                            rows = candle_file.readlines()
+                        if rows:
+                            last_line = rows[-1].strip()
+                            if last_line and "," in last_line:
+                                ts_str = last_line.split(",", 1)[0].strip()
+                                ts_ms = int(float(ts_str))
+                                age_sec = max(0.0, time.time() - (ts_ms / 1000.0))
+                                if age_sec <= 180:
+                                    state["fresh_1m_symbols"] += 1
+                    except Exception:
+                        pass
+            state["symbol_count"] = len(symbols)
+            if latest_mtime is not None:
+                state["data_age_sec"] = max(0.0, time.time() - latest_mtime)
+
+        return state
+
+    def refresh_data_feed_status(self):
+        state = self._get_data_collector_state()
+        age_text = self._format_age(state["data_age_sec"])
+        is_fresh = state["data_age_sec"] is not None and state["data_age_sec"] <= 180
+        fresh_1m = int(state.get("fresh_1m_symbols", 0))
+        total_1m = int(state.get("symbols_with_1m", 0))
+        coverage = (fresh_1m / total_1m) if total_1m > 0 else 0.0
+        coverage_text = f"{fresh_1m}/{total_1m} 1m fresh" if total_1m > 0 else "no 1m files"
+
+        if state["collector_running"] and is_fresh and coverage >= 0.95:
+            text = (
+                f"Data feed LIVE | symbols {state['symbol_count']} | {coverage_text} | latest {age_text}"
+            )
+            color = "green"
+        elif state["collector_running"] and coverage > 0:
+            text = (
+                f"Data feed PARTIAL | symbols {state['symbol_count']} | {coverage_text} | latest {age_text}"
+            )
+            color = "orange"
+        elif state["collector_running"]:
+            text = (
+                f"Collector running, waiting for fresh candles | symbols {state['symbol_count']} | "
+                f"{coverage_text} | latest {age_text}"
+            )
+            color = "orange"
+        elif state["data_files"] == 0:
+            text = "Collector OFF | no CSV data found"
+            color = "red"
+        else:
+            text = (
+                f"Collector OFF | stale data | symbols {state['symbol_count']} | latest {age_text}"
+            )
+            color = "red"
+
+        self.data_feed_status_var.set(text)
+        self.data_feed_status_label.config(foreground=color)
+        self.root.after(5000, self.refresh_data_feed_status)
+
+    def _confirm_start_with_stale_data(self):
+        state = self._get_data_collector_state()
+        if state["collector_running"]:
+            return True
+
+        age_text = self._format_age(state["data_age_sec"])
+        message = (
+            "Data collector is not running.\n\n"
+            f"Symbols in CSV: {state['symbol_count']}\n"
+            f"Latest candle: {age_text}\n\n"
+            "Paper trader may use stale data.\n"
+            "Continue anyway?"
+        )
+        return messagebox.askyesno("Data Collector Not Running", message)
+
     def update_status(self, status):
         """Update status display"""
         self.status_var.set(status)
@@ -394,6 +865,21 @@ class PaperTradingLauncher:
     def start_trading(self):
         """Start paper trading"""
         try:
+            self._close_graceful_stop_dialog()
+            if not self._confirm_start_with_stale_data():
+                self.log_message("Trading cancelled: data collector is not running.")
+                return
+
+            entry_timeframe = self._normalize_timeframe_input(self.entry_timeframe_var.get())
+            if entry_timeframe is None:
+                messagebox.showerror(
+                    "Invalid Timeframe",
+                    "Use timeframe like 1m, 5m, 15m, 1h, or 1d.",
+                )
+                return
+            self.entry_timeframe_var.set(entry_timeframe)
+            self.log_message(f"Strategy Entry Timeframe: {entry_timeframe}")
+
             # Check for optimized parameters first
             from simple_strategy.trading.parameter_manager import ParameterManager
             pm = ParameterManager()
@@ -411,7 +897,44 @@ class PaperTradingLauncher:
                 if not result:
                     self.log_message("Trading cancelled - no optimized parameters")
                     return
-            
+
+            exchange_sl_enabled = bool(self.exchange_sl_enabled_var.get())
+            exchange_trailing_enabled = bool(self.exchange_trailing_enabled_var.get())
+            exchange_sl_pct_input = float(self.exchange_sl_pct_var.get())
+            atr_mode_enabled = bool(self.atr_mode_enabled_var.get())
+            atr_period = 14
+            atr_sl_mult = 1.3
+            atr_tp_mult = 1.7
+            if atr_mode_enabled:
+                atr_period = int(float(self.atr_period_var.get()))
+                atr_sl_mult = float(self.atr_sl_mult_var.get())
+                atr_tp_mult = float(self.atr_tp_mult_var.get())
+                if atr_period < 2:
+                    messagebox.showerror("Invalid ATR", "ATR period must be at least 2.")
+                    return
+                if atr_sl_mult <= 0 or atr_tp_mult <= 0:
+                    messagebox.showerror("Invalid ATR", "ATR multipliers must be greater than 0.")
+                    return
+            if not atr_mode_enabled and exchange_sl_enabled and exchange_sl_pct_input <= 0:
+                messagebox.showerror("Invalid Stop Loss", "Stop-loss % must be greater than 0.")
+                return
+            if not atr_mode_enabled and exchange_trailing_enabled and not exchange_sl_enabled:
+                messagebox.showerror("Invalid Stop Mode", "Enable Exchange Stop Loss before trailing mode.")
+                return
+            exchange_sl_pct = max(0.0001, exchange_sl_pct_input / 100.0)
+            risk_exit_mode = (
+                'atr' if atr_mode_enabled
+                else 'trailing' if (exchange_sl_enabled and exchange_trailing_enabled)
+                else 'fixed' if exchange_sl_enabled
+                else 'none'
+            )
+            effective_exchange_sl = risk_exit_mode in {'fixed', 'trailing', 'atr'}
+            effective_exchange_trailing = risk_exit_mode == 'trailing'
+            self.log_message(
+                f"Risk Exit Mode: {risk_exit_mode.upper()} "
+                f"(SL {exchange_sl_pct_input:.2f}%, ATR {atr_period}, SLx{atr_sl_mult:.2f}, TPx{atr_tp_mult:.2f})"
+            )
+
             # Import and create trading engine
             from simple_strategy.trading.paper_trading_engine import PaperTradingEngine
             self.trading_engine = PaperTradingEngine(
@@ -420,7 +943,18 @@ class PaperTradingLauncher:
                 self.simulated_balance,
                 log_callback=self.log_message,
                 status_callback=self.update_status,
-                performance_callback=self.update_performance
+                performance_callback=self.update_performance,
+                enable_exchange_stop_loss=effective_exchange_sl,
+                enable_exchange_trailing_stop=effective_exchange_trailing,
+                exchange_stop_loss_pct=exchange_sl_pct,
+                risk_exit_mode=risk_exit_mode,
+                risk_sl_pct=exchange_sl_pct,
+                risk_atr_period=atr_period,
+                risk_atr_sl_multiplier=atr_sl_mult,
+                risk_atr_tp_multiplier=atr_tp_mult,
+                strategy_params_override={
+                    "entry_timeframe": entry_timeframe,
+                },
             )
             
             # Initialize shared data access after engine creation
@@ -431,48 +965,22 @@ class PaperTradingLauncher:
             
             # Start trading in a separate thread (simplified for now)
             self.log_message("Starting paper trading...")
-            self.status_var.set("🟢 RUNNING")
+            self.status_var.set("RUNNING")
             self.start_btn.config(state="disabled")
             self.stop_btn.config(state="normal")
             
             # Start REAL trading
             self.start_real_trading()
             
+        except KeyboardInterrupt:
+            self.log_message("Trading start interrupted while loading engine.")
+            messagebox.showerror(
+                "Startup Interrupted",
+                "Trading startup was interrupted while loading dependencies.\nPlease click START TRADING again.",
+            )
         except Exception as e:
             self.log_message(f"Error starting trading: {e}")
             messagebox.showerror("Error", f"Failed to start trading: {e}")
-    
-    def stop_trading(self):
-        """Stop paper trading"""
-        if self.trading_engine:
-            self.trading_engine.stop_trading()
-        
-        self.log_message("Paper trading stopped")
-        self.status_var.set("🔴 STOPPED")
-        self.start_btn.config(state="normal")
-        self.stop_btn.config(state="disabled")
-    
-    def start_real_trading(self):
-        """Start REAL trading using the trading engine"""
-        import threading
-        
-        def trading_loop():
-            try:
-                # Start the real trading engine
-                success = self.trading_engine.start_trading()
-                if success:
-                    self.log_message("✅ Real trading started successfully")
-                else:
-                    self.log_message("❌ Failed to start real trading")
-                    self.stop_trading()
-            except Exception as e:
-                self.log_message(f"❌ Error in real trading: {e}")
-                self.stop_trading()
-        
-        # Start real trading in separate thread
-        thread = threading.Thread(target=trading_loop)
-        thread.daemon = True
-        thread.start()
     
     def update_performance(self, performance_data=None):
         """Update performance display"""
@@ -541,11 +1049,28 @@ class PaperTradingLauncher:
                 # Get open positions count
                 open_positions = len(self.trading_engine.current_positions) if hasattr(self.trading_engine, 'current_positions') else 0
                 
-                # Calculate completed trades (sells)
-                completed_trades = sum(1 for trade in self.trading_engine.trades if trade['type'] == 'SELL') if hasattr(self.trading_engine, 'trades') else 0
-                
-                # Calculate win rate
-                winning_trades = sum(1 for trade in self.trading_engine.trades if trade['type'] == 'SELL' and trade.get('pnl', 0) > 0) if hasattr(self.trading_engine, 'trades') else 0
+                # Completed trades are CLOSE_* events in the current signal schema.
+                completed_trades = (
+                    sum(
+                        1
+                        for trade in self.trading_engine.trades
+                        if trade.get('type') in ('CLOSE_LONG', 'CLOSE_SHORT')
+                    )
+                    if hasattr(self.trading_engine, 'trades')
+                    else 0
+                )
+
+                # Calculate win rate from completed close trades.
+                winning_trades = (
+                    sum(
+                        1
+                        for trade in self.trading_engine.trades
+                        if trade.get('type') in ('CLOSE_LONG', 'CLOSE_SHORT')
+                        and trade.get('pnl', 0) > 0
+                    )
+                    if hasattr(self.trading_engine, 'trades')
+                    else 0
+                )
                 win_rate = (winning_trades / completed_trades * 100) if completed_trades > 0 else 0
                 
                 return {
@@ -612,10 +1137,22 @@ class PaperTradingLauncher:
 
             
 if __name__ == "__main__":
-    # Get parameters from command line or use defaults
-    import sys
-    if len(sys.argv) >= 4:
-        launcher = PaperTradingLauncher(sys.argv[1], sys.argv[2], sys.argv[3])
-    else:
-        launcher = PaperTradingLauncher()
-    launcher.run()
+    try:
+        # Get parameters from command line or use defaults
+        import sys
+        if len(sys.argv) >= 4:
+            launcher = PaperTradingLauncher(sys.argv[1], sys.argv[2], sys.argv[3])
+        else:
+            launcher = PaperTradingLauncher()
+        launcher.run()
+    except BaseException as e:
+        crash_log_path = write_launcher_crash_log(e)
+        print(f"Paper trader launcher failed: {e}")
+        print(f"Crash log written to: {crash_log_path}")
+        try:
+            messagebox.showerror(
+                "Paper Trader Crash",
+                f"Paper trader failed to start.\n\nError: {e}\n\nCrash log:\n{crash_log_path}",
+            )
+        except Exception:
+            pass

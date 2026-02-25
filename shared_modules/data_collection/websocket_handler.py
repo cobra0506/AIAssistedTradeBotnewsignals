@@ -5,7 +5,7 @@ import asyncio
 import ssl
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, List, Any, Callable
+from typing import Dict, List, Any, Callable, Optional
 from .config import DataCollectionConfig
 from .csv_manager import CSVManager
 from .logging_utils import setup_logging
@@ -24,10 +24,17 @@ class WebSocketHandler:
         self.debug_callbacks = [] # Debug callbacks for all messages
         self.lock = asyncio.Lock() # For thread-safe operations
         self.connection = None # Store the connection object
+        self.connections = []  # Store all active shard connections
+        self.listener_task = None  # Backward-compat single task alias
+        self.listener_tasks = []  # Active listener tasks (one per shard)
         self.subscription_count = 0 # Track successful subscriptions
         self.failed_subscriptions = [] # Track failed subscriptions
         self.csv_manager = CSVManager(config) # CSV manager for data operations
-        
+        self.max_subscription_chars_per_connection = 18000  # keep below Bybit 21k char guidance
+        self.max_topics_per_connection = 1200  # safety cap for per-connection topics
+        self._active_symbols_snapshot = []
+        self._active_intervals_snapshot = []
+
          # FIX: Use config timeframes instead of hardcoding
         self.intervals = config.TIMEFRAMES  # This will use ['1', '5', '15'] from your config
                       
@@ -47,28 +54,71 @@ class WebSocketHandler:
         if not self.config.ENABLE_WEBSOCKET:
             logger.info("WebSocket connection skipped (ENABLE_WEBSOCKET=False)")
             return
-        
-        self.running = True
-        logger.info(f"[CONNECT] Connecting to WebSocket: {self.ws_url}")
-        
-        try:
-            # Establish connection
-            connection = await self._connect_with_ssl()
-            if connection:
-                self.connection = connection
-                logger.info("[OK] WebSocket connection established!")
-                
-                # CRITICAL FIX: Start listener in a separate task
-                self.listener_task = asyncio.create_task(self._listen_for_messages(connection))
-                logger.info("[OK] WebSocket listener started in background task")
-                
-                # Return immediately instead of blocking
+
+        # Prevent duplicate connections when caller reconnects quickly.
+        if self.running and self.listener_tasks:
+            alive_tasks = [task for task in self.listener_tasks if not task.done()]
+            if alive_tasks:
+                logger.info("[CONNECT] WebSocket already running; skipping duplicate connect")
                 return
-                
+
+        self.running = True
+        self.subscription_count = 0
+        self.failed_subscriptions = []
+        logger.info(f"[CONNECT] Connecting to WebSocket: {self.ws_url}")
+
+        try:
+            shard_symbols = self._build_symbol_shards(
+                symbols=self.symbols,
+                intervals=self.intervals,
+                char_budget=self.max_subscription_chars_per_connection,
+                topic_budget=self.max_topics_per_connection,
+            )
+            total_pairs = len(self.symbols) * len(self.intervals)
+            logger.info(
+                f"[CONNECT] Preparing {len(shard_symbols)} WebSocket shard(s) "
+                f"for {len(self.symbols)} symbols / {len(self.intervals)} intervals ({total_pairs} topics)"
+            )
+
+            self.connections = []
+            self.listener_tasks = []
+            self.listener_task = None
+            self.connection = None
+
+            for shard_index, symbols_in_shard in enumerate(shard_symbols, start=1):
+                connection = await self._connect_with_ssl()
+                if not connection:
+                    logger.error(f"[FAIL] Could not open shard connection {shard_index}")
+                    continue
+
+                self.connections.append(connection)
+                if self.connection is None:
+                    self.connection = connection  # backward compatibility for legacy callers
+
+                task = asyncio.create_task(
+                    self._listen_for_messages(
+                        connection=connection,
+                        shard_id=shard_index,
+                        symbols=symbols_in_shard,
+                        intervals=self.intervals,
+                    )
+                )
+                self.listener_tasks.append(task)
+                if self.listener_task is None:
+                    self.listener_task = task
+
+            if not self.connections:
+                raise RuntimeError("No WebSocket shard connections could be established")
+
+            logger.info(
+                f"[OK] WebSocket started with {len(self.connections)} active connection(s)"
+            )
+            self._active_symbols_snapshot = list(self.symbols)
+            self._active_intervals_snapshot = list(self.intervals)
+
         except Exception as e:
             logger.error(f"[FAIL] Connection attempt failed: {e}")
             await asyncio.sleep(1)
-            # If connection failed
             logger.error("[FAIL] All connection attempts failed.")
             await self._reconnect()
 
@@ -88,13 +138,71 @@ class WebSocketHandler:
             logger.error(f"SSL connection error: {e}")
             raise
 
-    async def _listen_for_messages(self, connection):
+    def _build_symbol_shards(
+        self,
+        symbols: List[str],
+        intervals: List[str],
+        char_budget: int,
+        topic_budget: int,
+    ) -> List[List[str]]:
+        """Split symbols into shard groups so each connection stays under size limits."""
+        if not symbols:
+            return []
+        if not intervals:
+            return [list(symbols)]
+
+        shards: List[List[str]] = []
+        current_shard: List[str] = []
+        current_chars = 2  # include JSON list brackets
+        current_topics = 0
+
+        for symbol in symbols:
+            symbol_topics = len(intervals)
+            symbol_chars = 0
+            for interval in intervals:
+                topic = f"kline.{interval}.{symbol}"
+                symbol_chars += len(topic) + 3  # quotes + comma padding
+
+            would_exceed = (
+                current_shard
+                and (
+                    current_chars + symbol_chars > max(char_budget, 1000)
+                    or current_topics + symbol_topics > max(topic_budget, 1)
+                )
+            )
+            if would_exceed:
+                shards.append(current_shard)
+                current_shard = []
+                current_chars = 2
+                current_topics = 0
+
+            current_shard.append(symbol)
+            current_chars += symbol_chars
+            current_topics += symbol_topics
+
+        if current_shard:
+            shards.append(current_shard)
+
+        return shards
+
+    async def _listen_for_messages(
+        self,
+        connection,
+        shard_id: int = 1,
+        symbols: Optional[List[str]] = None,
+        intervals: Optional[List[str]] = None,
+    ):
         """Listen for messages on an established connection"""
         try:
             # Subscribe to all symbols and timeframes efficiently
-            await self._subscribe_to_symbols_in_batches(connection)
+            await self._subscribe_to_symbols_in_batches(
+                connection=connection,
+                symbols=symbols,
+                intervals=intervals,
+                shard_id=shard_id,
+            )
             
-            logger.info("[OK] All subscriptions completed successfully!")
+            logger.info(f"[OK] Shard {shard_id} subscriptions completed successfully!")
             
             # Start heartbeat task
             heartbeat_task = asyncio.create_task(self._heartbeat(connection))
@@ -119,12 +227,12 @@ class WebSocketHandler:
                         logger.error(f"[FAIL] Error processing message: {e}")
                         
             except websockets.exceptions.ConnectionClosed as e:
-                logger.error(f"[FAIL] WebSocket connection closed: {e}")
+                logger.error(f"[FAIL] WebSocket shard {shard_id} connection closed: {e}")
             except Exception as e:
-                logger.error(f"[FAIL] Error while listening: {e}")
+                logger.error(f"[FAIL] Error while listening on shard {shard_id}: {e}")
                 
         except Exception as e:
-            logger.error(f"[FAIL] Error in message listening: {e}")
+            logger.error(f"[FAIL] Error in message listening on shard {shard_id}: {e}")
         finally:
             # Cancel heartbeat task when done
             if 'heartbeat_task' in locals():
@@ -136,43 +244,97 @@ class WebSocketHandler:
                 except Exception as e:
                     logger.error(f"[FAIL] Error in heartbeat task: {e}")
 
-    async def _subscribe_to_symbols_in_batches(self, connection):
+    async def _subscribe_to_symbols_in_batches(
+        self,
+        connection,
+        symbols: Optional[List[str]] = None,
+        intervals: Optional[List[str]] = None,
+        shard_id: int = 1,
+    ):
         """Subscribe to all symbols and timeframes efficiently in large batches"""
+        active_symbols = symbols if symbols is not None else self.symbols
+        active_intervals = intervals if intervals is not None else self.intervals
+
         # Create all subscription arguments at once
         all_args = []
-        for symbol in self.symbols:
-            for interval in self.intervals:
+        for symbol in active_symbols:
+            for interval in active_intervals:
                 all_args.append(f"kline.{interval}.{symbol}")
         
-        logger.info(f"Subscribing to {len(all_args)} total symbol-interval pairs")
+        logger.info(
+            f"[SHARD {shard_id}] Subscribing to {len(all_args)} symbol-interval pairs "
+            f"({len(active_symbols)} symbols)"
+        )
         
         # Send subscriptions in large batches (like your previous code did)
         batch_size = 300  # Much larger batch size like your previous code
         for i in range(0, len(all_args), batch_size):
             batch_args = all_args[i:i + batch_size]
-            subscription_msg = json.dumps({"op": "subscribe", "args": batch_args})
+            req_id = f"shard{shard_id}_batch{i // batch_size + 1}"
+            subscription_msg = json.dumps({"op": "subscribe", "req_id": req_id, "args": batch_args})
             
             # Simple retry logic
             for attempt in range(3):
                 try:
                     await connection.send(subscription_msg)
-                    logger.info(f"Subscribed to batch {i//batch_size + 1}/{(len(all_args)-1)//batch_size + 1} "
-                            f"({len(batch_args)} subscriptions)")
+                    logger.info(
+                        f"[SHARD {shard_id}] Subscribed batch {i//batch_size + 1}/"
+                        f"{(len(all_args)-1)//batch_size + 1} ({len(batch_args)} subscriptions)"
+                    )
                     break
                 except Exception as e:
-                    logger.error(f"Subscription error for batch {i//batch_size + 1} (attempt {attempt + 1}): {e}")
+                    logger.error(
+                        f"[SHARD {shard_id}] Subscription error for batch {i//batch_size + 1} "
+                        f"(attempt {attempt + 1}): {e}"
+                    )
                     if attempt < 2:
                         await asyncio.sleep(1)  # Short delay before retry
                     else:
-                        logger.error(f"Max retries reached for batch {i//batch_size + 1}")
+                        logger.error(f"[SHARD {shard_id}] Max retries reached for batch {i//batch_size + 1}")
                         # Continue with next batch instead of failing completely
                         break
             
             # Very short delay between batches (unlike the 10 seconds you had)
             if i + batch_size < len(all_args):  # No delay after the last batch
                 await asyncio.sleep(0.5)  # Just half a second between batches
-    
-    logger.info("All subscription batches sent")
+
+        logger.info(f"[SHARD {shard_id}] All subscription batches sent")
+
+    async def reconfigure_subscriptions(self, symbols: List[str], intervals: List[str]):
+        """Rebuild shard subscriptions for a new symbol/timeframe universe."""
+        next_symbols = list(symbols or [])
+        next_intervals = list(intervals or [])
+        active_symbols = (
+            self._active_symbols_snapshot
+            if self._active_symbols_snapshot
+            else self.symbols
+        )
+        active_intervals = (
+            self._active_intervals_snapshot
+            if self._active_intervals_snapshot
+            else self.intervals
+        )
+        same_symbols = active_symbols == next_symbols
+        same_intervals = active_intervals == next_intervals
+        alive_tasks = [task for task in self.listener_tasks if not task.done()]
+        if same_symbols and same_intervals and self.running and alive_tasks:
+            logger.info("[RECONFIG] Symbol/timeframe universe unchanged; keeping active subscriptions")
+            return
+
+        self.symbols = next_symbols
+        self.intervals = next_intervals
+        self.config.TIMEFRAMES = list(self.intervals)
+
+        if not self.running:
+            logger.info("[RECONFIG] WebSocket not running; new symbols/timeframes will apply on next connect")
+            return
+
+        logger.info(
+            f"[RECONFIG] Reconfiguring subscriptions to {len(self.symbols)} symbols x "
+            f"{len(self.intervals)} intervals"
+        )
+        await self.disconnect()
+        await self.connect()
 
     async def _heartbeat(self, connection):
         while True:
@@ -426,18 +588,60 @@ class WebSocketHandler:
     async def disconnect(self):
         """Properly shutdown the WebSocket connection"""
         self.running = False
-        
-        # Cancel the listener task if it exists
-        if hasattr(self, 'listener_task') and self.listener_task:
-            self.listener_task.cancel()
+
+        # Cancel all listener tasks
+        tasks = []
+        if self.listener_task:
+            tasks.append(self.listener_task)
+        tasks.extend(self.listener_tasks)
+        seen_ids = set()
+        unique_tasks = []
+        for task in tasks:
+            if task is None:
+                continue
+            task_id = id(task)
+            if task_id in seen_ids:
+                continue
+            seen_ids.add(task_id)
+            unique_tasks.append(task)
+
+        for task in unique_tasks:
+            task.cancel()
+        for task in unique_tasks:
             try:
-                await self.listener_task
+                await task
             except asyncio.CancelledError:
                 pass
-        
-        # Close the connection if it exists
+            except Exception as e:
+                logger.error(f"[FAIL] Listener task shutdown error: {e}")
+
+        # Close all connections
+        connections = []
         if self.connection:
-            await self.connection.close()
-            self.connection = None
-        
+            connections.append(self.connection)
+        connections.extend(self.connections)
+        seen_conn_ids = set()
+        unique_connections = []
+        for conn in connections:
+            if conn is None:
+                continue
+            conn_id = id(conn)
+            if conn_id in seen_conn_ids:
+                continue
+            seen_conn_ids.add(conn_id)
+            unique_connections.append(conn)
+
+        for conn in unique_connections:
+            try:
+                await conn.close()
+            except Exception as e:
+                logger.error(f"[FAIL] Connection close error: {e}")
+
+        self.connection = None
+        self.connections = []
+        self.listener_task = None
+        self.listener_tasks = []
+        self._active_symbols_snapshot = []
+        self._active_intervals_snapshot = []
+
         logger.info("[OK] WebSocket disconnected properly")
