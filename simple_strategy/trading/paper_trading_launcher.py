@@ -8,6 +8,7 @@ import json
 import random
 import time
 import traceback
+import importlib
 from datetime import datetime
 
 # Add project root to Python path
@@ -58,7 +59,10 @@ class PaperTradingLauncher:
         self.graceful_close_now_btn = None
         self.graceful_safely_close_btn = None
         self._graceful_stop_after_id = None
-        
+        self.strategy_parameter_definitions = {}
+        self.strategy_parameter_widgets = {}
+        self.optimized_strategy_params = {}
+
         self.create_widgets()
         
     def create_widgets(self):
@@ -88,12 +92,13 @@ class PaperTradingLauncher:
         from simple_strategy.trading.parameter_manager import ParameterManager
         pm = ParameterManager()
         optimized_params = pm.get_parameters(self.strategy_name)
-        
+        self.optimized_strategy_params = dict(optimized_params or {})
+
         if optimized_params:
-            param_status = f"ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ Using optimized parameters (Last: {optimized_params.get('last_optimized', 'Unknown')})"
+            param_status = f"Using optimized parameters (Last: {optimized_params.get('last_optimized', 'Unknown')})"
             param_color = "green"
         else:
-            param_status = "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¯ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â Using default parameters (Not optimized)"
+            param_status = "Using default parameters (Not optimized)"
             param_color = "orange"
         
         ttk.Label(param_frame, text=param_status, foreground=param_color).pack(side="left", padx=5)
@@ -165,7 +170,7 @@ class PaperTradingLauncher:
         self.data_feed_status_label.pack(side="left", padx=10)
         
         # Status with color
-        self.status_var = tk.StringVar(value="ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â´ STOPPED")
+        self.status_var = tk.StringVar(value="STOPPED")
         self.status_label = ttk.Label(control_frame, textvariable=self.status_var, 
                                     font=("Arial", 10, "bold"))
         self.status_label.pack(side="left", padx=20)
@@ -188,6 +193,7 @@ class PaperTradingLauncher:
         self.entry_timeframe_var = tk.StringVar(value="1m")
         ttk.Entry(timeframe_frame, textvariable=self.entry_timeframe_var, width=10).pack(side="left", padx=5)
         ttk.Label(timeframe_frame, text="Examples: 1m, 5m, 1h").pack(side="left", padx=2)
+        self._build_strategy_parameter_controls(trading_controls_frame)
 
         # Exchange stop-loss controls
         exchange_sl_frame = ttk.Frame(trading_controls_frame)
@@ -337,6 +343,118 @@ class PaperTradingLauncher:
         """Enable/disable stop-on-balance-percent control."""
         state = "normal" if bool(self.stop_at_percentage_var.get()) else "disabled"
         self.stop_percentage_spinbox.config(state=state)
+
+    def _to_bool(self, value, default=False):
+        if value is None:
+            return bool(default)
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            return value.strip().lower() in {"1", "true", "yes", "on"}
+        return bool(value)
+
+    def _load_strategy_parameter_definitions(self):
+        try:
+            module_name = f"simple_strategy.strategies.{self.strategy_name}"
+            strategy_module = importlib.import_module(module_name)
+            params = getattr(strategy_module, "STRATEGY_PARAMETERS", {})
+            if isinstance(params, dict):
+                return params
+        except Exception:
+            return {}
+        return {}
+
+    def _build_strategy_parameter_controls(self, parent_frame):
+        self.strategy_parameter_widgets = {}
+        self.strategy_parameter_definitions = self._load_strategy_parameter_definitions()
+
+        strategy_params_frame = ttk.LabelFrame(parent_frame, text="Strategy Parameters", padding=8)
+        strategy_params_frame.pack(fill="x", pady=2)
+
+        if not self.strategy_parameter_definitions:
+            ttk.Label(
+                strategy_params_frame,
+                text="No strategy-specific parameters detected.",
+                foreground="gray",
+            ).pack(anchor="w", padx=5, pady=2)
+            return
+
+        for param_name, param_info in self.strategy_parameter_definitions.items():
+            if param_name == "entry_timeframe":
+                continue
+
+            param_type = str(param_info.get("type", "str")).strip().lower()
+            default_value = param_info.get("default", "")
+            initial_value = self.optimized_strategy_params.get(param_name, default_value)
+
+            row = ttk.Frame(strategy_params_frame)
+            row.pack(fill="x", pady=1)
+            ttk.Label(row, text=f"{param_name}:").pack(side="left", padx=5)
+
+            if param_type == "bool":
+                var = tk.BooleanVar(
+                    value=self._to_bool(initial_value, default=self._to_bool(default_value))
+                )
+                ttk.Checkbutton(row, variable=var).pack(side="left", padx=4)
+            else:
+                text_value = "" if initial_value is None else str(initial_value)
+                var = tk.StringVar(value=text_value)
+                width = 10 if param_type in {"int", "float"} else 14
+                ttk.Entry(row, textvariable=var, width=width).pack(side="left", padx=4)
+
+            hint = str(param_info.get("gui_hint", "")).strip()
+            if hint:
+                ttk.Label(row, text=hint, foreground="gray").pack(side="left", padx=6)
+
+            self.strategy_parameter_widgets[param_name] = {
+                "var": var,
+                "type": param_type,
+                "info": dict(param_info or {}),
+            }
+
+    def _coerce_strategy_param_value(self, param_name, param_type, raw_value):
+        if param_type == "bool":
+            return self._to_bool(raw_value, default=False)
+
+        if param_type == "int":
+            try:
+                return int(float(raw_value))
+            except (TypeError, ValueError):
+                raise ValueError(f"{param_name} must be an integer.")
+
+        if param_type == "float":
+            try:
+                return float(raw_value)
+            except (TypeError, ValueError):
+                raise ValueError(f"{param_name} must be a number.")
+
+        return "" if raw_value is None else str(raw_value)
+
+    def _collect_strategy_param_overrides(self):
+        if not isinstance(self.strategy_parameter_widgets, dict) or not self.strategy_parameter_widgets:
+            return {}
+
+        overrides = {}
+        errors = []
+        for param_name, meta in self.strategy_parameter_widgets.items():
+            var = meta.get("var")
+            param_type = str(meta.get("type", "str")).strip().lower()
+            try:
+                raw_value = var.get()
+                overrides[param_name] = self._coerce_strategy_param_value(
+                    param_name, param_type, raw_value
+                )
+            except Exception as exc:
+                errors.append(str(exc))
+
+        if errors:
+            messagebox.showerror(
+                "Invalid Strategy Parameters",
+                "\n".join(errors[:5]),
+            )
+            return None
+
+        return overrides
 
     def _update_exchange_stop_mode_label(self):
         """Show active stop mode in plain language."""
@@ -684,22 +802,6 @@ class PaperTradingLauncher:
         
         return True
 
-    def check_should_continue_trading(self, max_positions, stop_trading_at_percentage):
-        """Check if trading should continue based on balance and optional settings"""
-        # Check if we've reached the maximum number of open positions
-        if len(self.trading_engine.current_positions) >= max_positions:
-            self.log_message(f"ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂºÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¹Ã…â€œ Max positions reached: {len(self.trading_engine.current_positions)} >= {max_positions}")
-            return False
-        
-        # Optional: Check if balance is below a percentage threshold (if enabled)
-        if stop_trading_at_percentage:
-            min_balance = self.trading_engine.initial_balance * (stop_trading_at_percentage / 100)
-            if self.trading_engine.simulated_balance < min_balance:
-                self.log_message(f"ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂºÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¹Ã…â€œ Balance below threshold: ${self.trading_engine.simulated_balance:.2f} < ${min_balance:.2f} ({stop_trading_at_percentage}%)")
-                return False
-        
-        return True
-            
     def log_message(self, message):
         """Add message to trading log"""
         timestamp = datetime.now().strftime("%H:%M:%S")
@@ -898,6 +1000,14 @@ class PaperTradingLauncher:
                     self.log_message("Trading cancelled - no optimized parameters")
                     return
 
+            strategy_param_overrides = self._collect_strategy_param_overrides()
+            if strategy_param_overrides is None:
+                return
+            if strategy_param_overrides:
+                self.log_message("[INFO] Strategy parameter overrides:")
+                for key in sorted(strategy_param_overrides.keys()):
+                    self.log_message(f"  {key}: {strategy_param_overrides[key]}")
+
             exchange_sl_enabled = bool(self.exchange_sl_enabled_var.get())
             exchange_trailing_enabled = bool(self.exchange_trailing_enabled_var.get())
             exchange_sl_pct_input = float(self.exchange_sl_pct_var.get())
@@ -930,6 +1040,8 @@ class PaperTradingLauncher:
             )
             effective_exchange_sl = risk_exit_mode in {'fixed', 'trailing', 'atr'}
             effective_exchange_trailing = risk_exit_mode == 'trailing'
+            runtime_strategy_params = {"entry_timeframe": entry_timeframe}
+            runtime_strategy_params.update(strategy_param_overrides or {})
             self.log_message(
                 f"Risk Exit Mode: {risk_exit_mode.upper()} "
                 f"(SL {exchange_sl_pct_input:.2f}%, ATR {atr_period}, SLx{atr_sl_mult:.2f}, TPx{atr_tp_mult:.2f})"
@@ -952,9 +1064,7 @@ class PaperTradingLauncher:
                 risk_atr_period=atr_period,
                 risk_atr_sl_multiplier=atr_sl_mult,
                 risk_atr_tp_multiplier=atr_tp_mult,
-                strategy_params_override={
-                    "entry_timeframe": entry_timeframe,
-                },
+                strategy_params_override=runtime_strategy_params,
             )
             
             # Initialize shared data access after engine creation
