@@ -8,6 +8,7 @@ import numpy as np
 from typing import Dict, List, Any, Optional, Union, Tuple
 from datetime import datetime, timedelta
 import logging
+import heapq
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from simple_strategy.backtester.risk_manager import RiskManager
 from simple_strategy.backtester.performance_tracker import PerformanceTracker
@@ -22,6 +23,11 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from shared.data_feeder import DataFeeder
 from shared.strategy_base import StrategyBase
 from simple_strategy.shared.global_rules import GlobalRules, resolve_global_rules
+from simple_strategy.shared.risk_exit_engine import (
+    build_position_risk_config,
+    calculate_atr_from_dataframe,
+    evaluate_risk_exit,
+)
 
 # Configure logging to reduce debug output
 logging.basicConfig(
@@ -63,12 +69,6 @@ class BacktesterEngine:
             'blocked_reasons': {},
             'emergency_closes': 0,
         }
-        self.risk_exit_mode = 'none'
-        self.risk_sl_pct = 0.02
-        self.risk_atr_period = 14
-        self.risk_atr_sl_multiplier = 1.3
-        self.risk_atr_tp_multiplier = 1.7
-        self._refresh_risk_exit_config()
         
         # Backtester state
         self.is_running = False
@@ -109,22 +109,33 @@ class BacktesterEngine:
 
     def get_order_size(self, symbol, entry_price, stop_price=None):
         """
-        True risk-based position sizing.
-        stop_price is OPTIONAL so legacy/backtest paths never crash.
+        Default to paper-like balance percentage sizing, with an opt-in
+        risk-based mode preserved for older runs.
         """
-        risk_per_trade = self.config.get('risk_per_trade', 0.02)
-        account_risk = self.balance * risk_per_trade
+        try:
+            entry = float(entry_price)
+        except (TypeError, ValueError):
+            return 0.0
+        if entry <= 0.0:
+            return 0.0
 
-        # Fallback stop for backtester / safety
-        if stop_price is None:
-            stop_price = entry_price * 0.99  # 1% default stop
+        sizing_mode = str(self.config.get('position_sizing_mode', 'balance_pct')).strip().lower()
+        if sizing_mode == 'risk_based':
+            risk_per_trade = self.config.get('risk_per_trade', 0.02)
+            account_risk = self.balance * risk_per_trade
 
-        stop_distance = abs(entry_price - stop_price)
-        if stop_distance <= 0:
-            return 0
+            if stop_price is None:
+                stop_price = entry * 0.99
 
-        quantity = account_risk / stop_distance
-        return quantity
+            stop_distance = abs(entry - float(stop_price))
+            if stop_distance <= 0:
+                return 0.0
+            return account_risk / stop_distance
+
+        position_value = max(float(getattr(self, 'balance', 0.0)), 0.0) * self._resolve_position_size_pct()
+        if position_value <= 0.0:
+            return 0.0
+        return position_value / entry
     
     def _calculate_unrealized_pnl(self, current_prices):
         unrealized = 0.0
@@ -149,143 +160,11 @@ class BacktesterEngine:
             merged.update(runtime_config)
             self.config = merged
         self.global_rules = resolve_global_rules(self.config)
-        self._refresh_risk_exit_config()
         self._global_rule_stats = {
             'blocked_signals': 0,
             'blocked_reasons': {},
             'emergency_closes': 0,
         }
-
-    @staticmethod
-    def _normalize_pct(value: Any, default: float = 0.02) -> float:
-        try:
-            pct = float(value)
-        except (TypeError, ValueError):
-            pct = float(default)
-        if pct > 1.0:
-            pct = pct / 100.0
-        return max(0.0001, min(0.99, pct))
-
-    def _refresh_risk_exit_config(self) -> None:
-        mode = str(self.config.get('risk_exit_mode', 'none')).strip().lower()
-        if mode not in {'none', 'fixed', 'trailing', 'atr'}:
-            mode = 'none'
-        self.risk_exit_mode = mode
-        self.risk_sl_pct = self._normalize_pct(self.config.get('risk_sl_pct', 0.02), default=0.02)
-        try:
-            self.risk_atr_period = max(2, int(float(self.config.get('risk_atr_period', 14))))
-        except (TypeError, ValueError):
-            self.risk_atr_period = 14
-        try:
-            self.risk_atr_sl_multiplier = max(0.1, float(self.config.get('risk_atr_sl_multiplier', 1.3)))
-        except (TypeError, ValueError):
-            self.risk_atr_sl_multiplier = 1.3
-        try:
-            self.risk_atr_tp_multiplier = max(0.1, float(self.config.get('risk_atr_tp_multiplier', 1.7)))
-        except (TypeError, ValueError):
-            self.risk_atr_tp_multiplier = 1.7
-
-    def _calculate_atr_at_index(self, df: pd.DataFrame, row_index: int, period: int) -> Optional[float]:
-        if df is None or df.empty or row_index <= 0:
-            return None
-        p = max(2, int(period))
-        start_idx = max(0, row_index - (p * 3))
-        window = df.iloc[start_idx:row_index + 1]
-        if len(window) < (p + 1):
-            return None
-
-        high = pd.to_numeric(window['high'], errors='coerce')
-        low = pd.to_numeric(window['low'], errors='coerce')
-        close = pd.to_numeric(window['close'], errors='coerce')
-        prev_close = close.shift(1)
-
-        true_range = pd.concat(
-            [
-                (high - low).abs(),
-                (high - prev_close).abs(),
-                (low - prev_close).abs(),
-            ],
-            axis=1,
-        ).max(axis=1)
-        atr_series = true_range.rolling(window=p, min_periods=p).mean()
-        if atr_series.empty:
-            return None
-        try:
-            atr = float(atr_series.iloc[-1])
-        except (TypeError, ValueError):
-            return None
-        if not np.isfinite(atr) or atr <= 0.0:
-            return None
-        return atr
-
-    def _build_position_exit_config(
-        self,
-        symbol: str,
-        timeframe: str,
-        df: pd.DataFrame,
-        row_index: int,
-        entry_price: float,
-        is_short: bool,
-    ) -> Dict[str, Any]:
-        mode = self.risk_exit_mode
-        entry = float(entry_price)
-        config: Dict[str, Any] = {
-            'risk_exit_mode': mode,
-            'risk_sl_pct': float(self.risk_sl_pct),
-            'risk_atr_period': int(self.risk_atr_period),
-            'risk_atr_sl_multiplier': float(self.risk_atr_sl_multiplier),
-            'risk_atr_tp_multiplier': float(self.risk_atr_tp_multiplier),
-        }
-
-        if mode == 'none':
-            fallback_pct = (
-                float(self.global_rules.position_stop_loss_pct) if self.global_rules.enabled else 0.01
-            )
-            config['stop_loss_pct'] = max(0.0001, fallback_pct)
-            if is_short:
-                config['risk_stop_price'] = entry * (1.0 + config['stop_loss_pct'])
-            else:
-                config['risk_stop_price'] = entry * (1.0 - config['stop_loss_pct'])
-            return config
-
-        if mode in {'fixed', 'trailing'}:
-            sl_pct = max(0.0001, float(self.risk_sl_pct))
-            config['stop_loss_pct'] = sl_pct
-            if is_short:
-                config['risk_stop_price'] = entry * (1.0 + sl_pct)
-                if mode == 'trailing':
-                    config['risk_low_watermark'] = entry
-            else:
-                config['risk_stop_price'] = entry * (1.0 - sl_pct)
-                if mode == 'trailing':
-                    config['risk_high_watermark'] = entry
-            return config
-
-        if mode == 'atr':
-            atr_value = self._calculate_atr_at_index(df=df, row_index=row_index, period=self.risk_atr_period)
-            if atr_value is None:
-                sl_pct = max(0.0001, float(self.risk_sl_pct))
-                config['risk_exit_mode'] = 'fixed'
-                config['stop_loss_pct'] = sl_pct
-                if is_short:
-                    config['risk_stop_price'] = entry * (1.0 + sl_pct)
-                else:
-                    config['risk_stop_price'] = entry * (1.0 - sl_pct)
-                return config
-
-            config['risk_atr_value'] = float(atr_value)
-            sl_dist = atr_value * float(self.risk_atr_sl_multiplier)
-            tp_dist = atr_value * float(self.risk_atr_tp_multiplier)
-            if is_short:
-                config['risk_stop_price'] = entry + sl_dist
-                config['risk_take_profit_price'] = entry - tp_dist
-            else:
-                config['risk_stop_price'] = entry - sl_dist
-                config['risk_take_profit_price'] = entry + tp_dist
-            config['stop_loss_pct'] = max(0.0001, abs(entry - float(config['risk_stop_price'])) / max(entry, 1e-12))
-            return config
-
-        return config
 
     @staticmethod
     def _timeframe_to_minutes(timeframe: str) -> int:
@@ -304,6 +183,218 @@ class BacktesterEngine:
         if suffix == 'd':
             return max(1, value * 1440)
         return max(1, value)
+
+    @staticmethod
+    def _normalize_timeframe(timeframe: Any) -> str:
+        text = str(timeframe).strip().lower()
+        if not text:
+            return '1'
+        if text.endswith('m'):
+            return text[:-1] or '1'
+        if text.endswith('h'):
+            try:
+                return str(max(1, int(text[:-1])) * 60)
+            except ValueError:
+                return '1'
+        if text.endswith('d'):
+            try:
+                return str(max(1, int(text[:-1])) * 1440)
+            except ValueError:
+                return '1'
+        return text
+
+    def _timeframe_with_suffix(self, timeframe: Any) -> str:
+        return f"{self._normalize_timeframe(timeframe)}m"
+
+    def _collect_strategy_timeframes(
+        self,
+        strategy: StrategyBase,
+        fallback_timeframes: Optional[List[str]] = None,
+    ) -> List[str]:
+        timeframes: List[str] = []
+        if fallback_timeframes:
+            timeframes.extend(list(fallback_timeframes))
+
+        if strategy is not None:
+            strategy_timeframes = getattr(strategy, 'timeframes', None)
+            if strategy_timeframes:
+                timeframes.extend(list(strategy_timeframes))
+
+            entry_tf = getattr(strategy, 'entry_timeframe', None)
+            if entry_tf:
+                timeframes.append(entry_tf)
+
+            entry_tfs = getattr(strategy, 'entry_timeframes', None)
+            if isinstance(entry_tfs, (list, tuple)):
+                timeframes.extend(list(entry_tfs))
+
+        cleaned: List[str] = []
+        seen = set()
+        for tf in timeframes:
+            tf_text = self._timeframe_with_suffix(tf)
+            key = self._normalize_timeframe(tf_text)
+            if key in seen:
+                continue
+            seen.add(key)
+            cleaned.append(tf_text)
+
+        if not cleaned:
+            cleaned = ['1m']
+        return cleaned
+
+    def _resolve_entry_timeframe(self, strategy: Optional[StrategyBase] = None) -> str:
+        target_strategy = strategy or self.strategy
+        if target_strategy is None:
+            return '1m'
+
+        entry_tfs = getattr(target_strategy, 'entry_timeframes', None)
+        if isinstance(entry_tfs, (list, tuple)) and len(entry_tfs) > 0:
+            return self._timeframe_with_suffix(entry_tfs[0])
+
+        entry_tf = getattr(target_strategy, 'entry_timeframe', None)
+        if entry_tf:
+            return self._timeframe_with_suffix(entry_tf)
+
+        strategy_timeframes = getattr(target_strategy, 'timeframes', None)
+        if isinstance(strategy_timeframes, (list, tuple)) and len(strategy_timeframes) > 0:
+            return self._timeframe_with_suffix(strategy_timeframes[0])
+
+        return '1m'
+
+    def _resolve_timeframe_key(self, mapping: Dict[str, Any], preferred: Any) -> Optional[str]:
+        if not isinstance(mapping, dict) or not mapping:
+            return None
+
+        target = self._normalize_timeframe(preferred)
+        for key in mapping.keys():
+            if self._normalize_timeframe(key) == target:
+                return key
+        return None
+
+    def _strategy_requires_full_signal_path(self, strategy: StrategyBase) -> bool:
+        if bool(getattr(strategy, 'force_strategy_generate_signals', False)):
+            return True
+
+        builder = getattr(strategy, 'builder', None)
+        if builder is not None and getattr(builder, 'filter_rules', None):
+            if len(getattr(builder, 'filter_rules', {})) > 0:
+                return True
+
+        entry_tfs = getattr(strategy, 'entry_timeframes', None)
+        if isinstance(entry_tfs, (list, tuple)) and len(entry_tfs) > 0:
+            return True
+
+        entry_tf = getattr(strategy, 'entry_timeframe', None)
+        if entry_tf:
+            return True
+
+        strategy_timeframes = getattr(strategy, 'timeframes', None)
+        if isinstance(strategy_timeframes, (list, tuple)) and len(strategy_timeframes) > 1:
+            return True
+
+        return False
+
+    def _build_strategy_snapshot(
+        self,
+        symbol_timeframe_data: Dict[str, pd.DataFrame],
+        strategy_timeframes: List[str],
+        timestamp: Any,
+    ) -> Dict[str, pd.DataFrame]:
+        snapshot: Dict[str, pd.DataFrame] = {}
+        target_ts = pd.Timestamp(timestamp)
+
+        for requested_tf in strategy_timeframes:
+            actual_key = self._resolve_timeframe_key(symbol_timeframe_data, requested_tf)
+            if actual_key is None:
+                continue
+
+            tf_df = symbol_timeframe_data.get(actual_key)
+            if tf_df is None or tf_df.empty:
+                continue
+
+            try:
+                cutoff = int(tf_df.index.searchsorted(target_ts, side='right'))
+            except Exception:
+                cutoff = len(tf_df.loc[:target_ts])
+
+            if cutoff <= 0:
+                continue
+
+            snapshot[actual_key] = tf_df.iloc[:cutoff]
+
+        return snapshot
+
+    def _extract_signal_value(
+        self,
+        signals: Dict[str, Dict[str, Any]],
+        *,
+        symbol: str,
+        entry_timeframe: str,
+    ) -> str:
+        if not isinstance(signals, dict) or symbol not in signals:
+            return 'HOLD'
+
+        symbol_signals = signals.get(symbol, {})
+        if not isinstance(symbol_signals, dict) or not symbol_signals:
+            return 'HOLD'
+
+        signal = None
+        for key in (
+            entry_timeframe,
+            self._normalize_timeframe(entry_timeframe),
+            self._timeframe_with_suffix(entry_timeframe),
+        ):
+            if key in symbol_signals:
+                signal = symbol_signals[key]
+                break
+
+        if signal is None and symbol_signals:
+            signal = next(iter(symbol_signals.values()))
+
+        if hasattr(signal, 'iloc'):
+            try:
+                signal = signal.iloc[-1]
+            except Exception:
+                signal = None
+
+        if isinstance(signal, (int, float, np.integer, np.floating)):
+            if signal >= 2:
+                return 'OPEN_LONG'
+            if signal == 1:
+                return 'CLOSE_SHORT'
+            if signal == -1:
+                return 'CLOSE_LONG'
+            if signal <= -2:
+                return 'OPEN_SHORT'
+            return 'HOLD'
+
+        if signal in {'OPEN_LONG', 'CLOSE_LONG', 'OPEN_SHORT', 'CLOSE_SHORT', 'HOLD'}:
+            return str(signal)
+        return 'HOLD'
+
+    def _resolve_position_size_pct(self) -> float:
+        raw_pct = self.config.get('position_size_pct', self.config.get('risk_per_trade', 0.05))
+        try:
+            pct = float(raw_pct)
+        except (TypeError, ValueError):
+            pct = 0.05
+        if pct > 1.0:
+            pct = pct / 100.0
+
+        if hasattr(self.strategy, 'get_strategy_state'):
+            try:
+                strategy_state = self.strategy.get_strategy_state()
+            except Exception:
+                strategy_state = {}
+            if isinstance(strategy_state, dict):
+                strategy_cap = strategy_state.get('effective_position_size_pct')
+                if strategy_cap is not None:
+                    try:
+                        pct = min(pct, max(0.0, float(strategy_cap)))
+                    except (TypeError, ValueError):
+                        pass
+
+        return max(0.0001, min(1.0, pct))
 
     def _estimate_24h_notional(self, df: pd.DataFrame, index: int, timeframe: str) -> float:
         if df is None or df.empty or index < 0:
@@ -351,8 +442,8 @@ class BacktesterEngine:
         quantity: float,
     ) -> Tuple[float, Optional[str]]:
         """
-        Reduce order size to fit global exposure limits.
-        Returns (adjusted_quantity, block_reason_if_any).
+        Reduce order size to fit global exposure/risk caps.
+        Returns: (adjusted_quantity, block_reason_if_any)
         """
         if entry_price <= 0.0 or quantity <= 0.0:
             return 0.0, 'invalid_order_size'
@@ -472,18 +563,15 @@ class BacktesterEngine:
         timestamp: Any,
     ) -> Optional[str]:
         rules = self.global_rules
+        if not rules.enabled or not rules.emergency_close_enabled:
+            return None
+
         position = self.positions.get(symbol)
         if position is None:
             return None
-        mode = str(position.get('risk_exit_mode', 'none')).strip().lower()
-        has_configured_exit = mode in {'fixed', 'trailing', 'atr'}
-        global_emergency_enabled = bool(rules.enabled and rules.emergency_close_enabled)
-
-        if not has_configured_exit and not global_emergency_enabled:
-            return None
 
         entry_ts = position.get('entry_timestamp')
-        if entry_ts is not None and global_emergency_enabled:
+        if entry_ts is not None:
             try:
                 hold_minutes = (pd.Timestamp(timestamp) - pd.Timestamp(entry_ts)).total_seconds() / 60.0
                 if hold_minutes >= float(rules.max_hold_minutes):
@@ -498,57 +586,14 @@ class BacktesterEngine:
         stop_loss_pct = max(0.0, float(position.get('stop_loss_pct', rules.position_stop_loss_pct)))
         is_short = bool(position.get('is_short', False))
 
-        if mode == 'fixed':
-            stop_price = float(position.get('risk_stop_price', 0.0))
-            if stop_price > 0.0:
-                if is_short and current_price >= stop_price:
-                    return 'fixed_stop_loss_hit'
-                if (not is_short) and current_price <= stop_price:
-                    return 'fixed_stop_loss_hit'
-
-        elif mode == 'trailing':
-            sl_pct = max(0.0001, float(position.get('risk_sl_pct', stop_loss_pct)))
-            if is_short:
-                low_watermark = float(position.get('risk_low_watermark', entry_price))
-                low_watermark = min(low_watermark, current_price)
-                position['risk_low_watermark'] = low_watermark
-                stop_price = low_watermark * (1.0 + sl_pct)
-                position['risk_stop_price'] = stop_price
-                if current_price >= stop_price:
-                    return 'trailing_stop_loss_hit'
-            else:
-                high_watermark = float(position.get('risk_high_watermark', entry_price))
-                high_watermark = max(high_watermark, current_price)
-                position['risk_high_watermark'] = high_watermark
-                stop_price = high_watermark * (1.0 - sl_pct)
-                position['risk_stop_price'] = stop_price
-                if current_price <= stop_price:
-                    return 'trailing_stop_loss_hit'
-
-        elif mode == 'atr':
-            stop_price = float(position.get('risk_stop_price', 0.0))
-            take_profit_price = float(position.get('risk_take_profit_price', 0.0))
-            if stop_price > 0.0:
-                if is_short and current_price >= stop_price:
-                    return 'atr_stop_loss_hit'
-                if (not is_short) and current_price <= stop_price:
-                    return 'atr_stop_loss_hit'
-            if take_profit_price > 0.0:
-                if is_short and current_price <= take_profit_price:
-                    return 'atr_take_profit_hit'
-                if (not is_short) and current_price >= take_profit_price:
-                    return 'atr_take_profit_hit'
+        if is_short:
+            stop_price = entry_price * (1.0 + stop_loss_pct)
+            if current_price >= stop_price:
+                return 'stop_loss_hit'
         else:
-            if not global_emergency_enabled:
-                return None
-            if is_short:
-                stop_price = entry_price * (1.0 + stop_loss_pct)
-                if current_price >= stop_price:
-                    return 'stop_loss_hit'
-            else:
-                stop_price = entry_price * (1.0 - stop_loss_pct)
-                if current_price <= stop_price:
-                    return 'stop_loss_hit'
+            stop_price = entry_price * (1.0 - stop_loss_pct)
+            if current_price <= stop_price:
+                return 'stop_loss_hit'
 
         return None
 
@@ -588,6 +633,349 @@ class BacktesterEngine:
         self.positions.pop(symbol, None)
         print(f"CLOSE {direction}: {symbol} at {exit_price} (PnL: {net_pnl:.4f}, reason: {reason})")
         return True
+
+    def _build_entry_risk_plan(
+        self,
+        *,
+        position_type: str,
+        entry_price: float,
+        entry_window: pd.DataFrame,
+    ) -> Tuple[Dict[str, Any], float, float]:
+        default_stop_loss_pct = (
+            self.global_rules.position_stop_loss_pct
+            if self.global_rules.enabled
+            else 0.01
+        )
+        risk_exit_mode = self.config.get('risk_exit_mode', 'none')
+        atr_value = None
+        if str(risk_exit_mode).strip().lower() == 'atr':
+            atr_value = calculate_atr_from_dataframe(
+                entry_window,
+                int(self.config.get('risk_atr_period', 14)),
+            )
+
+        risk_config = build_position_risk_config(
+            entry_price=entry_price,
+            position_type=position_type,
+            risk_exit_mode=risk_exit_mode,
+            risk_sl_pct=self.config.get('risk_sl_pct', default_stop_loss_pct),
+            risk_atr_period=int(self.config.get('risk_atr_period', 14)),
+            risk_atr_sl_multiplier=self.config.get('risk_atr_sl_multiplier', 1.3),
+            risk_atr_tp_multiplier=self.config.get('risk_atr_tp_multiplier', 1.7),
+            atr_value=atr_value,
+        )
+
+        stop_loss_pct = float(risk_config.get('stop_loss_pct', default_stop_loss_pct))
+        if str(position_type).upper() == 'SHORT':
+            fallback_stop = entry_price * (1.0 + stop_loss_pct)
+        else:
+            fallback_stop = entry_price * (1.0 - stop_loss_pct)
+        stop_price = float(risk_config.get('risk_stop_price', fallback_stop))
+        return risk_config, stop_loss_pct, stop_price
+
+    def _build_backtest_symbol_states(
+        self,
+        strategy: StrategyBase,
+        data_with_indicators: Dict[str, Dict[str, pd.DataFrame]],
+        timeframes: Optional[List[str]],
+    ) -> Tuple[Dict[str, Dict[str, List[Any]]], Dict[str, Dict[str, Any]], List[Tuple[pd.Timestamp, str]], int, str, List[str]]:
+        entry_timeframe = self._resolve_entry_timeframe(strategy)
+        strategy_timeframes = self._collect_strategy_timeframes(strategy, fallback_timeframes=timeframes)
+        signal_history = {
+            symbol: {entry_timeframe: []}
+            for symbol in data_with_indicators.keys()
+        }
+
+        use_full_signal_path = self._strategy_requires_full_signal_path(strategy)
+        symbol_states: Dict[str, Dict[str, Any]] = {}
+        event_heap: List[Tuple[pd.Timestamp, str]] = []
+        total_rows = 0
+
+        for symbol, symbol_timeframe_data in data_with_indicators.items():
+            entry_key = self._resolve_timeframe_key(symbol_timeframe_data, entry_timeframe)
+            if entry_key is None and symbol_timeframe_data:
+                entry_key = next(iter(symbol_timeframe_data))
+            if entry_key is None:
+                continue
+
+            entry_df = symbol_timeframe_data.get(entry_key)
+            if entry_df is None or entry_df.empty:
+                continue
+
+            valid_rows = entry_df['indicators_valid'] if 'indicators_valid' in entry_df.columns else pd.Series(False, index=entry_df.index)
+            valid_indices = np.flatnonzero(valid_rows.to_numpy())
+            if len(valid_indices) == 0:
+                continue
+
+            first_valid_pos = int(valid_indices[0])
+            signals_series = None
+            if not use_full_signal_path:
+                if hasattr(strategy, 'builder'):
+                    try:
+                        builder_df = entry_df.copy()
+                        strategy.builder._calculate_indicators(builder_df)
+                        signals_series = strategy.builder._execute_signal_rules(builder_df)
+                    except Exception:
+                        signals_series = None
+                elif hasattr(strategy, 'generate_signals_vectorized'):
+                    try:
+                        signals_map = strategy.generate_signals_vectorized({symbol: {entry_key: entry_df}})
+                        symbol_signals = signals_map.get(symbol, {})
+                        signals_series = symbol_signals.get(entry_key)
+                        if signals_series is None:
+                            signals_series = symbol_signals.get(self._normalize_timeframe(entry_key))
+                        if signals_series is None:
+                            signals_series = symbol_signals.get(self._timeframe_with_suffix(entry_key))
+                    except Exception:
+                        signals_series = None
+
+            symbol_states[symbol] = {
+                'symbol': symbol,
+                'entry_timeframe': entry_key,
+                'entry_df': entry_df,
+                'symbol_timeframe_data': symbol_timeframe_data,
+                'row_index': first_valid_pos,
+                'signals_series': signals_series,
+            }
+            total_rows += max(0, len(entry_df) - first_valid_pos)
+            heapq.heappush(event_heap, (pd.Timestamp(entry_df.index[first_valid_pos]), symbol))
+
+        return signal_history, symbol_states, event_heap, total_rows, entry_timeframe, strategy_timeframes
+
+    def _queue_next_backtest_event(
+        self,
+        event_heap: List[Tuple[pd.Timestamp, str]],
+        state: Dict[str, Any],
+    ) -> None:
+        state['row_index'] = int(state.get('row_index', 0)) + 1
+        entry_df = state.get('entry_df')
+        symbol = state.get('symbol')
+        row_index = int(state.get('row_index', 0))
+        if entry_df is None or symbol is None:
+            return
+        if row_index < len(entry_df):
+            heapq.heappush(event_heap, (pd.Timestamp(entry_df.index[row_index]), symbol))
+
+    def _open_backtest_position(
+        self,
+        *,
+        strategy: StrategyBase,
+        symbol: str,
+        signal: str,
+        current_price: float,
+        timestamp: Any,
+        timeframe: str,
+        entry_df: pd.DataFrame,
+        row_index: int,
+        entry_window: pd.DataFrame,
+    ) -> bool:
+        max_positions = self.config.get('max_positions', 3)
+        if len(self.positions) >= max_positions or symbol in self.positions:
+            return False
+
+        is_short = signal == 'OPEN_SHORT'
+        position_type = 'SHORT' if is_short else 'LONG'
+        execution_side = 'price_down' if is_short else 'price_up'
+        entry_price = self.get_execution_price(current_price, execution_side)
+        risk_config, stop_loss_pct, stop_price = self._build_entry_risk_plan(
+            position_type=position_type,
+            entry_price=entry_price,
+            entry_window=entry_window,
+        )
+
+        quantity = self.get_order_size(symbol, entry_price, stop_price)
+        quantity, cap_block_reason = self._cap_quantity_with_global_rules(
+            entry_price=entry_price,
+            quantity=quantity,
+        )
+        if quantity <= 0:
+            self._record_global_block(cap_block_reason or 'invalid_order_size')
+            return False
+
+        allowed, reason = self._can_open_with_global_rules(
+            symbol=symbol,
+            timeframe=timeframe,
+            df=entry_df,
+            row_index=row_index,
+            entry_price=entry_price,
+            quantity=quantity,
+        )
+        if not allowed:
+            self._record_global_block(reason)
+            return False
+
+        fee = self.apply_fees(entry_price * quantity)
+        self.balance -= fee
+        position = {
+            'entry_price': entry_price,
+            'quantity': quantity,
+            'entry_timestamp': timestamp,
+            'is_short': is_short,
+            'type': position_type,
+            'stop_loss_pct': stop_loss_pct,
+            'owner_strategy': strategy.name if hasattr(strategy, 'name') else strategy.__class__.__name__,
+            'entry_timeframe': timeframe,
+        }
+        position.update(risk_config)
+        self.positions[symbol] = position
+        print(f"{signal}: {symbol} at {entry_price} (qty: {quantity})")
+        return True
+
+    def _run_entry_timeframe_backtest_loop(
+        self,
+        *,
+        strategy: StrategyBase,
+        signal_history: Dict[str, Dict[str, List[Any]]],
+        symbol_states: Dict[str, Dict[str, Any]],
+        event_heap: List[Tuple[pd.Timestamp, str]],
+        total_rows: int,
+        strategy_timeframes: List[str],
+        progress_callback=None,
+    ) -> None:
+        processed_rows = 0
+        last_progress_update = 0
+
+        while event_heap:
+            timestamp, symbol = heapq.heappop(event_heap)
+            state = symbol_states.get(symbol)
+            if not state:
+                continue
+
+            timeframe = state['entry_timeframe']
+            entry_df = state['entry_df']
+            row_index = int(state['row_index'])
+            if row_index >= len(entry_df):
+                continue
+
+            row = entry_df.iloc[row_index]
+            processed_rows += 1
+            progress_percent = (processed_rows / total_rows) * 100 if total_rows > 0 else 100.0
+            if progress_callback and (progress_percent - last_progress_update >= 1 or progress_percent == 100):
+                progress_callback(progress_percent)
+                last_progress_update = progress_percent
+
+            entry_window = entry_df.iloc[:row_index + 1]
+            signal = 'HOLD'
+            signals_series = state.get('signals_series')
+            if signals_series is not None and len(signals_series) > row_index:
+                signal = self._extract_signal_value(
+                    {symbol: {timeframe: signals_series.iloc[row_index]}},
+                    symbol=symbol,
+                    entry_timeframe=timeframe,
+                )
+            else:
+                current_data = self._build_strategy_snapshot(
+                    state['symbol_timeframe_data'],
+                    strategy_timeframes,
+                    timestamp,
+                )
+                if current_data:
+                    signals = strategy.generate_signals({symbol: current_data})
+                    signal = self._extract_signal_value(
+                        signals,
+                        symbol=symbol,
+                        entry_timeframe=timeframe,
+                    )
+
+            if symbol not in signal_history:
+                signal_history[symbol] = {}
+            if timeframe not in signal_history[symbol]:
+                signal_history[symbol][timeframe] = []
+            signal_history[symbol][timeframe].append((timestamp, signal))
+
+            if self.debug_signals:
+                self._debug_signal(symbol, timeframe, timestamp, signal, row, signal_history[symbol][timeframe][-5:])
+
+            current_price = float(row.get('close', 0.0) or 0.0)
+            if current_price <= 0.0:
+                self._queue_next_backtest_event(event_heap, state)
+                continue
+
+            high_price = float(row.get('high', current_price) or current_price)
+            low_price = float(row.get('low', current_price) or current_price)
+
+            position = self.positions.get(symbol)
+            if position is not None:
+                risk_exit = evaluate_risk_exit(
+                    position,
+                    high=high_price,
+                    low=low_price,
+                    current_price=current_price,
+                )
+                if risk_exit:
+                    if self._close_position(
+                        symbol=symbol,
+                        current_price=float(risk_exit.get('trigger_price', current_price) or current_price),
+                        timestamp=timestamp,
+                        reason=str(risk_exit.get('reason', 'configured_risk_exit')),
+                    ):
+                        self._global_rule_stats['emergency_closes'] += 1
+
+            emergency_reason = self._check_emergency_close_reason(
+                symbol=symbol,
+                current_price=current_price,
+                timestamp=timestamp,
+            )
+            if emergency_reason:
+                if self._close_position(
+                    symbol=symbol,
+                    current_price=current_price,
+                    timestamp=timestamp,
+                    reason=f"emergency_{emergency_reason}",
+                ):
+                    self._global_rule_stats['emergency_closes'] += 1
+
+            if signal in ['CLOSE_LONG', 'CLOSE_SHORT']:
+                if symbol not in self.positions:
+                    self._queue_next_backtest_event(event_heap, state)
+                    continue
+                if signal == 'CLOSE_LONG' and self.positions[symbol].get('is_short', False):
+                    self._queue_next_backtest_event(event_heap, state)
+                    continue
+                if signal == 'CLOSE_SHORT' and not self.positions[symbol].get('is_short', False):
+                    self._queue_next_backtest_event(event_heap, state)
+                    continue
+
+            if signal == 'OPEN_LONG':
+                self._open_backtest_position(
+                    strategy=strategy,
+                    symbol=symbol,
+                    signal=signal,
+                    current_price=current_price,
+                    timestamp=timestamp,
+                    timeframe=timeframe,
+                    entry_df=entry_df,
+                    row_index=row_index,
+                    entry_window=entry_window,
+                )
+            elif signal == 'OPEN_SHORT':
+                self._open_backtest_position(
+                    strategy=strategy,
+                    symbol=symbol,
+                    signal=signal,
+                    current_price=current_price,
+                    timestamp=timestamp,
+                    timeframe=timeframe,
+                    entry_df=entry_df,
+                    row_index=row_index,
+                    entry_window=entry_window,
+                )
+            elif signal == 'CLOSE_LONG':
+                self._close_position(
+                    symbol=symbol,
+                    current_price=current_price,
+                    timestamp=timestamp,
+                    reason='strategy_signal',
+                )
+            elif signal == 'CLOSE_SHORT':
+                self._close_position(
+                    symbol=symbol,
+                    current_price=current_price,
+                    timestamp=timestamp,
+                    reason='strategy_signal',
+                )
+
+            self._queue_next_backtest_event(event_heap, state)
 
 
     def run_backtest(self, symbols, timeframes, start_date, end_date, config=None, strategy=None, data=None, initial_balance=None, progress_callback=None):
@@ -661,298 +1049,34 @@ class BacktesterEngine:
             self._global_rule_stats['blocked_reasons'] = {}
             self._global_rule_stats['emergency_closes'] = 0
             
-            # Track signal history for debugging
-            resolved_symbols = list(symbols or data_with_indicators.keys())
-            resolved_timeframes = list(timeframes or (strategy.timeframes if hasattr(strategy, 'timeframes') else []))
-            signal_history = {
-                symbol: {timeframe: [] for timeframe in resolved_timeframes}
-                for symbol in resolved_symbols
-            }
-            
-            # Main loop - optimized version
-            total_rows = sum(len(data[s][t]) for s in data for t in data[s])
-            processed_rows = 0
-            last_progress_update = 0
-            
-            # Process each symbol/timeframe
-            for symbol in data_with_indicators:
-                for timeframe in data_with_indicators[symbol]:
-                    df = data_with_indicators[symbol][timeframe]
-
-                    use_builder_signals = (
-                        hasattr(strategy, 'builder')
-                        and not bool(getattr(strategy, 'force_strategy_generate_signals', False))
-                    )
-                    signals_series = None
-                    if use_builder_signals:
-                        try:
-                            # Builder strategies define their own indicator names
-                            # (for example: rsi_main), so calculate them before
-                            # executing signal rules.
-                            builder_df = df.copy()
-                            strategy.builder._calculate_indicators(builder_df)
-                            signals_series = strategy.builder._execute_signal_rules(builder_df)
-                        except Exception:
-                            signals_series = None
-                    elif hasattr(strategy, 'generate_signals_vectorized'):
-                        try:
-                            signals_map = strategy.generate_signals_vectorized({symbol: {timeframe: df}})
-                            signals_series = signals_map.get(symbol, {}).get(timeframe)
-                        except Exception:
-                            signals_series = None
-
-                    
-                    # Find the first row where indicators are valid
-                    first_valid_idx = df[df['indicators_valid']].index[0] if df['indicators_valid'].any() else len(df)
-                    
-                    # Process every row to catch all signals
-                    for i in range(df.index.get_loc(first_valid_idx), len(df)):
-                        timestamp = df.index[i]
-                        processed_rows += 1
-                        progress_percent = (processed_rows / total_rows) * 100
-                        
-                        # UPDATE: Call the progress callback if provided
-                        if progress_callback and (progress_percent - last_progress_update >= 1 or progress_percent == 100):
-                            progress_callback(progress_percent)
-                            last_progress_update = progress_percent
-                        
-                        if signals_series is not None:
-                            signal = signals_series.iloc[i]
-                            if isinstance(signal, (int, float)):
-                                if signal >= 2:
-                                    signal = 'OPEN_LONG'
-                                elif signal == 1:
-                                    signal = 'CLOSE_SHORT'
-                                elif signal == -1:
-                                    signal = 'CLOSE_LONG'
-                                elif signal <= -2:
-                                    signal = 'OPEN_SHORT'
-                                else:
-                                    signal = 'HOLD'
-                        else:
-                            # Get data up to this timestamp
-                            current_data = {symbol: {timeframe: df.iloc[:i+1]}}
-                            # Generate signal
-                            signals = strategy.generate_signals(current_data)
-                            signal = signals[symbol][timeframe]
-
-                        
-                        # Track signal history
-                        if symbol not in signal_history:
-                            signal_history[symbol] = {}
-                        if timeframe not in signal_history[symbol]:
-                            signal_history[symbol][timeframe] = []
-                        signal_history[symbol][timeframe].append((timestamp, signal))
-                        
-                        # Debug all trading signals
-                        if self.debug_signals:
-                            self._debug_signal(symbol, timeframe, timestamp, signal, df.iloc[i], signal_history[symbol][timeframe][-5:]) 
-
-                        current_price = float(df.iloc[i]['close'])
-
-                        emergency_reason = self._check_emergency_close_reason(
-                            symbol=symbol,
-                            current_price=current_price,
-                            timestamp=timestamp,
-                        )
-                        if emergency_reason:
-                            if self._close_position(
-                                symbol=symbol,
-                                current_price=current_price,
-                                timestamp=timestamp,
-                                reason=f"emergency_{emergency_reason}",
-                            ):
-                                self._global_rule_stats['emergency_closes'] += 1
-                        
-                        # === TRADE EXECUTION ===
-                        if signal in ['OPEN_LONG', 'CLOSE_LONG', 'OPEN_SHORT', 'CLOSE_SHORT']:
-                            # Add validation for CLOSE signals
-                            if signal in ['CLOSE_LONG', 'CLOSE_SHORT']:
-                                if symbol not in self.positions:
-                                    #print(f" WARNING: {signal} signal for {symbol} but no open position. Skipping.")
-                                    # Check if we ever had an OPEN signal for this symbol
-                                    recent_signals = [s[1] for s in signal_history[symbol][timeframe][-10:]]
-                                    has_open_signal = any(s in ['OPEN_LONG', 'OPEN_SHORT'] for s in recent_signals)
-                                    if self.debug_signals:
-                                        print(f"  Recent signals: {recent_signals}")
-                                        print(f"  Had OPEN signal recently: {has_open_signal}")
-                                    continue
-                                if signal == 'CLOSE_LONG' and self.positions[symbol].get('is_short', False):
-                                    if self.debug_signals:
-                                        print(f" WARNING: CLOSE_LONG signal for {symbol} but position is SHORT. Skipping.")
-                                    continue
-                                if signal == 'CLOSE_SHORT' and not self.positions[symbol].get('is_short', False):
-                                    if self.debug_signals:
-                                        print(f" WARNING: CLOSE_SHORT signal for {symbol} but position is LONG. Skipping.")
-                                    continue
-                            
-                            if signal == 'OPEN_LONG':
-                                max_positions = self.config.get('max_positions', 3)
-                                if len(self.positions) >= max_positions:
-                                    continue
-                                if symbol not in self.positions:
-                                    entry_price = self.get_execution_price(current_price, 'price_up')
-                                    exit_config = self._build_position_exit_config(
-                                        symbol=symbol,
-                                        timeframe=timeframe,
-                                        df=df,
-                                        row_index=i,
-                                        entry_price=entry_price,
-                                        is_short=False,
-                                    )
-                                    stop_loss_pct = float(
-                                        exit_config.get(
-                                            'stop_loss_pct',
-                                            self.global_rules.position_stop_loss_pct if self.global_rules.enabled else 0.01,
-                                        )
-                                    )
-                                    stop_price = float(
-                                        exit_config.get('risk_stop_price', entry_price * (1.0 - stop_loss_pct))
-                                    )
-                                    quantity = self.get_order_size(symbol, entry_price, stop_price)
-                                    quantity, cap_block_reason = self._cap_quantity_with_global_rules(
-                                        entry_price=entry_price,
-                                        quantity=quantity,
-                                    )
-                                    if quantity <= 0:
-                                        self._record_global_block(cap_block_reason or 'invalid_order_size')
-                                        continue
-                                    allowed, reason = self._can_open_with_global_rules(
-                                        symbol=symbol,
-                                        timeframe=timeframe,
-                                        df=df,
-                                        row_index=i,
-                                        entry_price=entry_price,
-                                        quantity=quantity,
-                                    )
-                                    if not allowed:
-                                        self._record_global_block(reason)
-                                        continue
-                                    fee = self.apply_fees(entry_price * quantity)
-                                    self.balance -= fee
-                                    self.positions[symbol] = {
-                                        'entry_price': entry_price,
-                                        'quantity': quantity,
-                                        'entry_timestamp': timestamp,
-                                        'is_short': False,
-                                        'stop_loss_pct': stop_loss_pct,
-                                        'risk_exit_mode': exit_config.get('risk_exit_mode', self.risk_exit_mode),
-                                        'risk_sl_pct': exit_config.get('risk_sl_pct', self.risk_sl_pct),
-                                        'risk_stop_price': exit_config.get('risk_stop_price'),
-                                        'risk_take_profit_price': exit_config.get('risk_take_profit_price'),
-                                        'risk_high_watermark': exit_config.get('risk_high_watermark'),
-                                        'risk_low_watermark': exit_config.get('risk_low_watermark'),
-                                        'risk_atr_period': exit_config.get('risk_atr_period', self.risk_atr_period),
-                                        'risk_atr_value': exit_config.get('risk_atr_value'),
-                                        'risk_atr_sl_multiplier': exit_config.get(
-                                            'risk_atr_sl_multiplier', self.risk_atr_sl_multiplier
-                                        ),
-                                        'risk_atr_tp_multiplier': exit_config.get(
-                                            'risk_atr_tp_multiplier', self.risk_atr_tp_multiplier
-                                        ),
-                                        'owner_strategy': strategy.name if hasattr(strategy, 'name') else strategy.__class__.__name__,
-                                        'entry_timeframe': timeframe,
-                                    }
-                                    print(f" OPEN_LONG: {symbol} at {entry_price} (qty: {quantity})")
-                            elif signal == 'CLOSE_LONG':
-                                # Only process if we have a long position
-                                if symbol in self.positions and not self.positions[symbol].get('is_short', False):
-                                    self._close_position(
-                                        symbol=symbol,
-                                        current_price=current_price,
-                                        timestamp=timestamp,
-                                        reason='strategy_signal',
-                                    )
-                            elif signal == 'OPEN_SHORT':
-                                max_positions = self.config.get('max_positions', 3)
-                                if len(self.positions) >= max_positions:
-                                    continue
-                                if symbol not in self.positions:
-                                    entry_price = self.get_execution_price(current_price, 'price_down')
-                                    exit_config = self._build_position_exit_config(
-                                        symbol=symbol,
-                                        timeframe=timeframe,
-                                        df=df,
-                                        row_index=i,
-                                        entry_price=entry_price,
-                                        is_short=True,
-                                    )
-                                    stop_loss_pct = float(
-                                        exit_config.get(
-                                            'stop_loss_pct',
-                                            self.global_rules.position_stop_loss_pct if self.global_rules.enabled else 0.01,
-                                        )
-                                    )
-                                    stop_price = float(
-                                        exit_config.get('risk_stop_price', entry_price * (1.0 + stop_loss_pct))
-                                    )
-                                    quantity = self.get_order_size(symbol, entry_price, stop_price)
-                                    quantity, cap_block_reason = self._cap_quantity_with_global_rules(
-                                        entry_price=entry_price,
-                                        quantity=quantity,
-                                    )
-                                    if quantity <= 0:
-                                        self._record_global_block(cap_block_reason or 'invalid_order_size')
-                                        continue
-                                    allowed, reason = self._can_open_with_global_rules(
-                                        symbol=symbol,
-                                        timeframe=timeframe,
-                                        df=df,
-                                        row_index=i,
-                                        entry_price=entry_price,
-                                        quantity=quantity,
-                                    )
-                                    if not allowed:
-                                        self._record_global_block(reason)
-                                        continue
-                                    fee = self.apply_fees(entry_price * quantity)
-                                    self.balance -= fee
-                                    self.positions[symbol] = {
-                                        'entry_price': entry_price,
-                                        'quantity': quantity,
-                                        'entry_timestamp': timestamp,
-                                        'is_short': True,
-                                        'stop_loss_pct': stop_loss_pct,
-                                        'risk_exit_mode': exit_config.get('risk_exit_mode', self.risk_exit_mode),
-                                        'risk_sl_pct': exit_config.get('risk_sl_pct', self.risk_sl_pct),
-                                        'risk_stop_price': exit_config.get('risk_stop_price'),
-                                        'risk_take_profit_price': exit_config.get('risk_take_profit_price'),
-                                        'risk_high_watermark': exit_config.get('risk_high_watermark'),
-                                        'risk_low_watermark': exit_config.get('risk_low_watermark'),
-                                        'risk_atr_period': exit_config.get('risk_atr_period', self.risk_atr_period),
-                                        'risk_atr_value': exit_config.get('risk_atr_value'),
-                                        'risk_atr_sl_multiplier': exit_config.get(
-                                            'risk_atr_sl_multiplier', self.risk_atr_sl_multiplier
-                                        ),
-                                        'risk_atr_tp_multiplier': exit_config.get(
-                                            'risk_atr_tp_multiplier', self.risk_atr_tp_multiplier
-                                        ),
-                                        'owner_strategy': strategy.name if hasattr(strategy, 'name') else strategy.__class__.__name__,
-                                        'entry_timeframe': timeframe,
-                                    }
-                                    print(f"OPEN_SHORT: {symbol} at {entry_price} (qty: {quantity})")
-                            elif signal == 'CLOSE_SHORT':
-                                # Only process if we have a short position
-                                if symbol in self.positions and self.positions[symbol].get('is_short', False):
-                                    self._close_position(
-                                        symbol=symbol,
-                                        current_price=current_price,
-                                        timestamp=timestamp,
-                                        reason='strategy_signal',
-                                    )
-
-
-            # === CLOSE REMAINING POSITIONS ===
-            for symbol in list(self.positions.keys()):
-                last_symbol_data = max(
-                    [data_with_indicators[symbol][tf] for tf in data_with_indicators[symbol]],
-                    key=lambda x: x.index[-1],
+            signal_history, symbol_states, event_heap, total_rows, entry_timeframe, strategy_timeframes = (
+                self._build_backtest_symbol_states(
+                    strategy,
+                    data_with_indicators,
+                    timeframes,
                 )
-                current_price = float(last_symbol_data.iloc[-1]['close'])
+            )
+
+            self._run_entry_timeframe_backtest_loop(
+                strategy=strategy,
+                signal_history=signal_history,
+                symbol_states=symbol_states,
+                event_heap=event_heap,
+                total_rows=total_rows,
+                strategy_timeframes=strategy_timeframes,
+                progress_callback=progress_callback,
+            )
+
+            for symbol in list(self.positions.keys()):
+                state = symbol_states.get(symbol)
+                if not state:
+                    continue
+                entry_df = state['entry_df']
+                current_price = float(entry_df.iloc[-1]['close'])
                 self._close_position(
                     symbol=symbol,
                     current_price=current_price,
-                    timestamp=last_symbol_data.index[-1],
+                    timestamp=entry_df.index[-1],
                     reason='end_of_backtest',
                 )
             
@@ -1398,18 +1522,32 @@ class BacktesterEngine:
             for timeframe in data[symbol]:
                 df = data[symbol][timeframe].copy()
                 
+                if df.empty or 'close' not in df.columns:
+                    # Keep expected columns so downstream code can skip cleanly.
+                    df[f'ema_fast_{timeframe}'] = np.nan
+                    df[f'ema_slow_{timeframe}'] = np.nan
+                    df[f'rsi_{timeframe}'] = np.nan
+                    df['indicators_valid'] = False
+                    enhanced_data[symbol][timeframe] = df
+                    continue
+
                 # Calculate EMAs and RSI
                 df[f'ema_fast_{timeframe}'] = ema(df['close'], period=fast_ma_period)
                 df[f'ema_slow_{timeframe}'] = ema(df['close'], period=slow_ma_period)
                 df[f'rsi_{timeframe}'] = rsi(df['close'], period=rsi_period)
                 
-                # Mark valid indicator rows
-                min_valid_idx = max(
+                # Mark valid indicator rows. Some windows may not have enough candles.
+                valid_candidates = [
                     df[f'ema_fast_{timeframe}'].first_valid_index(),
                     df[f'ema_slow_{timeframe}'].first_valid_index(),
-                    df[f'rsi_{timeframe}'].first_valid_index()
-                )
-                df['indicators_valid'] = df.index >= min_valid_idx
+                    df[f'rsi_{timeframe}'].first_valid_index(),
+                ]
+                valid_candidates = [idx for idx in valid_candidates if idx is not None]
+                if valid_candidates:
+                    min_valid_idx = max(valid_candidates)
+                    df['indicators_valid'] = df.index >= min_valid_idx
+                else:
+                    df['indicators_valid'] = False
                 
                 enhanced_data[symbol][timeframe] = df
         

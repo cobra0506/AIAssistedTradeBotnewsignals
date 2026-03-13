@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Tuple
 import pandas as pd
 
 from simple_strategy.strategies import indicators_library, signals_library
+from simple_strategy.strategies import builder_presets
 from simple_strategy.strategies.strategy_builder import StrategyBuilder
 
 
@@ -22,9 +23,10 @@ class GeneSpec:
 class CandidateBuilder:
     """Encode/decode candidate genomes and build executable strategies."""
 
-    def __init__(self, search_space: Dict[str, Any], max_active_signals: int = 3):
+    def __init__(self, search_space: Dict[str, Any], max_active_signals: int = 3, max_active_filters: int = 2):
         self.search_space = deepcopy(search_space)
         self.max_active_signals = max_active_signals
+        self.max_active_filters = max_active_filters
         self._component_to_indicators = self._build_component_map()
         self.gene_specs: List[GeneSpec] = self._build_gene_specs()
 
@@ -58,6 +60,17 @@ class CandidateBuilder:
                 )
             )
 
+        for filter_id in self.filter_ids:
+            specs.append(
+                GeneSpec(
+                    key=("filter_enabled", filter_id),
+                    kind="binary",
+                    low=0,
+                    high=1,
+                    step=1,
+                )
+            )
+
         combo_choices = self.search_space.get("signal_combination_methods", ["majority_vote"])
         specs.append(
             GeneSpec(
@@ -78,6 +91,13 @@ class CandidateBuilder:
             for param_name, param_def in signal_def.get("params", {}).items():
                 specs.append(self._param_gene(("signal_params", signal_id, param_name), param_def))
 
+        for filter_id, filter_def in self.search_space.get("filters", {}).items():
+            for param_name, param_def in filter_def.get("params", {}).items():
+                specs.append(self._param_gene(("filter_params", filter_id, param_name), param_def))
+
+        for param_name, param_def in self.search_space.get("risk_exit", {}).items():
+            specs.append(self._param_gene(("risk_exit", param_name), param_def))
+
         return specs
 
     @staticmethod
@@ -95,6 +115,10 @@ class CandidateBuilder:
     @property
     def signal_ids(self) -> List[str]:
         return list(self.search_space.get("signals", {}).keys())
+
+    @property
+    def filter_ids(self) -> List[str]:
+        return list(self.search_space.get("filters", {}).keys())
 
     def random_genome(self, rng: random.Random) -> List[float]:
         genome: List[float] = []
@@ -129,9 +153,19 @@ class CandidateBuilder:
 
         candidate: Dict[str, Any] = {
             "active_signals": [],
+            "active_filters": [],
             "signal_combination": "majority_vote",
             "indicator_params": {k: {} for k in self.search_space["indicators"].keys()},
             "signal_params": {k: {} for k in self.search_space["signals"].keys()},
+            "filter_params": {k: {} for k in self.search_space.get("filters", {}).keys()},
+            "risk_exit": {
+                "risk_exit_mode": "none",
+                "risk_sl_pct": 0.02,
+                "risk_atr_period": 14,
+                "risk_atr_sl_multiplier": 1.3,
+                "risk_atr_tp_multiplier": 1.7,
+                "position_size_pct": 0.05,
+            },
         }
 
         for value, spec in zip(genome, self.gene_specs):
@@ -148,6 +182,11 @@ class CandidateBuilder:
                 candidate["active_signals"].append(key[1])
             return
 
+        if key[0] == "filter_enabled":
+            if int(round(value)) == 1 and key[1] not in candidate["active_filters"]:
+                candidate["active_filters"].append(key[1])
+            return
+
         if key[0] == "signal_combination":
             idx = int(min(spec.high, max(spec.low, round(value))))
             candidate["signal_combination"] = spec.choices[idx]
@@ -161,6 +200,15 @@ class CandidateBuilder:
         if key[0] == "signal_params":
             bucket = candidate["signal_params"][key[1]]
             bucket[key[2]] = self._coerce_value(value, spec)
+            return
+
+        if key[0] == "filter_params":
+            bucket = candidate["filter_params"][key[1]]
+            bucket[key[2]] = self._coerce_value(value, spec)
+            return
+
+        if key[0] == "risk_exit":
+            candidate["risk_exit"][key[1]] = self._coerce_value(value, spec)
             return
 
         raise ValueError(f"Unknown gene target: {key}")
@@ -186,6 +234,9 @@ class CandidateBuilder:
         if len(candidate["active_signals"]) > self.max_active_signals:
             candidate["active_signals"] = candidate["active_signals"][: self.max_active_signals]
 
+        if len(candidate["active_filters"]) > self.max_active_filters:
+            candidate["active_filters"] = candidate["active_filters"][: self.max_active_filters]
+
         ema_fast = candidate["indicator_params"]["ema_fast"].get("period", 10)
         ema_slow = candidate["indicator_params"]["ema_slow"].get("period", 30)
         if ema_fast >= ema_slow:
@@ -208,6 +259,26 @@ class CandidateBuilder:
                 oversold = candidate["signal_params"][signal_id].get("oversold", 30)
                 if overbought <= oversold:
                     candidate["signal_params"][signal_id]["overbought"] = oversold + 5
+
+        if "rsi_gate" in candidate["filter_params"]:
+            bullish = float(candidate["filter_params"]["rsi_gate"].get("bullish_threshold", 45.0))
+            bearish = float(candidate["filter_params"]["rsi_gate"].get("bearish_threshold", 55.0))
+            if bullish >= bearish:
+                candidate["filter_params"]["rsi_gate"]["bearish_threshold"] = bullish + 1.0
+
+        risk_exit = candidate.get("risk_exit", {})
+        mode = str(risk_exit.get("risk_exit_mode", "none")).lower()
+        if mode not in {"none", "fixed", "trailing", "atr"}:
+            risk_exit["risk_exit_mode"] = "none"
+        risk_exit["risk_sl_pct"] = max(0.001, min(0.25, float(risk_exit.get("risk_sl_pct", 0.02))))
+        risk_exit["risk_atr_period"] = max(2, int(risk_exit.get("risk_atr_period", 14)))
+        risk_exit["risk_atr_sl_multiplier"] = max(0.1, float(risk_exit.get("risk_atr_sl_multiplier", 1.3)))
+        risk_exit["risk_atr_tp_multiplier"] = max(
+            0.1,
+            float(risk_exit.get("risk_atr_tp_multiplier", 1.7)),
+        )
+        risk_exit["position_size_pct"] = max(0.0001, min(1.0, float(risk_exit.get("position_size_pct", 0.05))))
+        candidate["risk_exit"] = risk_exit
 
     def required_indicators(self, candidate: Dict[str, Any]) -> List[str]:
         required = set()
@@ -238,6 +309,26 @@ class CandidateBuilder:
 
         raise ValueError(f"Cannot resolve indicator dependency for '{input_ref}'")
 
+    @staticmethod
+    def _resolve_timeframe_param(value: Any, timeframes: List[str], fallback: str) -> str:
+        cleaned = [str(tf).strip() for tf in (timeframes or []) if str(tf).strip()]
+        if not cleaned:
+            return fallback
+        text = str(value).strip()
+        if text in cleaned:
+            return text
+        return fallback if fallback in cleaned else cleaned[0]
+
+    def _resolve_filter_params(self, filter_id: str, timeframes: List[str], candidate: Dict[str, Any]) -> Dict[str, Any]:
+        params = deepcopy(candidate.get("filter_params", {}).get(filter_id, {}))
+        entry_fallback = timeframes[0] if timeframes else "1m"
+        trend_fallback = timeframes[-1] if timeframes else entry_fallback
+        if "entry_timeframe" in params:
+            params["entry_timeframe"] = self._resolve_timeframe_param(params["entry_timeframe"], timeframes, entry_fallback)
+        if "trend_timeframe" in params:
+            params["trend_timeframe"] = self._resolve_timeframe_param(params["trend_timeframe"], timeframes, trend_fallback)
+        return params
+
     def build_strategy(self, candidate: Dict[str, Any], symbols: List[str], timeframes: List[str], strategy_name: str):
         builder = StrategyBuilder(symbols=symbols, timeframes=timeframes)
 
@@ -260,6 +351,18 @@ class CandidateBuilder:
             call_kwargs.update(params)
             builder.add_signal_rule(signal_id, signal_func, **call_kwargs)
 
+        for filter_id in candidate.get("active_filters", []):
+            filter_def = self.search_space.get("filters", {}).get(filter_id)
+            if not filter_def:
+                continue
+            filter_func = getattr(builder_presets, filter_def["function"])
+            filter_params = self._resolve_filter_params(filter_id, timeframes, candidate)
+            state_attr = filter_def.get("state_attr")
+            if state_attr:
+                builder.add_filter_rule(filter_id, filter_func, state_attr=state_attr, **filter_params)
+            else:
+                builder.add_filter_rule(filter_id, filter_func, **filter_params)
+
         builder.set_signal_combination(candidate.get("signal_combination", "majority_vote"))
         builder.set_strategy_info(strategy_name, "1.0.0")
         strategy = builder.build()
@@ -280,9 +383,7 @@ class CandidateBuilder:
             return result
 
         strategy.generate_signals_vectorized = _vectorized
-
-        # Force backtester to use vectorized signal path to avoid hardcoded builder pre-calc route.
-        if hasattr(strategy, "builder"):
-            delattr(strategy, "builder")
+        strategy.force_strategy_generate_signals = True
+        strategy.auto_evolve_candidate = deepcopy(candidate)
 
         return strategy

@@ -42,6 +42,7 @@ class EvolutionRunner:
         self.run_dir = run_dir
         self.smoke_mode = smoke_mode
         self.max_runtime_seconds = float(max_runtime_hours) * 3600.0 if float(max_runtime_hours) > 0 else None
+        self.base_symbols = list(self.run_config.get("symbols", []))
 
         if smoke_mode:
             self.run_config["train_start"] = "2024-01-01"
@@ -61,18 +62,27 @@ class EvolutionRunner:
             self.run_config["min_stress_return_pct"] = -100.0
             self.run_config["max_stress_drawdown_pct"] = 1000.0
             self.run_config["enable_inner_optimization"] = False
+            self.run_config["shortlist_enable_inner_optimization"] = False
+            self.run_config["fast_search_symbol_count"] = 1
+            self.run_config["shortlist_symbol_count"] = 1
 
         self.builder = CandidateBuilder(
             search_space=self.search_space,
             max_active_signals=int(self.run_config.get("max_active_signals", 3)),
+            max_active_filters=int(self.run_config.get("max_active_filters", 2)),
         )
-        self.evaluator = CandidateEvaluator(self.builder, self.run_config, data_dir=self.data_dir)
+        self.search_run_config = self._build_stage_run_config(
+            symbol_count=int(self.run_config.get("fast_search_symbol_count", 2)),
+            enable_inner_optimization=bool(self.run_config.get("enable_inner_optimization", False)),
+            inner_opt_trials=int(self.run_config.get("inner_opt_trials", 0)),
+        )
+        self.search_evaluator = CandidateEvaluator(self.builder, self.search_run_config, data_dir=self.data_dir)
 
         self.synthetic_data = None
         if smoke_mode:
             self.synthetic_data = build_synthetic_data(
-                symbol=self.run_config["symbols"][0],
-                timeframe=self.run_config["timeframes"][0],
+                symbol=self.search_run_config["symbols"][0],
+                timeframe=self.search_run_config["timeframes"][0],
                 candles=1200,
                 start="2024-01-01",
             )
@@ -81,6 +91,27 @@ class EvolutionRunner:
 
         self.base, self.creator, self.tools = _import_deap_or_raise()
         self.toolbox = self._build_toolbox()
+
+    def _select_symbols(self, symbol_count: int) -> List[str]:
+        symbols = list(self.base_symbols)
+        if not symbols:
+            return []
+        if symbol_count <= 0:
+            return symbols
+        return symbols[: min(len(symbols), symbol_count)]
+
+    def _build_stage_run_config(
+        self,
+        *,
+        symbol_count: int,
+        enable_inner_optimization: bool,
+        inner_opt_trials: int,
+    ) -> Dict[str, Any]:
+        stage_config = deepcopy(self.run_config)
+        stage_config["symbols"] = self._select_symbols(symbol_count)
+        stage_config["enable_inner_optimization"] = bool(enable_inner_optimization)
+        stage_config["inner_opt_trials"] = int(inner_opt_trials)
+        return stage_config
 
     def _build_toolbox(self):
         if not hasattr(self.creator, "FitnessMax"):
@@ -112,20 +143,62 @@ class EvolutionRunner:
 
     def _evaluate_one(self, generation: int, idx: int, individual) -> Dict[str, Any]:
         candidate = self.builder.decode(list(individual))
-        evaluator = self.evaluator
-        if int(self.run_config.get("workers", 1)) > 1:
-            evaluator = CandidateEvaluator(self.builder, self.run_config, data_dir=self.data_dir)
+        evaluator = self.search_evaluator
+        if int(self.search_run_config.get("workers", 1)) > 1:
+            evaluator = CandidateEvaluator(self.builder, self.search_run_config, data_dir=self.data_dir)
 
         result = evaluator.evaluate_candidate(
             candidate=candidate,
             generation=generation,
             candidate_idx=idx,
             data_override=self.synthetic_data,
-            use_inner_optimization=bool(self.run_config.get("enable_inner_optimization", True)),
+            use_inner_optimization=bool(self.search_run_config.get("enable_inner_optimization", False)),
         )
         result["generation"] = generation
         result["index"] = idx
         return result
+
+    def _refine_top_results(self, all_results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        shortlist_top_k = int(self.run_config.get("shortlist_top_k", max(10, int(self.run_config.get("top_k", 10)))))
+        shortlist = top_unique_results(all_results, top_k=shortlist_top_k, search_space=self.search_space)
+        if not shortlist:
+            return []
+
+        refine_run_config = self._build_stage_run_config(
+            symbol_count=int(self.run_config.get("shortlist_symbol_count", 6)),
+            enable_inner_optimization=False,
+            inner_opt_trials=0,
+        )
+        refine_evaluator = CandidateEvaluator(self.builder, refine_run_config, data_dir=self.data_dir)
+
+        heavy_opt_enabled = bool(self.run_config.get("shortlist_enable_inner_optimization", True))
+        heavy_opt_top_k = max(0, int(self.run_config.get("shortlist_inner_opt_top_k", 4)))
+        heavy_opt_trials = int(self.run_config.get("shortlist_inner_opt_trials", self.run_config.get("inner_opt_trials", 0)))
+
+        refined_results: List[Dict[str, Any]] = []
+        for idx, row in enumerate(shortlist):
+            candidate = deepcopy(row["candidate"])
+            use_heavy_opt = heavy_opt_enabled and idx < heavy_opt_top_k and heavy_opt_trials > 0
+            if use_heavy_opt:
+                opt_run_config = deepcopy(refine_run_config)
+                opt_run_config["enable_inner_optimization"] = True
+                opt_run_config["inner_opt_trials"] = heavy_opt_trials
+                evaluator = CandidateEvaluator(self.builder, opt_run_config, data_dir=self.data_dir)
+            else:
+                evaluator = refine_evaluator
+
+            refined = evaluator.evaluate_candidate(
+                candidate=candidate,
+                generation=int(row.get("generation", -1)),
+                candidate_idx=idx,
+                data_override=self.synthetic_data,
+                use_inner_optimization=use_heavy_opt,
+            )
+            refined["generation"] = row.get("generation", -1)
+            refined["index"] = row.get("index", idx)
+            refined_results.append(refined)
+
+        return sorted(refined_results, key=lambda r: float(r.get("score", -1e9)), reverse=True)
 
     def _evaluate_population(self, generation: int, population) -> List[Dict[str, Any]]:
         workers = int(self.run_config.get("workers", 1))
@@ -225,11 +298,18 @@ class EvolutionRunner:
             population = elites + offspring
 
         top_k = int(self.run_config.get("top_k", 10))
-        top_results = top_unique_results(all_results, top_k=top_k, search_space=self.search_space)
+        refined_results = self._refine_top_results(all_results)
+        top_results = top_unique_results(
+            refined_results or all_results,
+            top_k=top_k,
+            search_space=self.search_space,
+        )
+
+        final_evaluator = CandidateEvaluator(self.builder, self.run_config, data_dir=self.data_dir)
 
         for row in top_results:
             try:
-                row["final_metrics"] = self.evaluator.run_final_segment(
+                row["final_metrics"] = final_evaluator.run_final_segment(
                     row["candidate"],
                     data_override=self.synthetic_data,
                 )
@@ -249,6 +329,7 @@ class EvolutionRunner:
                 top_results=top_results,
                 symbols=self.run_config["symbols"],
                 timeframes=self.run_config["timeframes"],
+                publish_top_n=int(self.run_config.get("publish_top_n", 0)),
             )
 
         return {

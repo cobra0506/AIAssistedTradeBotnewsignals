@@ -10,6 +10,41 @@ import signal
 from datetime import datetime
 from simple_strategy.trading.parameter_gui import ParameterGUI
 
+class ToolTip:
+    """Small hover tooltip for Tk widgets."""
+
+    def __init__(self, widget, text):
+        self.widget = widget
+        self.text = text
+        self.tip_window = None
+        widget.bind("<Enter>", self._show)
+        widget.bind("<Leave>", self._hide)
+
+    def _show(self, _event=None):
+        if self.tip_window or not self.text:
+            return
+        x = self.widget.winfo_rootx() + 18
+        y = self.widget.winfo_rooty() + self.widget.winfo_height() + 4
+        self.tip_window = tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+        label = tk.Label(
+            tw,
+            text=self.text,
+            justify="left",
+            background="#fff8dc",
+            relief="solid",
+            borderwidth=1,
+            font=("Arial", 8),
+            wraplength=260,
+        )
+        label.pack(ipadx=6, ipady=3)
+
+    def _hide(self, _event=None):
+        if self.tip_window:
+            self.tip_window.destroy()
+            self.tip_window = None
+
 class TradingBotDashboard:
     def __init__(self, root):
         self.root = root
@@ -51,6 +86,9 @@ class TradingBotDashboard:
         self.create_rl_ai_section()
         # Bottom buttons
         self.create_bottom_buttons()
+
+    def _add_tooltip(self, widget, text):
+        ToolTip(widget, text)
 
     def _on_main_content_configure(self, _event):
         self.main_canvas.configure(scrollregion=self.main_canvas.bbox("all"))
@@ -107,7 +145,7 @@ class TradingBotDashboard:
         
         # Create notebook (tabs)
         self.notebook = ttk.Notebook(ss_frame)
-        self.notebook.pack(fill="both", expand=True)
+        self.notebook.pack(fill="x", expand=False)
         
         # Create three tabs
         self.create_backtesting_tab()
@@ -139,22 +177,41 @@ class TradingBotDashboard:
 
         top_button_row = ttk.Frame(ae_frame)
         top_button_row.pack(fill="x", pady=5)
-        ttk.Button(top_button_row, text="RUN FULL SEARCH",
-                   command=self.start_auto_evolve_full).pack(side="left", padx=5)
-        ttk.Button(top_button_row, text="RUN OVERNIGHT",
-                   command=self.start_auto_evolve_overnight).pack(side="left", padx=5)
-        ttk.Button(top_button_row, text="RUN MULTI-DAY",
-                   command=self.start_auto_evolve_multiday).pack(side="left", padx=5)
+        full_btn = ttk.Button(top_button_row, text="RUN FULL SEARCH",
+                              command=self.start_auto_evolve_full)
+        full_btn.pack(side="left", padx=5)
+        overnight_btn = ttk.Button(top_button_row, text="RUN OVERNIGHT",
+                                   command=self.start_auto_evolve_overnight)
+        overnight_btn.pack(side="left", padx=5)
+        multiday_btn = ttk.Button(top_button_row, text="RUN MULTI-DAY",
+                                  command=self.start_auto_evolve_multiday)
+        multiday_btn.pack(side="left", padx=5)
 
         profile_row = ttk.Frame(ae_frame)
         profile_row.pack(fill="x", pady=2)
-        ttk.Button(profile_row, text="RUN SMOKE TEST",
-                   command=self.start_auto_evolve_smoke).pack(side="left", padx=5)
-        ttk.Button(profile_row, text="REFRESH STATUS",
-                   command=self.refresh_auto_evolve_status).pack(side="left", padx=5)
-        ttk.Label(profile_row, text="SEED (blank = config):").pack(side="left", padx=(12, 5))
+        smoke_btn = ttk.Button(profile_row, text="RUN SMOKE TEST",
+                               command=self.start_auto_evolve_smoke)
+        smoke_btn.pack(side="left", padx=5)
+        refresh_btn = ttk.Button(profile_row, text="REFRESH STATUS",
+                                 command=self.refresh_auto_evolve_status)
+        refresh_btn.pack(side="left", padx=5)
+        seed_label = ttk.Label(profile_row, text="SEED (blank = config):")
+        seed_label.pack(side="left", padx=(12, 5))
         self.ae_seed_var = tk.StringVar(value="")
-        ttk.Entry(profile_row, textvariable=self.ae_seed_var, width=10).pack(side="left")
+        seed_entry = ttk.Entry(profile_row, textvariable=self.ae_seed_var, width=10)
+        seed_entry.pack(side="left")
+
+        help_text = (
+            "All normal runs now search fast on 2 symbols first, then re-check only the better "
+            "candidates on more symbols with heavier tuning."
+        )
+        ttk.Label(
+            ae_frame,
+            text=help_text,
+            foreground="#666666",
+            wraplength=560,
+            justify="left",
+        ).pack(anchor="w", pady=(2, 4))
 
         bottom_button_row = ttk.Frame(ae_frame)
         bottom_button_row.pack(fill="x", pady=2)
@@ -168,6 +225,13 @@ class TradingBotDashboard:
                    command=self.open_unique_advanced_engine).pack(side="left", padx=5)
         ttk.Button(bottom_button_row, text="DELETE ALL RUNS",
                    command=self.clear_auto_evolve_runs).pack(side="left", padx=5)
+        self._add_tooltip(smoke_btn, "Quick wiring check only. Does not do a deep search.")
+        self._add_tooltip(overnight_btn, "Balanced run. Fast 2-symbol search first, then the better results are checked on 6 symbols.")
+        self._add_tooltip(full_btn, "Stronger run. Fast 2-symbol search first, then shortlisted results are checked harder on 6 symbols.")
+        self._add_tooltip(multiday_btn, "Deepest run. Fast 2-symbol search first, then shortlisted results are checked on 8 symbols with heavier tuning.")
+        self._add_tooltip(refresh_btn, "Reload the latest run status without starting a new run.")
+        self._add_tooltip(seed_label, "Use a number to repeat the same search path. Leave blank to use the config value.")
+        self._add_tooltip(seed_entry, "Same seed = same random starting point.")
         self.refresh_auto_evolve_status()
         self._schedule_auto_evolve_status_refresh()
 
@@ -278,16 +342,19 @@ class TradingBotDashboard:
         ttk.Entry(global_rules_frame, textvariable=self.paper_min_24h_notional_var, width=14).grid(
             row=2, column=1, sticky="w", padx=5, pady=2
         )
-        ttk.Label(global_rules_frame, text="Enable Exchange SL:").grid(row=3, column=0, sticky="w", padx=5, pady=2)
+        exchange_sl_label = ttk.Label(global_rules_frame, text="Use Fixed / Trailing Stop:")
+        exchange_sl_label.grid(row=3, column=0, sticky="w", padx=5, pady=2)
         self.paper_enable_exchange_sl_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(
+        paper_exchange_sl_check = ttk.Checkbutton(
             global_rules_frame,
             variable=self.paper_enable_exchange_sl_var,
             command=self._toggle_paper_exchange_sl_controls,
-        ).grid(
+        )
+        paper_exchange_sl_check.grid(
             row=3, column=1, sticky="w", padx=5, pady=2
         )
-        ttk.Label(global_rules_frame, text="Use Trailing Stop:").grid(row=4, column=0, sticky="w", padx=5, pady=2)
+        trailing_label = ttk.Label(global_rules_frame, text="Trail the Stop:")
+        trailing_label.grid(row=4, column=0, sticky="w", padx=5, pady=2)
         self.paper_enable_exchange_trailing_var = tk.BooleanVar(value=False)
         self.paper_exchange_trailing_check = ttk.Checkbutton(
             global_rules_frame,
@@ -295,7 +362,8 @@ class TradingBotDashboard:
             command=self._update_paper_exchange_sl_mode_label,
         )
         self.paper_exchange_trailing_check.grid(row=4, column=1, sticky="w", padx=5, pady=2)
-        ttk.Label(global_rules_frame, text="Exchange SL %:").grid(row=5, column=0, sticky="w", padx=5, pady=2)
+        paper_sl_pct_label = ttk.Label(global_rules_frame, text="Stop Distance (%):")
+        paper_sl_pct_label.grid(row=5, column=0, sticky="w", padx=5, pady=2)
         self.paper_exchange_sl_pct_var = tk.StringVar(value="2.0")
         self.paper_exchange_sl_pct_entry = ttk.Entry(
             global_rules_frame, textvariable=self.paper_exchange_sl_pct_var, width=14
@@ -309,7 +377,8 @@ class TradingBotDashboard:
             foreground="gray",
         )
         self.paper_exchange_sl_mode_label.grid(row=6, column=0, columnspan=2, sticky="w", padx=5, pady=2)
-        ttk.Label(global_rules_frame, text="Use ATR Stop+TP:").grid(row=7, column=0, sticky="w", padx=5, pady=2)
+        atr_mode_label = ttk.Label(global_rules_frame, text="Use ATR Stop + Take Profit:")
+        atr_mode_label.grid(row=7, column=0, sticky="w", padx=5, pady=2)
         self.paper_enable_atr_exit_var = tk.BooleanVar(value=False)
         self.paper_enable_atr_exit_check = ttk.Checkbutton(
             global_rules_frame,
@@ -317,24 +386,48 @@ class TradingBotDashboard:
             command=self._toggle_paper_atr_controls,
         )
         self.paper_enable_atr_exit_check.grid(row=7, column=1, sticky="w", padx=5, pady=2)
-        ttk.Label(global_rules_frame, text="ATR Period:").grid(row=8, column=0, sticky="w", padx=5, pady=2)
+        paper_atr_period_label = ttk.Label(global_rules_frame, text="ATR Period:")
+        paper_atr_period_label.grid(row=8, column=0, sticky="w", padx=5, pady=2)
         self.paper_atr_period_var = tk.StringVar(value="14")
         self.paper_atr_period_entry = ttk.Entry(global_rules_frame, textvariable=self.paper_atr_period_var, width=14)
         self.paper_atr_period_entry.grid(row=8, column=1, sticky="w", padx=5, pady=2)
-        ttk.Label(global_rules_frame, text="ATR SL Multiplier:").grid(row=9, column=0, sticky="w", padx=5, pady=2)
+        paper_atr_sl_label = ttk.Label(global_rules_frame, text="ATR Stop Multiplier:")
+        paper_atr_sl_label.grid(row=9, column=0, sticky="w", padx=5, pady=2)
         self.paper_atr_sl_mult_var = tk.StringVar(value="1.3")
         self.paper_atr_sl_mult_entry = ttk.Entry(global_rules_frame, textvariable=self.paper_atr_sl_mult_var, width=14)
         self.paper_atr_sl_mult_entry.grid(row=9, column=1, sticky="w", padx=5, pady=2)
-        ttk.Label(global_rules_frame, text="ATR TP Multiplier:").grid(row=10, column=0, sticky="w", padx=5, pady=2)
+        paper_atr_tp_label = ttk.Label(global_rules_frame, text="ATR Take Profit Multiplier:")
+        paper_atr_tp_label.grid(row=10, column=0, sticky="w", padx=5, pady=2)
         self.paper_atr_tp_mult_var = tk.StringVar(value="1.7")
         self.paper_atr_tp_mult_entry = ttk.Entry(global_rules_frame, textvariable=self.paper_atr_tp_mult_var, width=14)
         self.paper_atr_tp_mult_entry.grid(row=10, column=1, sticky="w", padx=5, pady=2)
+        self.paper_exit_help_label = ttk.Label(
+            global_rules_frame,
+            text="Choose one style: fixed/trailing stop, or ATR stop + ATR take profit.",
+            font=("Arial", 8),
+            foreground="gray",
+        )
+        self.paper_exit_help_label.grid(row=11, column=0, columnspan=2, sticky="w", padx=5, pady=(2, 4))
         self.paper_exchange_sl_pct_var.trace_add("write", lambda *_: self._update_paper_exchange_sl_mode_label())
         self.paper_atr_period_var.trace_add("write", lambda *_: self._update_paper_exchange_sl_mode_label())
         self.paper_atr_sl_mult_var.trace_add("write", lambda *_: self._update_paper_exchange_sl_mode_label())
         self.paper_atr_tp_mult_var.trace_add("write", lambda *_: self._update_paper_exchange_sl_mode_label())
         self._toggle_paper_atr_controls()
         self._toggle_paper_exchange_sl_controls()
+        self._add_tooltip(exchange_sl_label, "Turns on a normal percent-based stop. Use this for fixed or trailing stops.")
+        self._add_tooltip(paper_exchange_sl_check, "Enable a fixed stop or trailing stop using the percent below.")
+        self._add_tooltip(trailing_label, "If enabled, the stop follows price instead of staying fixed.")
+        self._add_tooltip(self.paper_exchange_trailing_check, "Trailing stop uses the same percent distance as the stop field below.")
+        self._add_tooltip(paper_sl_pct_label, "Percent distance for fixed stop or trailing stop. Example: 2 means 2%.")
+        self._add_tooltip(self.paper_exchange_sl_pct_entry, "Used only for fixed stop or trailing stop.")
+        self._add_tooltip(atr_mode_label, "Uses ATR to place a volatility-based stop and take-profit.")
+        self._add_tooltip(self.paper_enable_atr_exit_check, "ATR mode overrides the fixed/trailing stop settings above.")
+        self._add_tooltip(paper_atr_period_label, "How many candles ATR uses. 14 is a common default.")
+        self._add_tooltip(self.paper_atr_period_entry, "Higher values are smoother. Lower values react faster.")
+        self._add_tooltip(paper_atr_sl_label, "Stop distance in ATR units. Example: 1.3 means 1.3 x ATR.")
+        self._add_tooltip(self.paper_atr_sl_mult_entry, "Lower = tighter stop. Higher = wider stop.")
+        self._add_tooltip(paper_atr_tp_label, "Profit target in ATR units. Example: 1.7 means 1.7 x ATR.")
+        self._add_tooltip(self.paper_atr_tp_mult_entry, "Higher = farther take-profit target.")
         
         # Start button (changed to OPEN like backtesting)
         button_frame = ttk.Frame(paper_frame)
@@ -556,7 +649,7 @@ class TradingBotDashboard:
         self._update_paper_exchange_sl_mode_label()
 
     def _update_paper_exchange_sl_mode_label(self):
-        """Show a clear exchange stop mode summary."""
+        """Show a clear stop/exit summary."""
         use_atr = bool(self.paper_enable_atr_exit_var.get()) if hasattr(self, "paper_enable_atr_exit_var") else False
         enabled = bool(self.paper_enable_exchange_sl_var.get())
         trailing = bool(self.paper_enable_exchange_trailing_var.get()) and enabled
@@ -579,16 +672,16 @@ class TradingBotDashboard:
             atr_tp = 0.0
 
         if use_atr:
-            text = f"ATR stop loss x{atr_sl:.2f}, take profit x{atr_tp:.2f} (period {atr_period})"
+            text = f"ATR exit active: stop {atr_sl:.2f} x ATR, target {atr_tp:.2f} x ATR, ATR period {atr_period}"
             color = "purple"
         elif not enabled:
-            text = "No stop loss"
+            text = "No protective exit configured"
             color = "gray"
         elif trailing:
-            text = f"Trailing stop loss {pct_text}"
+            text = f"Trailing stop active: {pct_text} distance"
             color = "green"
         else:
-            text = f"Stop loss {pct_text}"
+            text = f"Fixed stop active: {pct_text} distance"
             color = "blue"
 
         self.paper_exchange_sl_mode_var.set(text)

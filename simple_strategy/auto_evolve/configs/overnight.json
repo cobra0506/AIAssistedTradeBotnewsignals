@@ -10,8 +10,14 @@
   "population_size": 16,
   "generations": 12,
   "elite_count": 4,
-  "inner_opt_trials": 3,
+  "inner_opt_trials": 2,
   "top_k": 10,
+  "fast_search_symbol_count": 2,
+  "shortlist_symbol_count": 6,
+  "shortlist_top_k": 10,
+  "shortlist_inner_opt_top_k": 3,
+  "shortlist_enable_inner_optimization": true,
+  "shortlist_inner_opt_trials": 6,
   "min_trades": 12,
   "validation_min_trades": 6,
   "min_train_return_pct": -2.0,
@@ -27,6 +33,6 @@
   "stress_fee_multiplier": 1.5,
   "stress_slippage_multiplier": 1.5,
   "output_dir": "simple_strategy/auto_evolve/runs",
-  "enable_inner_optimization": true,
+  "enable_inner_optimization": false,
   "save_strategy_files": true
 }

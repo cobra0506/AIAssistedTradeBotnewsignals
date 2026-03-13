@@ -51,9 +51,12 @@ def _canonical_candidate(candidate: Dict[str, Any], search_space: Optional[Dict[
 
     canonical: Dict[str, Any] = {
         "active_signals": active_signals,
+        "active_filters": sorted(list(dict.fromkeys(candidate.get("active_filters", [])))),
         "signal_combination": combination,
         "indicator_params": {},
         "signal_params": {},
+        "filter_params": {},
+        "risk_exit": candidate.get("risk_exit", {}),
     }
 
     if search_space:
@@ -65,6 +68,9 @@ def _canonical_candidate(candidate: Dict[str, Any], search_space: Optional[Dict[
 
     for signal_id in active_signals:
         canonical["signal_params"][signal_id] = candidate.get("signal_params", {}).get(signal_id, {})
+
+    for filter_id in canonical["active_filters"]:
+        canonical["filter_params"][filter_id] = candidate.get("filter_params", {}).get(filter_id, {})
 
     return canonical
 
@@ -256,20 +262,42 @@ def export_strategy_files(
     top_results: List[Dict[str, Any]],
     symbols: List[str],
     timeframes: List[str],
-) -> None:
+    publish_top_n: int = 0,
+) -> List[str]:
     out_dir = run_dir / "strategies"
     out_dir.mkdir(parents=True, exist_ok=True)
+    project_root = Path(__file__).resolve().parents[2]
+    publish_dir = project_root / "simple_strategy" / "strategies"
+    publish_dir.mkdir(parents=True, exist_ok=True)
+    publish_top_n = max(0, int(publish_top_n))
+    published_files: List[str] = []
 
     for rank, row in enumerate(top_results, start=1):
         candidate = row["candidate"]
+        run_strategy_name = f"Strategy_AE_Top_{rank:02d}"
         module_text = render_strategy_module(
-            strategy_name=f"Strategy_AE_Top_{rank:02d}",
+            strategy_name=run_strategy_name,
             candidate=candidate,
             candidate_builder=candidate_builder,
             symbols=symbols,
             timeframes=timeframes,
         )
-        (out_dir / f"Strategy_AE_Top_{rank:02d}.py").write_text(module_text, encoding="utf-8")
+        (out_dir / f"{run_strategy_name}.py").write_text(module_text, encoding="utf-8")
+
+        if rank <= publish_top_n:
+            publish_strategy_name = f"Strategy_AE_Published_{run_dir.name.replace('run_', '')}_{rank:02d}"
+            publish_module_text = render_strategy_module(
+                strategy_name=publish_strategy_name,
+                candidate=candidate,
+                candidate_builder=candidate_builder,
+                symbols=symbols,
+                timeframes=timeframes,
+            )
+            publish_path = publish_dir / f"{publish_strategy_name}.py"
+            publish_path.write_text(publish_module_text, encoding="utf-8")
+            published_files.append(str(publish_path))
+
+    return published_files
 
 
 def render_strategy_module(
@@ -284,9 +312,17 @@ def render_strategy_module(
 
     indicator_funcs = sorted({search_space["indicators"][iid]["function"] for iid in required})
     signal_funcs = sorted({search_space["signals"][sid]["function"] for sid in candidate.get("active_signals", [])})
+    filter_funcs = sorted(
+        {
+            search_space["filters"][fid]["function"]
+            for fid in candidate.get("active_filters", [])
+            if fid in search_space.get("filters", {})
+        }
+    )
 
     indicator_import = ", ".join(indicator_funcs) if indicator_funcs else ""
     signal_import = ", ".join(signal_funcs) if signal_funcs else ""
+    filter_import = ", ".join(filter_funcs) if filter_funcs else ""
 
     lines: List[str] = []
     lines.append(f'"""Generated strategy: {strategy_name}"""')
@@ -295,8 +331,11 @@ def render_strategy_module(
         lines.append(f"from simple_strategy.strategies.indicators_library import {indicator_import}")
     if signal_import:
         lines.append(f"from simple_strategy.strategies.signals_library import {signal_import}")
+    if filter_import:
+        lines.append(f"from simple_strategy.strategies.builder_presets import {filter_import}")
     lines.append("")
     lines.append(f"STRATEGY_PARAMETERS = {{}}")
+    lines.append(f"AUTO_EVOLVE_RISK_SETTINGS = {candidate.get('risk_exit', {})!r}")
     lines.append("")
     lines.append("def create_strategy(symbols=None, timeframes=None, **params):")
     lines.append(f"    symbols = symbols or {symbols!r}")
@@ -317,6 +356,15 @@ def render_strategy_module(
         kwargs.update(candidate["signal_params"].get(signal_id, {}))
         args = ", ".join([f"{k}={v!r}" for k, v in kwargs.items()])
         lines.append(f"    builder.add_signal_rule('{signal_id}', {func_name}, {args})")
+
+    for filter_id in candidate.get("active_filters", []):
+        fdef = search_space.get("filters", {}).get(filter_id, {})
+        func_name = fdef.get("function")
+        if not func_name:
+            continue
+        kwargs = candidate.get("filter_params", {}).get(filter_id, {})
+        args = ", ".join([f"{k}={v!r}" for k, v in kwargs.items()])
+        lines.append(f"    builder.add_filter_rule('{filter_id}', {func_name}, {args})")
 
     combination = candidate.get("signal_combination", "majority_vote")
     lines.append(f"    builder.set_signal_combination('{combination}')")

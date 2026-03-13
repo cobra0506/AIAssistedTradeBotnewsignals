@@ -530,14 +530,12 @@ class DataCollectionGUI:
                     ws.intervals = list(self.gui_config.TIMEFRAMES)
                     ws.config.TIMEFRAMES = list(self.gui_config.TIMEFRAMES)
 
-                    if ws.connection or getattr(ws, "connections", None):
+                    if getattr(ws, "connections", None):
                         if hasattr(ws, "reconfigure_subscriptions"):
                             await ws.reconfigure_subscriptions(
                                 symbols=list(symbols),
                                 intervals=list(self.gui_config.TIMEFRAMES),
                             )
-                        else:
-                            await ws._subscribe_to_symbols_in_batches(ws.connection)
                         total_pairs = len(ws.symbols) * len(ws.intervals)
                         self.log_message(
                             f"🌐 WebSocket subscriptions refreshed to {total_pairs} symbol/timeframe pairs"

@@ -16,6 +16,41 @@ sys.path.insert(0, current_dir)
 from strategies.strategy_registry import StrategyRegistry
 from simple_strategy.trading.parameter_manager import ParameterManager
 
+class ToolTip:
+    """Small hover tooltip for Tk widgets."""
+
+    def __init__(self, widget, text):
+        self.widget = widget
+        self.text = text
+        self.tip_window = None
+        widget.bind("<Enter>", self._show)
+        widget.bind("<Leave>", self._hide)
+
+    def _show(self, _event=None):
+        if self.tip_window or not self.text:
+            return
+        x = self.widget.winfo_rootx() + 18
+        y = self.widget.winfo_rooty() + self.widget.winfo_height() + 4
+        self.tip_window = tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+        label = tk.Label(
+            tw,
+            text=self.text,
+            justify="left",
+            background="#fff8dc",
+            relief="solid",
+            borderwidth=1,
+            font=("Arial", 8),
+            wraplength=260,
+        )
+        label.pack(ipadx=6, ipady=3)
+
+    def _hide(self, _event=None):
+        if self.tip_window:
+            self.tip_window.destroy()
+            self.tip_window = None
+
 class SimpleStrategyGUI:
     def __init__(self, root):
         self.root = root
@@ -37,8 +72,39 @@ class SimpleStrategyGUI:
         self.current_strategy = None
         self.current_strategy_source_name = None
         self.param_widgets = {}
+        self.risk_exit_mode_options = {
+            "No extra exit": "none",
+            "Fixed stop (%)": "fixed",
+            "Trailing stop (%)": "trailing",
+            "ATR stop + ATR target": "atr",
+        }
         
         self.create_widgets()
+
+    def _add_tooltip(self, widget, text):
+        ToolTip(widget, text)
+
+    def _resolve_risk_exit_mode(self):
+        selected = str(self.risk_exit_mode_var.get()).strip()
+        return self.risk_exit_mode_options.get(selected, selected.lower())
+
+    def _update_risk_exit_controls(self, *_args):
+        mode = self._resolve_risk_exit_mode()
+        pct_state = "normal" if mode in {"fixed", "trailing"} else "disabled"
+        atr_state = "normal" if mode == "atr" else "disabled"
+        self.risk_sl_pct_entry.config(state=pct_state)
+        self.risk_atr_period_entry.config(state=atr_state)
+        self.risk_atr_sl_mult_entry.config(state=atr_state)
+        self.risk_atr_tp_mult_entry.config(state=atr_state)
+        if mode == "none":
+            text = "No extra exit: positions close only on strategy rules or normal backtest handling."
+        elif mode == "fixed":
+            text = "Fixed stop: use the Stop Distance (%) field."
+        elif mode == "trailing":
+            text = "Trailing stop: use the Stop Distance (%) field as the trail distance."
+        else:
+            text = "ATR exit: use ATR period, ATR stop multiplier, and ATR target multiplier."
+        self.risk_exit_help_var.set(text)
 
     def _sanitize_strategy_params(self, parameters_def, raw_params):
         """Validate and coerce params using strategy metadata."""
@@ -789,40 +855,73 @@ class SimpleStrategyGUI:
         self.min_24h_notional_var = tk.StringVar(value="50000000")
         ttk.Entry(trading_frame, textvariable=self.min_24h_notional_var, width=15).grid(row=5, column=1, padx=5, pady=2)
 
-        ttk.Label(trading_frame, text="Risk Exit Mode:").grid(row=6, column=0, sticky="w", padx=5, pady=2)
-        self.risk_exit_mode_var = tk.StringVar(value="none")
+        risk_mode_label = ttk.Label(trading_frame, text="Extra Exit Style:")
+        risk_mode_label.grid(row=6, column=0, sticky="w", padx=5, pady=2)
+        self.risk_exit_mode_var = tk.StringVar(value="No extra exit")
         self.risk_exit_mode_combo = ttk.Combobox(
             trading_frame,
             textvariable=self.risk_exit_mode_var,
-            values=["none", "fixed", "trailing", "atr"],
-            width=12,
+            values=list(self.risk_exit_mode_options.keys()),
+            width=22,
             state="readonly",
         )
         self.risk_exit_mode_combo.grid(row=6, column=1, sticky="w", padx=5, pady=2)
 
-        ttk.Label(trading_frame, text="Fixed/Trailing SL (%):").grid(row=7, column=0, sticky="w", padx=5, pady=2)
+        risk_sl_label = ttk.Label(trading_frame, text="Stop Distance (%):")
+        risk_sl_label.grid(row=7, column=0, sticky="w", padx=5, pady=2)
         self.risk_sl_pct_var = tk.StringVar(value="2.0")
         self.risk_sl_pct_entry = ttk.Entry(trading_frame, textvariable=self.risk_sl_pct_var, width=15)
         self.risk_sl_pct_entry.grid(row=7, column=1, padx=5, pady=2)
 
-        ttk.Label(trading_frame, text="ATR Period:").grid(row=8, column=0, sticky="w", padx=5, pady=2)
+        risk_atr_period_label = ttk.Label(trading_frame, text="ATR Period:")
+        risk_atr_period_label.grid(row=8, column=0, sticky="w", padx=5, pady=2)
         self.risk_atr_period_var = tk.StringVar(value="14")
         self.risk_atr_period_entry = ttk.Entry(trading_frame, textvariable=self.risk_atr_period_var, width=15)
         self.risk_atr_period_entry.grid(row=8, column=1, padx=5, pady=2)
 
-        ttk.Label(trading_frame, text="ATR SL Multiplier:").grid(row=9, column=0, sticky="w", padx=5, pady=2)
+        risk_atr_sl_label = ttk.Label(trading_frame, text="ATR Stop Multiplier:")
+        risk_atr_sl_label.grid(row=9, column=0, sticky="w", padx=5, pady=2)
         self.risk_atr_sl_mult_var = tk.StringVar(value="1.3")
         self.risk_atr_sl_mult_entry = ttk.Entry(trading_frame, textvariable=self.risk_atr_sl_mult_var, width=15)
         self.risk_atr_sl_mult_entry.grid(row=9, column=1, padx=5, pady=2)
 
-        ttk.Label(trading_frame, text="ATR TP Multiplier:").grid(row=10, column=0, sticky="w", padx=5, pady=2)
+        risk_atr_tp_label = ttk.Label(trading_frame, text="ATR Target Multiplier:")
+        risk_atr_tp_label.grid(row=10, column=0, sticky="w", padx=5, pady=2)
         self.risk_atr_tp_mult_var = tk.StringVar(value="1.7")
         self.risk_atr_tp_mult_entry = ttk.Entry(trading_frame, textvariable=self.risk_atr_tp_mult_var, width=15)
         self.risk_atr_tp_mult_entry.grid(row=10, column=1, padx=5, pady=2)
+        self.risk_exit_help_var = tk.StringVar(value="")
+        self.risk_exit_help_label = ttk.Label(
+            trading_frame,
+            textvariable=self.risk_exit_help_var,
+            font=("Arial", 8),
+            foreground="gray",
+        )
+        self.risk_exit_help_label.grid(row=11, column=0, columnspan=2, sticky="w", padx=5, pady=(2, 4))
+        self.risk_exit_mode_combo.bind("<<ComboboxSelected>>", self._update_risk_exit_controls)
+        self._update_risk_exit_controls()
+        self._add_tooltip(risk_mode_label, "Choose how the backtest closes positions besides strategy close signals.")
+        self._add_tooltip(self.risk_exit_mode_combo, "No extra exit, fixed stop, trailing stop, or ATR stop plus ATR target.")
+        self._add_tooltip(risk_sl_label, "Used only for fixed stop or trailing stop. Example: 2 means 2%.")
+        self._add_tooltip(self.risk_sl_pct_entry, "Ignored when ATR exit is selected.")
+        self._add_tooltip(risk_atr_period_label, "How many candles ATR uses. 14 is a common default.")
+        self._add_tooltip(self.risk_atr_period_entry, "Only used in ATR exit mode.")
+        self._add_tooltip(risk_atr_sl_label, "Stop distance in ATR units. Example: 1.3 means 1.3 x ATR.")
+        self._add_tooltip(self.risk_atr_sl_mult_entry, "Only used in ATR exit mode.")
+        self._add_tooltip(risk_atr_tp_label, "Profit target in ATR units. Example: 1.7 means 1.7 x ATR.")
+        self._add_tooltip(self.risk_atr_tp_mult_entry, "Only used in ATR exit mode.")
 
         # Run Backtest Button
         self.run_btn = ttk.Button(config_frame, text="🚀 Run Backtest", command=self.run_backtest)
         self.run_btn.grid(row=4, column=0, columnspan=2, pady=10)
+
+        # One-click preset for bull-regime testing
+        self.bull_preset_btn = ttk.Button(
+            config_frame,
+            text="Apply Bull Regime Test Preset",
+            command=self.apply_bull_regime_test_preset,
+        )
+        self.bull_preset_btn.grid(row=6, column=0, columnspan=2, pady=5)
         
         # === ADDED: Progress Bar and Percentage ===
         self.progress_frame = ttk.LabelFrame(backtest_frame, text="Backtest Progress", padding=10)
@@ -868,6 +967,87 @@ class SimpleStrategyGUI:
         directory = filedialog.askdirectory()
         if directory:
             self.data_dir_var.set(directory)
+
+    def _set_param_widget_value(self, param_name, value):
+        """Safely set a strategy parameter widget by name."""
+        widget = self.param_widgets.get(param_name)
+        if widget is None:
+            return False
+
+        try:
+            if isinstance(widget, tk.BooleanVar):
+                if isinstance(value, str):
+                    widget.set(value.strip().lower() in {"1", "true", "yes", "on"})
+                else:
+                    widget.set(bool(value))
+            elif isinstance(widget, tk.IntVar):
+                widget.set(int(float(value)))
+            elif isinstance(widget, tk.DoubleVar):
+                widget.set(float(value))
+            elif isinstance(widget, tk.StringVar):
+                widget.set(str(value))
+            elif isinstance(widget, ttk.Entry):
+                widget.delete(0, tk.END)
+                widget.insert(0, str(value))
+            elif hasattr(widget, "set"):
+                widget.set(value)
+            elif hasattr(widget, "delete") and hasattr(widget, "insert"):
+                widget.delete(0, tk.END)
+                widget.insert(0, str(value))
+            else:
+                return False
+        except Exception:
+            return False
+
+        return True
+
+    def apply_bull_regime_test_preset(self):
+        """Apply recommended bull-regime test settings for quick backtests."""
+        # Backtester-level settings
+        self.max_positions_var.set("50")
+        self.risk_per_trade_var.set("5.0")
+        self.timeframes_var.set("1m")
+        self.risk_exit_mode_var.set("ATR stop + ATR target")
+        self.risk_atr_period_var.set("14")
+        self.risk_atr_sl_mult_var.set("2.0")
+        self.risk_atr_tp_mult_var.set("3.0")
+        self._update_risk_exit_controls()
+
+        # Strategy-specific settings (only if selected strategy exposes them)
+        strategy_updates = {
+            "entry_timeframe": "1m",
+            "use_15m_trend_filter": False,
+            "force_close_bad_longs": False,
+            "use_atr_volatility_filter": True,
+            "atr_volatility_top_pct": 0.3,
+            "atr_volatility_period": 14,
+        }
+
+        missing = []
+        for param_name, param_value in strategy_updates.items():
+            if not self._set_param_widget_value(param_name, param_value):
+                missing.append(param_name)
+
+        if missing:
+            self.status_var.set(
+                "Preset applied (partial). Use a compatible strategy to apply all strategy params."
+            )
+            messagebox.showinfo(
+                "Preset Applied (Partial)",
+                "Backtest risk settings were applied.\n\n"
+                "These strategy parameters were not found in the current strategy:\n"
+                + "\n".join(f"- {name}" for name in missing)
+                + "\n\nSelect Strategy_FAST_20260221_090208_01 and apply again.",
+            )
+        else:
+            self.status_var.set("Bull regime test preset applied.")
+            messagebox.showinfo(
+                "Preset Applied",
+                "Bull regime test preset loaded.\n\n"
+                "Next:\n"
+                "1) Click 'Create Strategy'\n"
+                "2) Click 'Run Backtest'",
+            )
     
     def create_strategy(self):
         """Create and configure the selected strategy with current parameters"""
@@ -927,7 +1107,7 @@ class SimpleStrategyGUI:
                     for param_name, param_value in current_params.items():
                         setattr(self.current_strategy, param_name, param_value)
                     
-                    # Also set as a params dictionary for compatibility
+                    # Also set as a params dictionary for downstream callers
                     self.current_strategy.params = current_params
                     
                     print(f"🔧 GUI DEBUG: Set strategy parameters: {current_params}")
@@ -1136,7 +1316,7 @@ class SimpleStrategyGUI:
             max_positions = int(self.max_positions_var.get())
             risk_per_trade = float(self.risk_per_trade_var.get()) / 100.0
             min_24h_notional_usdt = float(self.min_24h_notional_var.get())
-            risk_exit_mode = str(self.risk_exit_mode_var.get()).strip().lower()
+            risk_exit_mode = self._resolve_risk_exit_mode()
             risk_sl_pct = float(self.risk_sl_pct_var.get()) / 100.0
             risk_atr_period = int(float(self.risk_atr_period_var.get()))
             risk_atr_sl_mult = float(self.risk_atr_sl_mult_var.get())
@@ -1145,7 +1325,7 @@ class SimpleStrategyGUI:
             messagebox.showerror("Error", "Invalid trading settings!")
             return
         if risk_exit_mode not in {'none', 'fixed', 'trailing', 'atr'}:
-            messagebox.showerror("Error", "Risk Exit Mode must be one of: none, fixed, trailing, atr")
+            messagebox.showerror("Error", "Extra Exit Style must be one of: none, fixed, trailing, atr")
             return
         if risk_exit_mode in {'fixed', 'trailing'} and risk_sl_pct <= 0:
             messagebox.showerror("Error", "Fixed/Trailing SL % must be greater than 0.")
@@ -1177,12 +1357,19 @@ class SimpleStrategyGUI:
         start_date = self.start_date_var.get()
         end_date = self.end_date_var.get()
         
-        # === Define the Progress Callback ===
+        # === Define thread-safe Progress Callback ===
+        def _apply_progress_on_ui_thread(percent):
+            try:
+                value = max(0.0, min(100.0, float(percent)))
+            except Exception:
+                value = 0.0
+            self.progress_var.set(value)
+            self.progress_percent_var.set(f"{value:.1f}%")
+            self.root.update_idletasks()
+
         def update_progress(percent):
-            # Update GUI variables (Thread-safe in Python for simple variables)
-            self.progress_var.set(percent)
-            self.progress_percent_var.set(f"{percent:.1f}%")
-            self.root.update_idletasks() # Force immediate redraw
+            # Backtest runs in worker thread; update Tk widgets on UI thread.
+            self.root.after(0, lambda p=percent: _apply_progress_on_ui_thread(p))
             
         # === Define the Backtest Task (to run in thread) ===
         def backtest_task():
@@ -1223,6 +1410,7 @@ class SimpleStrategyGUI:
                 # Check data files
                 self.results_text.insert(tk.END, "🔍 Checking data files...\n")
                 self.root.update()
+                update_progress(0.5)
                 
                 for symbol in symbols:
                     for timeframe in timeframes:
@@ -1235,6 +1423,7 @@ class SimpleStrategyGUI:
                 
                 self.results_text.insert(tk.END, "\n⏳ Running backtest...\n")
                 self.root.update()
+                update_progress(1.0)
                 
                 # Create backtester
                 backtester = BacktesterEngine(
@@ -1272,6 +1461,7 @@ class SimpleStrategyGUI:
                     timeframes=timeframes,
                     progress_callback=update_progress # <--- LINKING THE PROGRESS BAR
                 )
+                update_progress(100.0)
                 
                 # Display results
                 self.results_text.insert(tk.END, "\n" + "="*50 + "\n")

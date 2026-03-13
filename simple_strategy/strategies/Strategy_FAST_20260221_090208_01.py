@@ -110,6 +110,14 @@ def _resolve_timeframe_key(mapping, preferred):
     return None
 
 
+def _format_top_rank(rank_pct):
+    try:
+        numeric = float(rank_pct)
+    except (TypeError, ValueError):
+        return ""
+    return f"Top {numeric:.1f}%"
+
+
 def _calculate_atr_pct(df, period):
     if df is None or df.empty:
         return None
@@ -180,6 +188,9 @@ def _apply_15m_trend_filter(
     entry_timeframe,
     trend_timeframe,
     force_close_bad_longs,
+    strategy=None,
+    decision_log=None,
+    state=None,
 ):
     if not isinstance(signals, dict):
         return signals
@@ -203,6 +214,16 @@ def _apply_15m_trend_filter(
         ema_fast_15 = ema(trend_df["close"], period=26)
         ema_slow_15 = ema(trend_df["close"], period=56)
         trend_is_up = float(ema_fast_15.iloc[-1]) >= float(ema_slow_15.iloc[-1])
+        if isinstance(state, dict):
+            state[symbol] = {
+                "trend_is_up": bool(trend_is_up),
+                "timeframe": str(trend_key),
+                "reason": (
+                    f"{trend_timeframe} uptrend (EMA26 >= EMA56)"
+                    if trend_is_up
+                    else f"{trend_timeframe} downtrend (EMA26 < EMA56)"
+                ),
+            }
 
         current_signal = tf_signals.get(entry_key, "HOLD")
         if trend_is_up:
@@ -210,8 +231,30 @@ def _apply_15m_trend_filter(
 
         if current_signal == "OPEN_LONG":
             tf_signals[entry_key] = "HOLD"
+            if isinstance(decision_log, list):
+                decision_log.append(
+                    {
+                        "symbol": symbol,
+                        "timeframe": str(entry_key),
+                        "filter": "trend",
+                        "pre_signal": "OPEN_LONG",
+                        "post_signal": "HOLD",
+                        "reason": f"Blocked: {trend_timeframe} downtrend (EMA26 < EMA56)",
+                    }
+                )
         elif current_signal == "HOLD" and force_close_bad_longs:
             tf_signals[entry_key] = "CLOSE_LONG"
+            if isinstance(decision_log, list):
+                decision_log.append(
+                    {
+                        "symbol": symbol,
+                        "timeframe": str(entry_key),
+                        "filter": "trend",
+                        "pre_signal": "HOLD",
+                        "post_signal": "CLOSE_LONG",
+                        "reason": f"Force close long: {trend_timeframe} downtrend",
+                    }
+                )
 
     return signals
 
@@ -223,6 +266,9 @@ def _apply_atr_volatility_filter(
     atr_period,
     top_fraction,
     volatility_cache,
+    strategy=None,
+    decision_log=None,
+    state=None,
 ):
     if not isinstance(signals, dict) or not isinstance(data, dict):
         return signals
@@ -277,6 +323,30 @@ def _apply_atr_volatility_filter(
     cutoff_index = max(0, len(sorted_vols) - keep_count)
     cutoff = sorted_vols[cutoff_index]
 
+    ranked_symbols = sorted(
+        (
+            symbol,
+            float(item.get("atr_pct")),
+        )
+        for symbol, item in volatility_cache.items()
+        if isinstance(item, dict) and item.get("atr_pct") is not None
+    )
+    ranked_symbols.sort(key=lambda item: item[1], reverse=True)
+    total_ranked = len(ranked_symbols)
+    rank_map = {}
+    if total_ranked > 0:
+        for idx, (symbol, value) in enumerate(ranked_symbols):
+            rank_pct = ((idx + 1) / float(total_ranked)) * 100.0
+            rank_map[symbol] = {
+                "rank_pct": rank_pct,
+                "atr_pct": value,
+                "label": _format_top_rank(rank_pct),
+                "allowed_top_pct": float(top_fraction) * 100.0,
+            }
+    if isinstance(state, dict):
+        state.clear()
+        state.update(rank_map)
+
     for symbol, tf_signals in signals.items():
         if not isinstance(tf_signals, dict):
             continue
@@ -293,6 +363,22 @@ def _apply_atr_volatility_filter(
         current_signal = tf_signals.get(entry_key, "HOLD")
         if current_signal in ("OPEN_LONG", "OPEN_SHORT"):
             tf_signals[entry_key] = "HOLD"
+            if isinstance(decision_log, list):
+                rank_info = rank_map.get(symbol, {})
+                rank_label = rank_info.get("label", "unranked")
+                decision_log.append(
+                    {
+                        "symbol": symbol,
+                        "timeframe": str(entry_key),
+                        "filter": "atr_volatility",
+                        "pre_signal": current_signal,
+                        "post_signal": "HOLD",
+                        "reason": (
+                            f"Blocked: ATR volatility filter ({rank_label}), "
+                            f"outside top {top_fraction * 100.0:.1f}%"
+                        ),
+                    }
+                )
 
     return signals
 
@@ -347,6 +433,26 @@ def create_strategy(symbols=None, timeframes=None, **params):
         upper_band="upper_band",
         lower_band="lower_band",
     )
+    volatility_cache = {}
+    if use_15m_trend_filter:
+        builder.add_filter_rule(
+            "trend_filter_15m",
+            _apply_15m_trend_filter,
+            state_attr="latest_trend_state",
+            entry_timeframe=entry_timeframe,
+            trend_timeframe=trend_timeframe,
+            force_close_bad_longs=force_close_bad_longs,
+        )
+    if use_atr_volatility_filter:
+        builder.add_filter_rule(
+            "atr_volatility_filter",
+            _apply_atr_volatility_filter,
+            state_attr="latest_volatility_rank",
+            entry_timeframe=entry_timeframe,
+            atr_period=atr_volatility_period,
+            top_fraction=atr_volatility_top_pct,
+            volatility_cache=volatility_cache,
+        )
     builder.set_signal_combination("and_signals")
     builder.set_strategy_info("Strategy_FAST_20260221_090208_01", "1.0.0")
     strategy = builder.build()
@@ -366,35 +472,9 @@ def create_strategy(symbols=None, timeframes=None, **params):
     strategy.params["atr_volatility_top_pct"] = atr_volatility_top_pct
     strategy.params["atr_volatility_period"] = atr_volatility_period
 
-    if (use_15m_trend_filter or use_atr_volatility_filter) and hasattr(strategy, "generate_signals"):
-        original_generate_signals = strategy.generate_signals
-        volatility_cache = {}
-
-        def _generate_signals_with_trend_filter(data):
-            base_signals = original_generate_signals(data)
-            filtered_signals = base_signals
-            if use_15m_trend_filter:
-                filtered_signals = _apply_15m_trend_filter(
-                    filtered_signals,
-                    data,
-                    entry_timeframe=entry_timeframe,
-                    trend_timeframe=trend_timeframe,
-                    force_close_bad_longs=force_close_bad_longs,
-                )
-            if use_atr_volatility_filter:
-                filtered_signals = _apply_atr_volatility_filter(
-                    filtered_signals,
-                    data,
-                    entry_timeframe=entry_timeframe,
-                    atr_period=atr_volatility_period,
-                    top_fraction=atr_volatility_top_pct,
-                    volatility_cache=volatility_cache,
-                )
-            return filtered_signals
-
-        strategy.generate_signals = _generate_signals_with_trend_filter
-        strategy.atr_volatility_cache = volatility_cache
+    strategy.atr_volatility_cache = volatility_cache
+    if use_15m_trend_filter or use_atr_volatility_filter:
         # Backtester should use strategy.generate_signals for this strategy,
-        # otherwise builder internal shortcuts bypass cross-timeframe filters.
+        # otherwise builder internal shortcuts bypass filter blocks.
         strategy.force_strategy_generate_signals = True
     return strategy

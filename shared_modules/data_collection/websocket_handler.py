@@ -23,9 +23,7 @@ class WebSocketHandler:
         self.callbacks = [] # Callback functions for processing candles
         self.debug_callbacks = [] # Debug callbacks for all messages
         self.lock = asyncio.Lock() # For thread-safe operations
-        self.connection = None # Store the connection object
         self.connections = []  # Store all active shard connections
-        self.listener_task = None  # Backward-compat single task alias
         self.listener_tasks = []  # Active listener tasks (one per shard)
         self.subscription_count = 0 # Track successful subscriptions
         self.failed_subscriptions = [] # Track failed subscriptions
@@ -82,8 +80,6 @@ class WebSocketHandler:
 
             self.connections = []
             self.listener_tasks = []
-            self.listener_task = None
-            self.connection = None
 
             for shard_index, symbols_in_shard in enumerate(shard_symbols, start=1):
                 connection = await self._connect_with_ssl()
@@ -92,8 +88,6 @@ class WebSocketHandler:
                     continue
 
                 self.connections.append(connection)
-                if self.connection is None:
-                    self.connection = connection  # backward compatibility for legacy callers
 
                 task = asyncio.create_task(
                     self._listen_for_messages(
@@ -104,8 +98,6 @@ class WebSocketHandler:
                     )
                 )
                 self.listener_tasks.append(task)
-                if self.listener_task is None:
-                    self.listener_task = task
 
             if not self.connections:
                 raise RuntimeError("No WebSocket shard connections could be established")
@@ -398,7 +390,7 @@ class WebSocketHandler:
                 try:
                     new_connection = await attempt()
                     if new_connection:
-                        self.connection = new_connection
+                        self.connections = [new_connection]
                         logger.info("[RECOVERY] Connection re-established successfully")
                         return True
                 except Exception as e:
@@ -590,10 +582,7 @@ class WebSocketHandler:
         self.running = False
 
         # Cancel all listener tasks
-        tasks = []
-        if self.listener_task:
-            tasks.append(self.listener_task)
-        tasks.extend(self.listener_tasks)
+        tasks = list(self.listener_tasks)
         seen_ids = set()
         unique_tasks = []
         for task in tasks:
@@ -616,10 +605,7 @@ class WebSocketHandler:
                 logger.error(f"[FAIL] Listener task shutdown error: {e}")
 
         # Close all connections
-        connections = []
-        if self.connection:
-            connections.append(self.connection)
-        connections.extend(self.connections)
+        connections = list(self.connections)
         seen_conn_ids = set()
         unique_connections = []
         for conn in connections:
@@ -637,9 +623,7 @@ class WebSocketHandler:
             except Exception as e:
                 logger.error(f"[FAIL] Connection close error: {e}")
 
-        self.connection = None
         self.connections = []
-        self.listener_task = None
         self.listener_tasks = []
         self._active_symbols_snapshot = []
         self._active_intervals_snapshot = []

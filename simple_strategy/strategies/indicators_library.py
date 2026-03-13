@@ -21,12 +21,11 @@ logger = logging.getLogger(__name__)
 
 def trend_signal(ema_fast, ema_slow):
     """
-    Simple trend filter: BUY only if fast EMA > slow EMA,
-    SELL only if fast EMA < slow EMA, else HOLD.
+    Simple trend filter using the project signal schema.
     """
     signals = pd.Series('HOLD', index=ema_fast.index)
-    signals[ema_fast > ema_slow] = 'BUY'
-    signals[ema_fast < ema_slow] = 'SELL'
+    signals[ema_fast > ema_slow] = 'OPEN_LONG'
+    signals[ema_fast < ema_slow] = 'OPEN_SHORT'
     return signals
 
 def sma(data: pd.Series, period: int = 20) -> pd.Series:
@@ -685,7 +684,7 @@ if __name__ == "__main__":
 '''Signals Library Functions Summary 
 Trend Indicators 
 
-     trend_signal - Generates BUY/SELL/HOLD signals based on EMA crossover
+     trend_signal - Generates OPEN_LONG/OPEN_SHORT/HOLD signals based on EMA crossover
      sma - Calculates Simple Moving Average
      ema - Calculates Exponential Moving Average
      wma - Calculates Weighted Moving Average

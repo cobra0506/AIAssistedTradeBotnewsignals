@@ -50,6 +50,7 @@ class StrategyBuilder:
         # Strategy components
         self.indicators = {}  # {name: {'function': func, 'params': params, 'result': None}}
         self.signal_rules = {}  # {name: {'function': func, 'indicator_refs': [], 'params': {}}}
+        self.filter_rules = {}  # {name: {'function': func, 'params': {}, 'state_attr': None}}
         self.risk_rules = {}  # {rule_type: params}
         self.signal_combination = 'majority_vote'
         self.signal_weights = {}
@@ -131,14 +132,16 @@ class StrategyBuilder:
             # Known indicator parameters for common signal functions
             indicator_param_names = {
                 'overbought_oversold': ['indicator'],
+                'overbought_oversold_crossover': ['indicator'],
                 'ma_crossover': ['fast_ma', 'slow_ma'],
                 'macd_signals': ['macd_line', 'signal_line'],
-                'bollinger_bands_signals': ['price', 'upper_band', 'lower_band'],
+                'bollinger_bands_signals': ['price', 'upper_band', 'lower_band', 'middle_band'],
                 'stochastic_signals': ['k_percent', 'd_percent'],
                 'divergence_signals': ['price', 'indicator'],
                 'breakout_signals': ['price', 'resistance', 'support'],
                  'trend_strength_signals': ['price', 'short_ma', 'long_ma'],
-                'rsi_mean_reversion_with_trend': ['rsi', 'ema_fast', 'ema_slow']
+                'rsi_mean_reversion_with_trend': ['rsi', 'ema_fast', 'ema_slow'],
+                'price_direction_signal': ['price'],
             }
 
             
@@ -206,6 +209,35 @@ class StrategyBuilder:
             return self
         except Exception as e:
             logger.error(f"❌ Error adding risk rule {rule_type}: {e}")
+            return self
+
+    def add_filter_rule(
+        self,
+        name: str,
+        filter_func: Callable,
+        *,
+        state_attr: Optional[str] = None,
+        **params,
+    ) -> 'StrategyBuilder':
+        """
+        Add a reusable post-signal filter block.
+
+        A filter block receives the current signal map and full timeframe data,
+        then can keep, block, or change signals before the final position rules run.
+        """
+        try:
+            if name in self.filter_rules:
+                logger.warning(f"⚠️ Filter rule '{name}' already exists, overwriting")
+
+            self.filter_rules[name] = {
+                'function': filter_func,
+                'params': params,
+                'state_attr': state_attr,
+            }
+            logger.debug(f"🧩 Added filter rule: {name} with params: {params}")
+            return self
+        except Exception as e:
+            logger.error(f"❌ Error adding filter rule {name}: {e}")
             return self
     
     def set_signal_combination(self, method: str, **kwargs) -> 'StrategyBuilder':
@@ -350,8 +382,54 @@ class StrategyBuilder:
         # Add price data as special indicators
         data['price'] = data['close']
         calculated_indicators['price'] = data['close']
-        
-        return calculated_indicators                                                                            
+
+        return calculated_indicators
+
+    def _apply_filter_rules(
+        self,
+        signals: Dict[str, Dict[str, str]],
+        data: Dict[str, Dict[str, pd.DataFrame]],
+        strategy: Optional[StrategyBase] = None,
+    ) -> Dict[str, Dict[str, str]]:
+        """
+        Apply optional post-signal filters after the base builder signal map exists.
+        """
+        if not self.filter_rules:
+            if strategy is not None:
+                strategy.last_filter_decisions = []
+                strategy.latest_filter_states = {}
+            return signals
+
+        working_signals = signals
+        decision_log: List[Dict[str, Any]] = []
+        latest_filter_states: Dict[str, Dict[str, Any]] = {}
+
+        for rule_name, rule_data in self.filter_rules.items():
+            rule_state: Dict[str, Any] = {}
+            try:
+                filtered_signals = rule_data['function'](
+                    working_signals,
+                    data,
+                    strategy=strategy,
+                    decision_log=decision_log,
+                    state=rule_state,
+                    **rule_data['params'],
+                )
+                if filtered_signals is not None:
+                    working_signals = filtered_signals
+            except Exception as e:
+                logger.error(f"❌ Error applying filter rule {rule_name}: {e}")
+
+            latest_filter_states[rule_name] = dict(rule_state)
+            state_attr = rule_data.get('state_attr')
+            if strategy is not None and state_attr:
+                setattr(strategy, state_attr, dict(rule_state))
+
+        if strategy is not None:
+            strategy.last_filter_decisions = list(decision_log)
+            strategy.latest_filter_states = latest_filter_states
+
+        return working_signals
     
     def set_strategy_info(self, name: str, version: str = "1.0.0") -> 'StrategyBuilder':
         """
@@ -626,6 +704,27 @@ class StrategyBuilder:
                     self._custom_version = "1.0.0"
 
                     self._position_state = {}
+                    self.last_filter_decisions = []
+                    self.latest_filter_states = {}
+                    for rule_name, rule_data in self.builder.filter_rules.items():
+                        state_attr = rule_data.get('state_attr')
+                        if state_attr:
+                            setattr(self, state_attr, {})
+
+                @staticmethod
+                def _normalize_signal_value(value):
+                    if isinstance(value, str):
+                        return value
+                    if isinstance(value, (int, float)):
+                        if value >= 2:
+                            return 'OPEN_LONG'
+                        elif value == 1:
+                            return 'CLOSE_SHORT'
+                        elif value == -1:
+                            return 'CLOSE_LONG'
+                        elif value <= -2:
+                            return 'OPEN_SHORT'
+                    return 'HOLD'
 
                 def _apply_position_rules(self, position_key, signal):
                     """
@@ -664,11 +763,11 @@ class StrategyBuilder:
                     """
                     Generate trading signals - implements StrategyBase interface
                     """
-                    result = {}
-                    
+                    raw_result = {}
+
                     for symbol in data:
-                        result[symbol] = {}
-                        
+                        raw_result[symbol] = {}
+
                         for timeframe in data[symbol]:
                             df = data[symbol][timeframe].copy()  # Work with a copy
                             
@@ -682,39 +781,23 @@ class StrategyBuilder:
                             # Take the last signal (most recent) or implement your own logic
                             if len(signals_series) > 0:
                                 last_signal = signals_series.iloc[-1]  # Get most recent signal
-                                position_key = (symbol, timeframe)
-                                if isinstance(last_signal, str):
-                                    result[symbol][timeframe] = self._apply_position_rules(
-                                        position_key, last_signal
-                                    )
-                                elif isinstance(last_signal, (int, float)):
-                                    # Convert numeric signals to strings
-                                    if last_signal >= 2:
-                                        result[symbol][timeframe] = self._apply_position_rules(
-                                            position_key, 'OPEN_LONG'
-                                        )
-                                    elif last_signal == 1:
-                                        result[symbol][timeframe] = self._apply_position_rules(
-                                            position_key, 'CLOSE_SHORT'
-                                        )
-                                    elif last_signal == -1:
-                                        result[symbol][timeframe] = self._apply_position_rules(
-                                            position_key, 'CLOSE_LONG'
-                                        )
-                                    elif last_signal <= -2:
-                                        result[symbol][timeframe] = self._apply_position_rules(
-                                            position_key, 'OPEN_SHORT'
-                                        )
-                                    else:
-                                        result[symbol][timeframe] = 'HOLD'
-
-
-                                else:
-                                    result[symbol][timeframe] = 'HOLD'
+                                raw_result[symbol][timeframe] = self._normalize_signal_value(last_signal)
                             else:
-                                result[symbol][timeframe] = 'HOLD'
-                    
-                    return result
+                                raw_result[symbol][timeframe] = 'HOLD'
+
+                    filtered_result = self.builder._apply_filter_rules(raw_result, data, strategy=self)
+                    final_result = {}
+                    for symbol in data:
+                        final_result[symbol] = {}
+                        for timeframe in data[symbol]:
+                            position_key = (symbol, timeframe)
+                            signal_value = filtered_result.get(symbol, {}).get(timeframe, 'HOLD')
+                            final_result[symbol][timeframe] = self._apply_position_rules(
+                                position_key,
+                                self._normalize_signal_value(signal_value),
+                            )
+
+                    return final_result
                 
                 def get_strategy_info(self) -> Dict:
                     """Get strategy information"""
@@ -725,6 +808,7 @@ class StrategyBuilder:
                         'timeframes': self.timeframes,
                         'indicators': list(self.builder.indicators.keys()),
                         'signal_rules': list(self.builder.signal_rules.keys()),
+                        'filter_rules': list(self.builder.filter_rules.keys()),
                         'risk_rules': self.builder.risk_rules,
                         'signal_combination': self.builder.signal_combination,
                         'signal_weights': self.builder.signal_weights

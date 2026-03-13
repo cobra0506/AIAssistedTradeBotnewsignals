@@ -36,6 +36,12 @@ class CandidateEvaluator:
             "slippage_pct": 0.00030,
             "max_positions": 3,
             "risk_per_trade": 0.02,
+            "position_size_pct": 0.05,
+            "risk_exit_mode": "none",
+            "risk_sl_pct": 0.02,
+            "risk_atr_period": 14,
+            "risk_atr_sl_multiplier": 1.3,
+            "risk_atr_tp_multiplier": 1.7,
         }
 
     def evaluate_candidate(
@@ -62,6 +68,7 @@ class CandidateEvaluator:
 
             train_metrics = self._run_segment(
                 strategy,
+                candidate=candidate_working,
                 start=self.run_config["train_start"],
                 end=self.run_config["train_end"],
                 data_override=data_override,
@@ -77,6 +84,7 @@ class CandidateEvaluator:
 
             validation_metrics = self._run_segment(
                 strategy,
+                candidate=candidate_working,
                 start=self.run_config["validation_start"],
                 end=self.run_config["validation_end"],
                 data_override=data_override,
@@ -104,6 +112,7 @@ class CandidateEvaluator:
 
             stress_metrics = self._run_segment(
                 strategy,
+                candidate=candidate_working,
                 start=self.run_config["train_start"],
                 end=self.run_config["train_end"],
                 data_override=data_override,
@@ -164,12 +173,15 @@ class CandidateEvaluator:
         strategy,
         start: str,
         end: str,
+        candidate: Optional[Dict[str, Any]] = None,
         data_override: Optional[Dict[str, Dict[str, pd.DataFrame]]] = None,
         fee_multiplier: float = 1.0,
         slippage_multiplier: float = 1.0,
     ) -> Dict[str, float]:
         self._ensure_utf8_stdout()
         config = deepcopy(self.base_backtest_config)
+        if candidate:
+            config.update(self._candidate_backtest_config(candidate))
         config["fee_pct"] *= fee_multiplier
         config["spread_pct"] *= slippage_multiplier
         config["slippage_pct"] *= slippage_multiplier
@@ -190,6 +202,20 @@ class CandidateEvaluator:
             initial_balance=float(self.run_config.get("initial_balance", 10000.0)),
         )
         return metrics_or_zero(result)
+
+    @staticmethod
+    def _candidate_backtest_config(candidate: Dict[str, Any]) -> Dict[str, Any]:
+        risk = deepcopy(candidate.get("risk_exit", {}))
+        if not risk:
+            return {}
+        return {
+            "risk_exit_mode": str(risk.get("risk_exit_mode", "none")).lower(),
+            "risk_sl_pct": float(risk.get("risk_sl_pct", 0.02)),
+            "risk_atr_period": int(risk.get("risk_atr_period", 14)),
+            "risk_atr_sl_multiplier": float(risk.get("risk_atr_sl_multiplier", 1.3)),
+            "risk_atr_tp_multiplier": float(risk.get("risk_atr_tp_multiplier", 1.7)),
+            "position_size_pct": float(risk.get("position_size_pct", 0.05)),
+        }
 
     @staticmethod
     def _ensure_utf8_stdout() -> None:
@@ -269,6 +295,14 @@ class CandidateEvaluator:
                 for name, pdef in param_defs.items():
                     tuned["signal_params"][signal_id][name] = self._suggest(trial, f"s__{signal_id}__{name}", pdef)
 
+            for filter_id in candidate.get("active_filters", []):
+                param_defs = search_space.get("filters", {}).get(filter_id, {}).get("params", {})
+                for name, pdef in param_defs.items():
+                    tuned["filter_params"][filter_id][name] = self._suggest(trial, f"f__{filter_id}__{name}", pdef)
+
+            for name, pdef in search_space.get("risk_exit", {}).items():
+                tuned["risk_exit"][name] = self._suggest(trial, f"r__{name}", pdef)
+
             self.builder._normalize_candidate(tuned)
 
             strategy = self.builder.build_strategy(
@@ -279,6 +313,7 @@ class CandidateEvaluator:
             )
             metrics = self._run_segment(
                 strategy,
+                candidate=tuned,
                 start=self.run_config["train_start"],
                 end=self.run_config["train_end"],
                 data_override=data_override,
@@ -304,11 +339,20 @@ class CandidateEvaluator:
 
         best = deepcopy(candidate)
         for key, value in study.best_trial.params.items():
-            section, block, name = key.split("__", maxsplit=2)
+            parts = key.split("__", maxsplit=2)
+            section = parts[0]
             if section == "i":
+                _, block, name = parts
                 best["indicator_params"][block][name] = value
             elif section == "s":
+                _, block, name = parts
                 best["signal_params"][block][name] = value
+            elif section == "f":
+                _, block, name = parts
+                best["filter_params"][block][name] = value
+            elif section == "r":
+                _, name = parts
+                best["risk_exit"][name] = value
 
         self.builder._normalize_candidate(best)
         return best
@@ -326,6 +370,7 @@ class CandidateEvaluator:
         )
         return self._run_segment(
             strategy,
+            candidate=candidate,
             start=self.run_config["final_start"],
             end=self.run_config["final_end"],
             data_override=data_override,

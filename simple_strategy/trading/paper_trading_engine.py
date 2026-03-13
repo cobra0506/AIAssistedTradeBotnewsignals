@@ -13,8 +13,16 @@ import time
 from urllib.parse import urlencode
 from datetime import datetime
 from datetime import timedelta
+from simple_strategy.trading.detailed_trade_logger import DetailedTradeLogger
 from simple_strategy.shared.data_feeder import DataFeeder
 from simple_strategy.shared.global_rules import resolve_global_rules
+from simple_strategy.shared.risk_exit_engine import (
+    build_position_risk_config as build_shared_position_risk_config,
+    calculate_atr_from_dataframe,
+    evaluate_risk_exit,
+    normalize_risk_exit_mode,
+    normalize_risk_pct,
+)
 from shared_modules.data_collection.config import DataCollectionConfig
 MIN_CANDLES = DataCollectionConfig.MIN_CANDLES  # Get from config
 # Removed unused imports to avoid circular dependencies
@@ -47,6 +55,7 @@ class PaperTradingEngine:
         risk_atr_period=14,
         risk_atr_sl_multiplier=1.3,
         risk_atr_tp_multiplier=1.7,
+        position_size_pct=0.05,
         strategy_params_override=None,
     ):
         self.api_account = api_account
@@ -88,18 +97,13 @@ class PaperTradingEngine:
             sl_pct = sl_pct / 100.0
         self.exchange_stop_loss_pct = max(0.0001, min(0.99, sl_pct))
         self.risk_exit_mode = self._normalize_risk_exit_mode(risk_exit_mode)
-        if self.risk_exit_mode == 'legacy':
-            self.risk_exit_mode = (
-                'trailing' if self.enable_exchange_stop_loss and self.enable_exchange_trailing_stop
-                else 'fixed' if self.enable_exchange_stop_loss
-                else 'none'
-            )
         self.risk_stop_loss_pct = self._normalize_risk_pct(
             risk_sl_pct if risk_sl_pct is not None else self.exchange_stop_loss_pct
         )
         self.risk_atr_period = max(2, int(self._safe_float(risk_atr_period, 14)))
         self.risk_atr_sl_multiplier = max(0.1, self._safe_float(risk_atr_sl_multiplier, 1.3))
         self.risk_atr_tp_multiplier = max(0.1, self._safe_float(risk_atr_tp_multiplier, 1.7))
+        self.position_size_pct = max(0.0001, min(1.0, self._safe_float(position_size_pct, 0.05)))
         if self.risk_exit_mode == 'none':
             self.enable_exchange_stop_loss = False
             self.enable_exchange_trailing_stop = False
@@ -137,7 +141,7 @@ class PaperTradingEngine:
         self.force_close_all_requested = False
         self.strategy = None
         
-        # Data feeder for strategy integration (keep for compatibility)
+        # Data feeder for strategy integration
         # Get the absolute path to the project's root 'data' folder
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         data_dir = os.path.join(project_root, 'data')
@@ -159,6 +163,21 @@ class PaperTradingEngine:
         self.log_callback = log_callback
         self.status_callback = status_callback
         self.performance_callback = performance_callback
+
+        # Detailed trade session logging (buffered pandas writer)
+        self._signal_context_by_symbol = {}
+        self._api_balance_log_cache = {
+            'timestamp': 0.0,
+            'available_balance': None,
+            'margin_balance': None,
+        }
+        self._last_hold_snapshot_ts = 0.0
+        self._last_hourly_snapshot_ts = 0.0
+        self._hold_snapshot_interval_sec = 15 * 60
+        self._hourly_snapshot_interval_sec = 60 * 60
+        logs_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'logs')
+        self.detailed_trade_logger = DetailedTradeLogger(log_dir=logs_dir)
+        self.log_message(f"[LOG] Detailed trade log: {self.detailed_trade_logger.csv_path}")
         
         # NEW: Use shared data access instead of creating new data collection
         # Initialize this later to avoid recursion issues
@@ -584,10 +603,10 @@ class PaperTradingEngine:
 
         for symbol in positions_to_close:
             if self.current_positions[symbol]['type'] == 'LONG':
-                self.execute_close_long(symbol)
+                self.execute_close_long(symbol, exit_reason='position_timeout')
                 self.global_rule_stats['emergency_closes'] = int(self.global_rule_stats.get('emergency_closes', 0)) + 1
             elif self.current_positions[symbol]['type'] == 'SHORT':
-                self.execute_close_short(symbol)
+                self.execute_close_short(symbol, exit_reason='position_timeout')
                 self.global_rule_stats['emergency_closes'] = int(self.global_rule_stats.get('emergency_closes', 0)) + 1
 
     def _check_global_emergency_exits(self):
@@ -624,9 +643,9 @@ class PaperTradingEngine:
                 f"price={current_price:.6f}, stop={stop_price:.6f}"
             )
             if position_type == 'LONG':
-                self.execute_close_long(symbol)
+                self.execute_close_long(symbol, exit_reason='global_emergency_stop_loss')
             else:
-                self.execute_close_short(symbol)
+                self.execute_close_short(symbol, exit_reason='global_emergency_stop_loss')
             self.global_rule_stats['emergency_closes'] = int(self.global_rule_stats.get('emergency_closes', 0)) + 1
 
     def update_working_capital_after_trade(self, trade_pnl):
@@ -646,115 +665,357 @@ class PaperTradingEngine:
         if self.log_callback:
             self.log_callback(text)
 
-    def _normalize_risk_exit_mode(self, mode):
-        text = str(mode).strip().lower()
-        if not text:
-            return 'legacy'
-        if text in {'none', 'fixed', 'trailing', 'atr'}:
+    def _direction_from_signal(self, signal):
+        text = str(signal or "").upper()
+        if "LONG" in text:
+            return "Long"
+        if "SHORT" in text:
+            return "Short"
+        return ""
+
+    def _build_entry_reason(self, signal):
+        signal_text = str(signal or "").upper()
+        if signal_text == "OPEN_LONG":
+            return "and_signals: RSI trend long + BB lower-band trigger"
+        if signal_text == "OPEN_SHORT":
+            return "and_signals: RSI trend short + BB upper-band trigger"
+        return ""
+
+    def _build_exit_reason(self, signal):
+        signal_text = str(signal or "").upper()
+        if signal_text == "CLOSE_LONG":
+            return "Strategy CLOSE_LONG signal"
+        if signal_text == "CLOSE_SHORT":
+            return "Strategy CLOSE_SHORT signal"
+        return ""
+
+    def _format_exit_reason(self, reason, fallback_signal=""):
+        text = str(reason or "").strip()
+        reason_map = {
+            "atr_stop_loss_hit": "ATR SL hit",
+            "atr_take_profit_hit": "ATR TP hit",
+            "fixed_stop_loss_hit": "Fixed SL hit",
+            "trailing_stop_hit": "Trailing stop hit",
+            "position_timeout": "Position timeout",
+            "global_emergency_stop_loss": "Global emergency stop loss",
+            "global_emergency_stop": "Global emergency stop",
+            "force_close_all": "Force close all requested",
+            "strategy_signal_close_long": "Strategy CLOSE_LONG signal",
+            "strategy_signal_close_short": "Strategy CLOSE_SHORT signal",
+        }
+        if text in reason_map:
+            return reason_map[text]
+        if text:
             return text
-        return 'legacy'
+        return self._build_exit_reason(fallback_signal)
+
+    def _format_balance_pair(self, before_value, after_value):
+        try:
+            before = float(before_value)
+            after = float(after_value)
+            return f"{before:.2f} -> {after:.2f}"
+        except Exception:
+            return ""
+
+    def _format_volatility_rank_label(self, rank_payload):
+        if not isinstance(rank_payload, dict):
+            return ""
+        label = str(rank_payload.get("label", "")).strip()
+        if label:
+            return label
+        try:
+            rank_pct = float(rank_payload.get("rank_pct"))
+            return f"Top {rank_pct:.1f}%"
+        except Exception:
+            return ""
+
+    def _extract_strategy_filter_context(self, symbol):
+        trend_info = "No trend filter metadata"
+        vol_rank_label = ""
+        if self.strategy is None:
+            return trend_info, vol_rank_label
+
+        trend_state = getattr(self.strategy, "latest_trend_state", {})
+        if isinstance(trend_state, dict):
+            state = trend_state.get(symbol) or trend_state.get(str(symbol).upper())
+            if isinstance(state, dict):
+                reason = str(state.get("reason", "")).strip()
+                if reason:
+                    trend_info = f"Yes - {reason}"
+                elif "trend_is_up" in state:
+                    trend_info = "Yes - uptrend" if bool(state.get("trend_is_up")) else "Yes - downtrend"
+
+        vol_state = getattr(self.strategy, "latest_volatility_rank", {})
+        if isinstance(vol_state, dict):
+            rank_payload = vol_state.get(symbol) or vol_state.get(str(symbol).upper())
+            vol_rank_label = self._format_volatility_rank_label(rank_payload)
+
+        return trend_info, vol_rank_label
+
+    def _get_api_balance_for_logging(self, force_refresh=False, max_age_seconds=20):
+        now_ts = time.time()
+        cached_ts = float(self._api_balance_log_cache.get("timestamp", 0.0) or 0.0)
+        if (
+            not force_refresh
+            and (now_ts - cached_ts) <= float(max_age_seconds)
+            and self._api_balance_log_cache.get("available_balance") is not None
+        ):
+            return {
+                "available_balance": self._api_balance_log_cache.get("available_balance"),
+                "margin_balance": self._api_balance_log_cache.get("margin_balance"),
+            }
+
+        try:
+            balance_info = self.get_real_balance()
+            available_balance = balance_info.get("available_balance")
+            margin_balance = balance_info.get("margin_balance")
+            self._api_balance_log_cache = {
+                "timestamp": now_ts,
+                "available_balance": available_balance,
+                "margin_balance": margin_balance,
+            }
+            return {
+                "available_balance": available_balance,
+                "margin_balance": margin_balance,
+            }
+        except Exception as exc:
+            self._log_detailed_trade_event(
+                event="LOGGER_ERROR",
+                symbol="",
+                notes=f"Failed to fetch API balances for log: {exc}",
+            )
+            return {
+                "available_balance": None,
+                "margin_balance": None,
+            }
+
+    def _log_detailed_trade_event(
+        self,
+        event,
+        symbol="",
+        direction="",
+        qty="",
+        entry_price="",
+        exit_price="",
+        closed_pnl="",
+        entry_reason="",
+        exit_reason="",
+        atr_at_entry="",
+        sl_level="",
+        tp_level="",
+        trend_info="",
+        volatility_rank="",
+        sim_before="",
+        sim_after="",
+        api_available="",
+        api_margin="",
+        notes="",
+    ):
+        if not hasattr(self, "detailed_trade_logger") or self.detailed_trade_logger is None:
+            return
+
+        row = {
+            "Timestamp": datetime.now().isoformat(),
+            "Event": event,
+            "Symbol": symbol,
+            "Direction (Long/Short)": direction,
+            "Qty": qty,
+            "Entry Price": entry_price,
+            "Exit Price": exit_price,
+            "Closed P&L": closed_pnl,
+            "Entry Reason": entry_reason,
+            "Exit Reason": exit_reason,
+            "ATR Value at Entry": atr_at_entry,
+            "SL Level Set": sl_level,
+            "TP Level Set": tp_level,
+            "Trend Filter Applied (Yes/No + why)": trend_info,
+            "Volatility Rank (e.g., Top 15%)": volatility_rank,
+            "Simulated Balance Before/After": self._format_balance_pair(sim_before, sim_after),
+            "API AvailableBalance": api_available,
+            "API Margin": api_margin,
+            "Any Errors/Notes": notes,
+        }
+        self.detailed_trade_logger.log_event(row)
+
+    def _check_and_log_balance_discrepancy(self, symbol, event_name, sim_after, api_available, api_margin):
+        try:
+            sim_after_f = float(sim_after)
+            api_available_f = float(api_available)
+        except Exception:
+            return
+
+        expected_real = sim_after_f + float(self.balance_offset)
+        base = max(abs(expected_real), 1.0)
+        diff_pct = abs(api_available_f - expected_real) / base
+        if diff_pct <= 0.01:
+            return
+
+        note = (
+            f"WARNING balance drift {diff_pct * 100:.2f}% "
+            f"(api={api_available_f:.2f}, expected={expected_real:.2f}, event={event_name})"
+        )
+        self.log_message(f"[WARN] {note}")
+        self._log_detailed_trade_event(
+            event="BALANCE_WARNING",
+            symbol=symbol,
+            sim_before=sim_after_f,
+            sim_after=sim_after_f,
+            api_available=api_available_f,
+            api_margin=api_margin,
+            notes=note,
+        )
+
+    def _log_potential_entry(self, symbol, signal, blocked_reason="", current_price=None, notes=""):
+        direction = self._direction_from_signal(signal)
+        trend_info, vol_rank_label = self._extract_strategy_filter_context(symbol)
+        api_balances = self._get_api_balance_for_logging(force_refresh=False)
+        reason_text = str(blocked_reason or "").strip()
+        event_name = "ENTRY_BLOCKED" if reason_text else "ENTRY_CANDIDATE"
+        merged_notes = str(notes or "").strip()
+        if reason_text:
+            merged_notes = f"Blocked: {reason_text}" if not merged_notes else f"{merged_notes} | Blocked: {reason_text}"
+        self._log_detailed_trade_event(
+            event=event_name,
+            symbol=symbol,
+            direction=direction,
+            qty="",
+            entry_price=current_price if current_price is not None else "",
+            closed_pnl="",
+            entry_reason=self._build_entry_reason(signal),
+            trend_info=trend_info,
+            volatility_rank=vol_rank_label,
+            sim_before=self.simulated_balance,
+            sim_after=self.simulated_balance,
+            api_available=api_balances.get("available_balance"),
+            api_margin=api_balances.get("margin_balance"),
+            notes=merged_notes,
+        )
+
+    def _log_open_positions_snapshot(self, event_name, note_prefix):
+        if not self.current_positions:
+            return
+
+        api_balances = self._get_api_balance_for_logging(force_refresh=False)
+        for symbol, position in list(self.current_positions.items()):
+            current_price = self.get_current_price_from_api(symbol)
+            if current_price <= 0:
+                continue
+            entry_price = self._safe_float(position.get("entry_price", current_price), current_price)
+            qty = self._safe_float(position.get("quantity", 0.0), 0.0)
+            if qty <= 0:
+                continue
+            direction = str(position.get("type", "")).capitalize()
+            if direction.upper() == "LONG":
+                unrealized = (current_price - entry_price) * qty
+            else:
+                unrealized = (entry_price - current_price) * qty
+
+            trend_info = str(position.get("trend_filter_context", "")).strip()
+            if not trend_info:
+                trend_info, _ = self._extract_strategy_filter_context(symbol)
+            vol_rank = str(position.get("volatility_rank", "")).strip()
+            if not vol_rank:
+                _, vol_rank = self._extract_strategy_filter_context(symbol)
+
+            self._log_detailed_trade_event(
+                event=event_name,
+                symbol=symbol,
+                direction=direction,
+                qty=qty,
+                entry_price=entry_price,
+                exit_price=current_price,
+                closed_pnl=unrealized,
+                entry_reason=position.get("entry_reason", ""),
+                atr_at_entry=position.get("risk_atr_value", ""),
+                sl_level=position.get("risk_stop_price", ""),
+                tp_level=position.get("risk_take_profit_price", ""),
+                trend_info=trend_info,
+                volatility_rank=vol_rank,
+                sim_before=self.simulated_balance,
+                sim_after=self.simulated_balance,
+                api_available=api_balances.get("available_balance"),
+                api_margin=api_balances.get("margin_balance"),
+                notes=f"{note_prefix}: unrealized snapshot",
+            )
+
+    def _log_scheduled_snapshots_if_due(self):
+        now_ts = time.time()
+        if (now_ts - self._last_hold_snapshot_ts) >= self._hold_snapshot_interval_sec:
+            self._log_open_positions_snapshot("HOLD_15M", "15m")
+            self._last_hold_snapshot_ts = now_ts
+        if (now_ts - self._last_hourly_snapshot_ts) >= self._hourly_snapshot_interval_sec:
+            self._log_open_positions_snapshot("OPEN_POSITIONS_HOURLY", "hourly")
+            self._last_hourly_snapshot_ts = now_ts
+
+    def _log_strategy_filter_blocks(self, symbol, entry_timeframe, current_price):
+        if self.strategy is None:
+            return
+        decisions = getattr(self.strategy, "last_filter_decisions", [])
+        if not isinstance(decisions, list) or not decisions:
+            return
+
+        target_tf = self._normalize_timeframe(entry_timeframe)
+        for decision in decisions:
+            if not isinstance(decision, dict):
+                continue
+            if str(decision.get("symbol", "")).upper() != str(symbol).upper():
+                continue
+            decision_tf = self._normalize_timeframe(decision.get("timeframe", entry_timeframe))
+            if decision_tf != target_tf:
+                continue
+            pre_signal = str(decision.get("pre_signal", "")).upper()
+            post_signal = str(decision.get("post_signal", "")).upper()
+            if pre_signal not in ("OPEN_LONG", "OPEN_SHORT"):
+                continue
+            if post_signal != "HOLD":
+                continue
+            reason = str(decision.get("reason", "strategy_filter_block"))
+            self._log_potential_entry(
+                symbol=symbol,
+                signal=pre_signal,
+                blocked_reason=reason,
+                current_price=current_price,
+                notes=f"Filter={decision.get('filter', 'unknown')}",
+            )
+
+    def _normalize_risk_exit_mode(self, mode):
+        return normalize_risk_exit_mode(mode)
 
     def _normalize_risk_pct(self, value):
-        pct = self._safe_float(value, 0.02)
-        if pct > 1.0:
-            pct = pct / 100.0
-        return max(0.0001, min(0.99, pct))
+        return normalize_risk_pct(value, default=0.02)
 
     def _calculate_atr(self, historical_data, period):
-        try:
-            if historical_data is None or historical_data.empty:
-                return None
-            p = max(2, int(period))
-            if len(historical_data) < (p + 1):
-                return None
-
-            high = pd.to_numeric(historical_data['high'], errors='coerce')
-            low = pd.to_numeric(historical_data['low'], errors='coerce')
-            close = pd.to_numeric(historical_data['close'], errors='coerce')
-            prev_close = close.shift(1)
-            true_range = pd.concat(
-                [
-                    (high - low).abs(),
-                    (high - prev_close).abs(),
-                    (low - prev_close).abs(),
-                ],
-                axis=1,
-            ).max(axis=1)
-            atr_series = true_range.rolling(window=p, min_periods=p).mean()
-            atr_value = self._safe_float(atr_series.iloc[-1], 0.0)
-            if atr_value <= 0:
-                return None
-            return atr_value
-        except Exception:
-            return None
+        return calculate_atr_from_dataframe(historical_data, period)
 
     def _get_symbol_atr(self, symbol, timeframe, period):
         data = self.get_historical_data_for_symbol(symbol, timeframe)
         return self._calculate_atr(data, period)
 
     def _build_position_risk_config(self, symbol, position_type, entry_price):
-        position_side = str(position_type).upper()
-        mode = str(self.risk_exit_mode).lower()
-        config = {
-            'risk_exit_mode': mode,
-            'risk_sl_pct': float(self.risk_stop_loss_pct),
-            'risk_atr_period': int(self.risk_atr_period),
-            'risk_atr_sl_multiplier': float(self.risk_atr_sl_multiplier),
-            'risk_atr_tp_multiplier': float(self.risk_atr_tp_multiplier),
-        }
-
-        entry = self._safe_float(entry_price, 0.0)
-        if entry <= 0:
-            config['risk_exit_mode'] = 'none'
-            return config
-
-        if mode == 'none':
-            return config
-
-        if mode in {'fixed', 'trailing'}:
-            sl_pct = float(self.risk_stop_loss_pct)
-            if position_side == 'LONG':
-                config['risk_stop_price'] = entry * (1.0 - sl_pct)
-                if mode == 'trailing':
-                    config['risk_high_watermark'] = entry
-            else:
-                config['risk_stop_price'] = entry * (1.0 + sl_pct)
-                if mode == 'trailing':
-                    config['risk_low_watermark'] = entry
-            config['stop_loss_pct'] = sl_pct
-            return config
-
-        if mode == 'atr':
+        atr_value = None
+        if str(self.risk_exit_mode).lower() == 'atr':
             timeframe = self._resolve_entry_timeframe()
             atr_value = self._get_symbol_atr(symbol, timeframe, self.risk_atr_period)
-            if atr_value is None:
-                fallback_sl_pct = float(self.risk_stop_loss_pct)
-                config['risk_exit_mode'] = 'fixed'
-                if position_side == 'LONG':
-                    config['risk_stop_price'] = entry * (1.0 - fallback_sl_pct)
-                else:
-                    config['risk_stop_price'] = entry * (1.0 + fallback_sl_pct)
-                config['stop_loss_pct'] = fallback_sl_pct
-                self.log_message(
-                    f"[RISK] ATR unavailable for {symbol}; fallback to FIXED SL {fallback_sl_pct * 100:.2f}%"
-                )
-                return config
 
-            config['risk_atr_value'] = float(atr_value)
-            sl_dist = atr_value * float(self.risk_atr_sl_multiplier)
-            tp_dist = atr_value * float(self.risk_atr_tp_multiplier)
-            if position_side == 'LONG':
-                config['risk_stop_price'] = entry - sl_dist
-                config['risk_take_profit_price'] = entry + tp_dist
-            else:
-                config['risk_stop_price'] = entry + sl_dist
-                config['risk_take_profit_price'] = entry - tp_dist
+        config = build_shared_position_risk_config(
+            entry_price=entry_price,
+            position_type=position_type,
+            risk_exit_mode=self.risk_exit_mode,
+            risk_sl_pct=self.risk_stop_loss_pct,
+            risk_atr_period=self.risk_atr_period,
+            risk_atr_sl_multiplier=self.risk_atr_sl_multiplier,
+            risk_atr_tp_multiplier=self.risk_atr_tp_multiplier,
+            atr_value=atr_value,
+        )
 
-            stop_loss_pct = abs(entry - float(config['risk_stop_price'])) / max(entry, 1e-12)
-            config['stop_loss_pct'] = max(0.0001, stop_loss_pct)
-            return config
-
-        config['risk_exit_mode'] = 'none'
+        if (
+            str(self.risk_exit_mode).lower() == 'atr'
+            and config.get('risk_exit_mode') == 'fixed'
+        ):
+            fallback_sl_pct = float(config.get('risk_sl_pct', self.risk_stop_loss_pct))
+            self.log_message(
+                f"[RISK] ATR unavailable for {symbol}; fallback to FIXED SL {fallback_sl_pct * 100:.2f}%"
+            )
         return config
 
     def _check_configured_risk_exits(self):
@@ -763,7 +1024,7 @@ class PaperTradingEngine:
 
         positions_to_close = []
         for symbol, position in list(self.current_positions.items()):
-            mode = str(position.get('risk_exit_mode', self.risk_exit_mode)).lower()
+            mode = normalize_risk_exit_mode(position.get('risk_exit_mode', self.risk_exit_mode))
             if mode not in {'fixed', 'trailing', 'atr'}:
                 continue
 
@@ -771,55 +1032,28 @@ class PaperTradingEngine:
             if current_price <= 0:
                 continue
 
+            evaluation = evaluate_risk_exit(
+                position,
+                high=current_price,
+                low=current_price,
+                current_price=current_price,
+            )
+            if not evaluation:
+                continue
+
             position_type = str(position.get('type', '')).upper()
             if position_type not in {'LONG', 'SHORT'}:
                 continue
 
-            if mode == 'trailing':
-                sl_pct = self._normalize_risk_pct(position.get('risk_sl_pct', self.risk_stop_loss_pct))
-                if position_type == 'LONG':
-                    high_watermark = max(
-                        self._safe_float(position.get('risk_high_watermark', 0.0), 0.0),
-                        current_price,
-                    )
-                    position['risk_high_watermark'] = high_watermark
-                    stop_price = high_watermark * (1.0 - sl_pct)
-                else:
-                    low_watermark = min(
-                        self._safe_float(position.get('risk_low_watermark', current_price), current_price),
-                        current_price,
-                    )
-                    position['risk_low_watermark'] = low_watermark
-                    stop_price = low_watermark * (1.0 + sl_pct)
-                position['risk_stop_price'] = stop_price
-                if position_type == 'LONG' and current_price <= stop_price:
-                    positions_to_close.append((symbol, position_type, current_price, stop_price, 'trailing_stop_hit'))
-                if position_type == 'SHORT' and current_price >= stop_price:
-                    positions_to_close.append((symbol, position_type, current_price, stop_price, 'trailing_stop_hit'))
-                continue
-
-            stop_price = self._safe_float(position.get('risk_stop_price', 0.0), 0.0)
-            take_profit_price = self._safe_float(position.get('risk_take_profit_price', 0.0), 0.0)
-
-            if stop_price > 0:
-                if position_type == 'LONG' and current_price <= stop_price:
-                    reason = 'atr_stop_loss_hit' if mode == 'atr' else 'fixed_stop_loss_hit'
-                    positions_to_close.append((symbol, position_type, current_price, stop_price, reason))
-                    continue
-                if position_type == 'SHORT' and current_price >= stop_price:
-                    reason = 'atr_stop_loss_hit' if mode == 'atr' else 'fixed_stop_loss_hit'
-                    positions_to_close.append((symbol, position_type, current_price, stop_price, reason))
-                    continue
-
-            if mode == 'atr' and take_profit_price > 0:
-                if position_type == 'LONG' and current_price >= take_profit_price:
-                    positions_to_close.append(
-                        (symbol, position_type, current_price, take_profit_price, 'atr_take_profit_hit')
-                    )
-                if position_type == 'SHORT' and current_price <= take_profit_price:
-                    positions_to_close.append(
-                        (symbol, position_type, current_price, take_profit_price, 'atr_take_profit_hit')
-                    )
+            positions_to_close.append(
+                (
+                    symbol,
+                    position_type,
+                    current_price,
+                    float(evaluation.get('trigger_price', current_price) or current_price),
+                    str(evaluation.get('reason', 'risk_exit')),
+                )
+            )
 
         for symbol, position_type, current_price, trigger_price, reason in positions_to_close:
             self.log_message(
@@ -827,9 +1061,9 @@ class PaperTradingEngine:
                 f"price={current_price:.6f}, trigger={trigger_price:.6f}"
             )
             if position_type == 'LONG':
-                self.execute_close_long(symbol)
+                self.execute_close_long(symbol, exit_reason=reason)
             else:
-                self.execute_close_short(symbol)
+                self.execute_close_short(symbol, exit_reason=reason)
             self.global_rule_stats['emergency_closes'] = int(self.global_rule_stats.get('emergency_closes', 0)) + 1
 
     def _normalize_timeframe(self, timeframe):
@@ -948,7 +1182,7 @@ class PaperTradingEngine:
         if current_price <= 0:
             return 0.0
 
-        target = max(self.simulated_balance, 0.0) * 0.05
+        target = max(self.simulated_balance, 0.0) * self.position_size_pct
         rules = self.get_trading_rules(symbol)
         if rules:
             min_qty = float(rules.get('min_order_qty', 0.0))
@@ -1436,10 +1670,6 @@ class PaperTradingEngine:
             self.log_message(f"ÃƒÂ¢Ã‚ÂÃ…â€™ Connection test error: {e}")
             return False
     
-    def get_balance(self):
-        """Get current simulated balance (for compatibility)"""
-        return self.get_display_balance()
-
     def get_real_balance(self):
         """Get actual available and margin balances from Bybit"""
         try:
@@ -1599,6 +1829,13 @@ class PaperTradingEngine:
             can_open, block_reason = self._engine_risk_guard(symbol, 'OPEN_LONG', current_price=current_price)
             if not can_open:
                 self.log_message(f"[BLOCKED] Engine risk guard blocked OPEN_LONG for {symbol}: {block_reason}")
+                self._log_potential_entry(
+                    symbol=symbol,
+                    signal='OPEN_LONG',
+                    blocked_reason=block_reason,
+                    current_price=current_price,
+                    notes='Blocked inside execute_open_long',
+                )
                 self._record_shadow_event(symbol, 'OPEN_LONG', False, block_reason)
                 return None
             
@@ -1620,11 +1857,14 @@ class PaperTradingEngine:
                 self.log_message(f"ÃƒÂ¢Ã‚ÂÃ…â€™ Insufficient balance for {symbol}: Need ${min_position_value:.2f}, Have ${self.simulated_balance:.2f}")
                 return None
             
-            # Use 5% of simulated balance for position sizing
-            position_value = self.simulated_balance * 0.05
-            
+            # Keep default sizing aligned with the shared engine setting.
+            position_value = self.simulated_balance * self.position_size_pct
+
             # Add this logging
-            self.log_message(f"ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â DEBUG: Calculated position value (5% of simulated balance): ${position_value:.2f}")
+            self.log_message(
+                f"ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â DEBUG: Calculated position value "
+                f"({self.position_size_pct * 100:.2f}% of simulated balance): ${position_value:.2f}"
+            )
             
             # Ensure we meet minimum position requirements
             position_value = max(position_value, min_position_value)
@@ -1715,6 +1955,12 @@ class PaperTradingEngine:
             }
             risk_config = self._build_position_risk_config(symbol, 'LONG', current_price)
             self.current_positions[symbol].update(risk_config)
+            signal_context = self._signal_context_by_symbol.get(symbol, {})
+            self.current_positions[symbol]['entry_reason'] = signal_context.get(
+                'entry_reason', self._build_entry_reason('OPEN_LONG')
+            )
+            self.current_positions[symbol]['trend_filter_context'] = signal_context.get('trend_info', '')
+            self.current_positions[symbol]['volatility_rank'] = signal_context.get('volatility_rank', '')
             if self.enable_exchange_stop_loss:
                 sl_set = self._set_exchange_stop_loss(
                     symbol,
@@ -1739,6 +1985,32 @@ class PaperTradingEngine:
             
             # Update counters
             self.open_trades_count += 1
+            api_balances = self._get_api_balance_for_logging(force_refresh=True)
+            self._log_detailed_trade_event(
+                event='ENTRY_FILLED',
+                symbol=symbol,
+                direction='Long',
+                qty=final_quantity,
+                entry_price=current_price,
+                entry_reason=self.current_positions[symbol].get('entry_reason', ''),
+                atr_at_entry=self.current_positions[symbol].get('risk_atr_value', ''),
+                sl_level=self.current_positions[symbol].get('risk_stop_price', ''),
+                tp_level=self.current_positions[symbol].get('risk_take_profit_price', ''),
+                trend_info=self.current_positions[symbol].get('trend_filter_context', ''),
+                volatility_rank=self.current_positions[symbol].get('volatility_rank', ''),
+                sim_before=old_simulated_balance,
+                sim_after=self.simulated_balance,
+                api_available=api_balances.get('available_balance'),
+                api_margin=api_balances.get('margin_balance'),
+                notes='Entry executed',
+            )
+            self._check_and_log_balance_discrepancy(
+                symbol=symbol,
+                event_name='ENTRY_FILLED_LONG',
+                sim_after=self.simulated_balance,
+                api_available=api_balances.get('available_balance'),
+                api_margin=api_balances.get('margin_balance'),
+            )
             
             self.log_message(f"ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Buy order successful! Order ID: {result.get('orderId')}")
             return trade
@@ -1746,7 +2018,7 @@ class PaperTradingEngine:
         except Exception as e:
             self.log_message(f"ÃƒÂ¢Ã‚ÂÃ…â€™ Error executing buy order: {e}")
             return None
-    def execute_close_long(self, symbol, quantity=None):
+    def execute_close_long(self, symbol, quantity=None, exit_reason=None):
         """Execute a long position closing"""
         if symbol not in self.current_positions:
             self.log_message(f"ÃƒÂ¢Ã‚ÂÃ…â€™ No position found for {symbol}")
@@ -1793,6 +2065,8 @@ class PaperTradingEngine:
                 self.log_message(f"ÃƒÂ¢Ã‚ÂÃ…â€™ Sell order failed: {error}")
                 return None
             
+            position_meta = dict(self.current_positions[symbol])
+
             # Get current real balance BEFORE closing position
             old_real_balance = self.real_balance
             
@@ -1834,6 +2108,7 @@ class PaperTradingEngine:
             position_duration = (exit_time - entry_time).total_seconds() / 60  # Convert to minutes
             
             # Record the trade with P&L and position duration
+            resolved_exit_reason = self._format_exit_reason(exit_reason, fallback_signal='CLOSE_LONG')
             trade = {
                 'timestamp': datetime.now().isoformat(),
                 'type': 'CLOSE_LONG',
@@ -1847,7 +2122,8 @@ class PaperTradingEngine:
                 'position_duration': position_duration,
                 'position_value': position_value,
                 'original_cost': original_cost,
-                'margin_returned': margin_used
+                'margin_returned': margin_used,
+                'exit_reason': resolved_exit_reason,
             }
 
             self.log_trade_to_csv(trade)
@@ -1865,6 +2141,36 @@ class PaperTradingEngine:
             # Update counters
             self.open_trades_count -= 1
             self.closed_trades_count += 1
+
+            api_balances = self._get_api_balance_for_logging(force_refresh=True)
+            self._log_detailed_trade_event(
+                event='EXIT_FILLED',
+                symbol=symbol,
+                direction='Long',
+                qty=final_quantity,
+                entry_price=entry_price,
+                exit_price=current_price,
+                closed_pnl=trade_pnl,
+                entry_reason=position_meta.get('entry_reason', ''),
+                exit_reason=trade.get('exit_reason', ''),
+                atr_at_entry=position_meta.get('risk_atr_value', ''),
+                sl_level=position_meta.get('risk_stop_price', ''),
+                tp_level=position_meta.get('risk_take_profit_price', ''),
+                trend_info=position_meta.get('trend_filter_context', ''),
+                volatility_rank=position_meta.get('volatility_rank', ''),
+                sim_before=old_simulated_balance,
+                sim_after=self.simulated_balance,
+                api_available=api_balances.get('available_balance'),
+                api_margin=api_balances.get('margin_balance'),
+                notes=f"Position duration {position_duration:.2f}m",
+            )
+            self._check_and_log_balance_discrepancy(
+                symbol=symbol,
+                event_name='EXIT_FILLED_LONG',
+                sim_after=self.simulated_balance,
+                api_available=api_balances.get('available_balance'),
+                api_margin=api_balances.get('margin_balance'),
+            )
             
             self.log_message(f"ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â° Simulated balance after sell: ${self.simulated_balance:.2f} (P&L: ${trade_pnl:.2f}, margin returned: ${margin_used:.2f})")
             self.log_message(f"ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Sell order successful! Order ID: {result.get('orderId')}")
@@ -1891,6 +2197,13 @@ class PaperTradingEngine:
             can_open, block_reason = self._engine_risk_guard(symbol, 'OPEN_SHORT', current_price=current_price)
             if not can_open:
                 self.log_message(f"[BLOCKED] Engine risk guard blocked OPEN_SHORT for {symbol}: {block_reason}")
+                self._log_potential_entry(
+                    symbol=symbol,
+                    signal='OPEN_SHORT',
+                    blocked_reason=block_reason,
+                    current_price=current_price,
+                    notes='Blocked inside execute_open_short',
+                )
                 self._record_shadow_event(symbol, 'OPEN_SHORT', False, block_reason)
                 return None
             
@@ -1912,11 +2225,14 @@ class PaperTradingEngine:
                 self.log_message(f"ÃƒÂ¢Ã‚ÂÃ…â€™ Insufficient balance for {symbol}: Need ${min_position_value:.2f}, Have ${self.simulated_balance:.2f}")
                 return None
             
-            # Use 5% of simulated balance for position sizing
-            position_value = self.simulated_balance * 0.05
-            
+            # Keep default sizing aligned with the shared engine setting.
+            position_value = self.simulated_balance * self.position_size_pct
+
             # Add this logging
-            self.log_message(f"ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â DEBUG: Calculated position value (5% of simulated balance): ${position_value:.2f}")
+            self.log_message(
+                f"ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂÃ‚Â DEBUG: Calculated position value "
+                f"({self.position_size_pct * 100:.2f}% of simulated balance): ${position_value:.2f}"
+            )
             
             # Ensure we meet minimum position requirements
             position_value = max(position_value, min_position_value)
@@ -2007,6 +2323,12 @@ class PaperTradingEngine:
             }
             risk_config = self._build_position_risk_config(symbol, 'SHORT', current_price)
             self.current_positions[symbol].update(risk_config)
+            signal_context = self._signal_context_by_symbol.get(symbol, {})
+            self.current_positions[symbol]['entry_reason'] = signal_context.get(
+                'entry_reason', self._build_entry_reason('OPEN_SHORT')
+            )
+            self.current_positions[symbol]['trend_filter_context'] = signal_context.get('trend_info', '')
+            self.current_positions[symbol]['volatility_rank'] = signal_context.get('volatility_rank', '')
             if self.enable_exchange_stop_loss:
                 sl_set = self._set_exchange_stop_loss(
                     symbol,
@@ -2031,6 +2353,32 @@ class PaperTradingEngine:
             
             # Update counters
             self.open_trades_count += 1
+            api_balances = self._get_api_balance_for_logging(force_refresh=True)
+            self._log_detailed_trade_event(
+                event='ENTRY_FILLED',
+                symbol=symbol,
+                direction='Short',
+                qty=final_quantity,
+                entry_price=current_price,
+                entry_reason=self.current_positions[symbol].get('entry_reason', ''),
+                atr_at_entry=self.current_positions[symbol].get('risk_atr_value', ''),
+                sl_level=self.current_positions[symbol].get('risk_stop_price', ''),
+                tp_level=self.current_positions[symbol].get('risk_take_profit_price', ''),
+                trend_info=self.current_positions[symbol].get('trend_filter_context', ''),
+                volatility_rank=self.current_positions[symbol].get('volatility_rank', ''),
+                sim_before=old_simulated_balance,
+                sim_after=self.simulated_balance,
+                api_available=api_balances.get('available_balance'),
+                api_margin=api_balances.get('margin_balance'),
+                notes='Entry executed',
+            )
+            self._check_and_log_balance_discrepancy(
+                symbol=symbol,
+                event_name='ENTRY_FILLED_SHORT',
+                sim_after=self.simulated_balance,
+                api_available=api_balances.get('available_balance'),
+                api_margin=api_balances.get('margin_balance'),
+            )
             
             self.log_message(f"ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Sell order successful! Order ID: {result.get('orderId')}")
             return trade
@@ -2038,7 +2386,7 @@ class PaperTradingEngine:
         except Exception as e:
             self.log_message(f"ÃƒÂ¢Ã‚ÂÃ…â€™ Error executing sell order: {e}")
             return None
-    def execute_close_short(self, symbol, quantity=None):
+    def execute_close_short(self, symbol, quantity=None, exit_reason=None):
         """Execute a short position closing"""
         if symbol not in self.current_positions:
             self.log_message(f"ÃƒÂ¢Ã‚ÂÃ…â€™ No position found for {symbol}")
@@ -2085,6 +2433,8 @@ class PaperTradingEngine:
                 self.log_message(f"ÃƒÂ¢Ã‚ÂÃ…â€™ Buy order failed: {error}")
                 return None
             
+            position_meta = dict(self.current_positions[symbol])
+
             # Get current real balance BEFORE closing position
             old_real_balance = self.real_balance
             
@@ -2126,6 +2476,7 @@ class PaperTradingEngine:
             position_duration = (exit_time - entry_time).total_seconds() / 60  # Convert to minutes
             
             # Record the trade with P&L and position duration
+            resolved_exit_reason = self._format_exit_reason(exit_reason, fallback_signal='CLOSE_SHORT')
             trade = {
                 'timestamp': datetime.now().isoformat(),
                 'type': 'CLOSE_SHORT',
@@ -2139,7 +2490,8 @@ class PaperTradingEngine:
                 'position_duration': position_duration,
                 'position_value': position_value,
                 'original_cost': original_cost,
-                'margin_returned': margin_used
+                'margin_returned': margin_used,
+                'exit_reason': resolved_exit_reason,
             }
 
             self.log_trade_to_csv(trade)
@@ -2157,6 +2509,36 @@ class PaperTradingEngine:
             # Update counters
             self.open_trades_count -= 1
             self.closed_trades_count += 1
+
+            api_balances = self._get_api_balance_for_logging(force_refresh=True)
+            self._log_detailed_trade_event(
+                event='EXIT_FILLED',
+                symbol=symbol,
+                direction='Short',
+                qty=final_quantity,
+                entry_price=entry_price,
+                exit_price=current_price,
+                closed_pnl=trade_pnl,
+                entry_reason=position_meta.get('entry_reason', ''),
+                exit_reason=trade.get('exit_reason', ''),
+                atr_at_entry=position_meta.get('risk_atr_value', ''),
+                sl_level=position_meta.get('risk_stop_price', ''),
+                tp_level=position_meta.get('risk_take_profit_price', ''),
+                trend_info=position_meta.get('trend_filter_context', ''),
+                volatility_rank=position_meta.get('volatility_rank', ''),
+                sim_before=old_simulated_balance,
+                sim_after=self.simulated_balance,
+                api_available=api_balances.get('available_balance'),
+                api_margin=api_balances.get('margin_balance'),
+                notes=f"Position duration {position_duration:.2f}m",
+            )
+            self._check_and_log_balance_discrepancy(
+                symbol=symbol,
+                event_name='EXIT_FILLED_SHORT',
+                sim_after=self.simulated_balance,
+                api_available=api_balances.get('available_balance'),
+                api_margin=api_balances.get('margin_balance'),
+            )
             
             self.log_message(f"ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â° Simulated balance after buy: ${self.simulated_balance:.2f} (P&L: ${trade_pnl:.2f}, margin returned: ${margin_used:.2f})")
             self.log_message(f"ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Buy order successful! Order ID: {result.get('orderId')}")
@@ -2236,12 +2618,14 @@ class PaperTradingEngine:
             if current_price <= 0:
                 return 0.001  # Default fallback
             
-            # Use 5% of WORKING capital for position sizing
-            position_value = self.get_working_capital() * 0.05
+            position_value = self.get_working_capital() * self.position_size_pct
             calculated_quantity = position_value / current_price
-            
+
             # Log what we're doing
-            self.log_message(f"ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã…Â  Position sizing: 5% of working capital = ${position_value:.2f}, calculated qty = {calculated_quantity:.6f}")
+            self.log_message(
+                f"ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã…Â  Position sizing: {self.position_size_pct * 100:.2f}% "
+                f"of working capital = ${position_value:.2f}, calculated qty = {calculated_quantity:.6f}"
+            )
             
             return calculated_quantity
             
@@ -2336,6 +2720,13 @@ class PaperTradingEngine:
                 signal = self.generate_strategy_signal(symbol)
 
                 if signal in ('OPEN_LONG', 'OPEN_SHORT'):
+                    self._log_potential_entry(
+                        symbol=symbol,
+                        signal=signal,
+                        blocked_reason="",
+                        current_price=current_price,
+                        notes="Candidate entry from strategy signal",
+                    )
                     can_open, block_reason = self._engine_risk_guard(
                         symbol,
                         signal,
@@ -2344,6 +2735,13 @@ class PaperTradingEngine:
                     if not can_open:
                         self.log_message(
                             f"[BLOCKED] Engine risk guard blocked {signal} for {symbol}: {block_reason}"
+                        )
+                        self._log_potential_entry(
+                            symbol=symbol,
+                            signal=signal,
+                            blocked_reason=block_reason,
+                            current_price=current_price,
+                            notes="Engine risk guard",
                         )
                         self._record_shadow_event(symbol, signal, False, block_reason)
                         return 'HOLD'
@@ -2449,6 +2847,22 @@ class PaperTradingEngine:
 
                     valid_signals = ['OPEN_LONG', 'OPEN_SHORT', 'CLOSE_LONG', 'CLOSE_SHORT', 'HOLD']
                     if signal in valid_signals:
+                        latest_price = None
+                        try:
+                            latest_price = float(entry_df['close'].iloc[-1])
+                        except Exception:
+                            latest_price = None
+                        trend_info, vol_rank = self._extract_strategy_filter_context(symbol)
+                        self._signal_context_by_symbol[symbol] = {
+                            'signal': signal,
+                            'price': latest_price,
+                            'entry_reason': self._build_entry_reason(signal),
+                            'exit_reason': self._build_exit_reason(signal),
+                            'trend_info': trend_info,
+                            'volatility_rank': vol_rank,
+                            'timestamp': datetime.now().isoformat(),
+                        }
+                        self._log_strategy_filter_blocks(symbol, entry_timeframe, latest_price)
                         if signal != 'HOLD':
                             self.log_message(f"?? SIGNAL DETECTED: {symbol} -> {signal}")
                         return signal
@@ -2634,9 +3048,9 @@ class PaperTradingEngine:
                 continue
             pos_type = str(position.get('type', '')).upper()
             if pos_type == 'LONG':
-                result = self.execute_close_long(symbol)
+                result = self.execute_close_long(symbol, exit_reason='force_close_all')
             elif pos_type == 'SHORT':
-                result = self.execute_close_short(symbol)
+                result = self.execute_close_short(symbol, exit_reason='force_close_all')
             else:
                 continue
             if result is not None:
@@ -2714,6 +3128,7 @@ class PaperTradingEngine:
             # Check for position timeouts
             self.check_position_timeouts()
             self._check_global_emergency_exits()
+            self._log_scheduled_snapshots_if_due()
             # Process each symbol by reading from the latest CSV data
             for symbol in symbols_to_monitor:
                 try:
@@ -2738,6 +3153,13 @@ class PaperTradingEngine:
                         if signal == 'OPEN_LONG':
                             if self.stop_new_entries:
                                 blocked_open_signals_cycle += 1
+                                self._log_potential_entry(
+                                    symbol=symbol,
+                                    signal=signal,
+                                    blocked_reason='graceful_stop_active',
+                                    current_price=historical_data.iloc[-1]['close'],
+                                    notes='New entries disabled during graceful stop',
+                                )
                                 continue
                             if self.should_continue_trading():
                                 if symbol not in self.current_positions:
@@ -2745,17 +3167,36 @@ class PaperTradingEngine:
                                     time.sleep(0.1)
                                 else:
                                     self.log_message(f"?? OPEN_LONG signal for {symbol} but position already open, skipping")
+                                    self._log_potential_entry(
+                                        symbol=symbol,
+                                        signal=signal,
+                                        blocked_reason='position_already_open',
+                                        current_price=historical_data.iloc[-1]['close'],
+                                        notes='Skipped duplicate open signal',
+                                    )
                             else:
                                 if len(self.current_positions) >= self.max_positions:
                                     self.log_message(f"?? Max positions reached ({len(self.current_positions)} >= {self.max_positions}), skipping {symbol}")
+                                    self._log_potential_entry(
+                                        symbol=symbol,
+                                        signal=signal,
+                                        blocked_reason='max_positions_reached',
+                                        current_price=historical_data.iloc[-1]['close'],
+                                    )
                                 elif hasattr(self, 'stop_trading_at_percentage') and self.stop_trading_at_percentage:
                                     min_balance = self.initial_balance * (self.stop_trading_at_percentage / 100)
                                     if self.simulated_balance < min_balance:
                                         self.log_message(f"?? Balance below threshold ({self.simulated_balance:.2f} < {min_balance:.2f}), skipping {symbol}")
+                                        self._log_potential_entry(
+                                            symbol=symbol,
+                                            signal=signal,
+                                            blocked_reason='balance_threshold_reached',
+                                            current_price=historical_data.iloc[-1]['close'],
+                                        )
 
                         elif signal == 'CLOSE_LONG':
                             if symbol in self.current_positions and self.current_positions[symbol]['type'] == 'LONG':
-                                self.execute_close_long(symbol)
+                                self.execute_close_long(symbol, exit_reason='strategy_signal_close_long')
                                 time.sleep(0.1)
                             else:
                                 self.log_message(f"?? CLOSE_LONG signal for {symbol} but no long position open, skipping")
@@ -2763,6 +3204,13 @@ class PaperTradingEngine:
                         elif signal == 'OPEN_SHORT':
                             if self.stop_new_entries:
                                 blocked_open_signals_cycle += 1
+                                self._log_potential_entry(
+                                    symbol=symbol,
+                                    signal=signal,
+                                    blocked_reason='graceful_stop_active',
+                                    current_price=historical_data.iloc[-1]['close'],
+                                    notes='New entries disabled during graceful stop',
+                                )
                                 continue
                             if self.should_continue_trading():
                                 if symbol not in self.current_positions:
@@ -2770,17 +3218,36 @@ class PaperTradingEngine:
                                     time.sleep(0.1)
                                 else:
                                     self.log_message(f"?? OPEN_SHORT signal for {symbol} but position already open, skipping")
+                                    self._log_potential_entry(
+                                        symbol=symbol,
+                                        signal=signal,
+                                        blocked_reason='position_already_open',
+                                        current_price=historical_data.iloc[-1]['close'],
+                                        notes='Skipped duplicate open signal',
+                                    )
                             else:
                                 if len(self.current_positions) >= self.max_positions:
                                     self.log_message(f"?? Max positions reached ({len(self.current_positions)} >= {self.max_positions}), skipping {symbol}")
+                                    self._log_potential_entry(
+                                        symbol=symbol,
+                                        signal=signal,
+                                        blocked_reason='max_positions_reached',
+                                        current_price=historical_data.iloc[-1]['close'],
+                                    )
                                 elif hasattr(self, 'stop_trading_at_percentage') and self.stop_trading_at_percentage:
                                     min_balance = self.initial_balance * (self.stop_trading_at_percentage / 100)
                                     if self.simulated_balance < min_balance:
                                         self.log_message(f"?? Balance below threshold ({self.simulated_balance:.2f} < {min_balance:.2f}), skipping {symbol}")
+                                        self._log_potential_entry(
+                                            symbol=symbol,
+                                            signal=signal,
+                                            blocked_reason='balance_threshold_reached',
+                                            current_price=historical_data.iloc[-1]['close'],
+                                        )
 
                         elif signal == 'CLOSE_SHORT':
                             if symbol in self.current_positions and self.current_positions[symbol]['type'] == 'SHORT':
-                                self.execute_close_short(symbol)
+                                self.execute_close_short(symbol, exit_reason='strategy_signal_close_short')
                                 time.sleep(0.1)
                             else:
                                 self.log_message(f"?? CLOSE_SHORT signal for {symbol} but no short position open, skipping")
@@ -2811,6 +3278,9 @@ class PaperTradingEngine:
                         break
                     time.sleep(1)
         self.trading_loop_active = False
+        self._log_open_positions_snapshot("SESSION_END_OPEN_POSITIONS", "session_end")
+        if hasattr(self, "detailed_trade_logger") and self.detailed_trade_logger:
+            self.detailed_trade_logger.close()
         self.log_message("Trading loop ended")
     
     def update_performance(self):

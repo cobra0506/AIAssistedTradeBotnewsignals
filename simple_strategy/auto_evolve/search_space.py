@@ -77,6 +77,55 @@ DEFAULT_SEARCH_SPACE: Dict[str, Any] = {
             },
         },
     },
+    "filters": {
+        "entry_only": {
+            "function": "entry_timeframe_filter",
+            "params": {
+                "entry_timeframe": {"type": "choice", "choices": ["1m", "5m", "15m", "1h"]},
+            },
+        },
+        "rsi_gate": {
+            "function": "rsi_gate_filter",
+            "params": {
+                "entry_timeframe": {"type": "choice", "choices": ["1m", "5m", "15m", "1h"]},
+                "rsi_period": {"type": "int", "low": 7, "high": 28, "step": 1},
+                "bullish_threshold": {"type": "float", "low": 40.0, "high": 60.0, "step": 1.0},
+                "bearish_threshold": {"type": "float", "low": 40.0, "high": 60.0, "step": 1.0},
+            },
+        },
+        "volume_confirm": {
+            "function": "volume_filter",
+            "params": {
+                "entry_timeframe": {"type": "choice", "choices": ["1m", "5m", "15m", "1h"]},
+                "volume_sma_period": {"type": "int", "low": 5, "high": 40, "step": 1},
+                "volume_multiplier": {"type": "float", "low": 0.8, "high": 2.0, "step": 0.1},
+            },
+        },
+        "atr_volatility_gate": {
+            "function": "atr_threshold_filter",
+            "params": {
+                "entry_timeframe": {"type": "choice", "choices": ["1m", "5m", "15m", "1h"]},
+                "atr_period": {"type": "int", "low": 5, "high": 30, "step": 1},
+                "min_atr_threshold": {"type": "float", "low": 0.1, "high": 3.0, "step": 0.1},
+                "threshold_is_percent": {"type": "choice", "choices": [True, False]},
+            },
+        },
+        "price_bias": {
+            "function": "price_change_bias_filter",
+            "params": {
+                "entry_timeframe": {"type": "choice", "choices": ["1m", "5m", "15m", "1h"]},
+                "price_change_threshold": {"type": "float", "low": 0.001, "high": 0.02, "step": 0.001},
+            },
+        },
+    },
+    "risk_exit": {
+        "risk_exit_mode": {"type": "choice", "choices": ["none", "fixed", "trailing", "atr"]},
+        "risk_sl_pct": {"type": "float", "low": 0.005, "high": 0.04, "step": 0.005},
+        "risk_atr_period": {"type": "int", "low": 5, "high": 30, "step": 1},
+        "risk_atr_sl_multiplier": {"type": "float", "low": 0.8, "high": 3.0, "step": 0.1},
+        "risk_atr_tp_multiplier": {"type": "float", "low": 1.0, "high": 5.0, "step": 0.1},
+        "position_size_pct": {"type": "float", "low": 0.02, "high": 0.12, "step": 0.01},
+    },
     "signal_combination_methods": ["majority_vote", "and_signals", "unanimous"],
 }
 
@@ -110,12 +159,20 @@ DEFAULT_RUN_CONFIG: Dict[str, Any] = {
     "min_stress_return_pct": -10.0,
     "max_stress_drawdown_pct": 50.0,
     "max_active_signals": 3,
+    "max_active_filters": 2,
+    "fast_search_symbol_count": 2,
+    "shortlist_symbol_count": 6,
+    "shortlist_top_k": 12,
+    "shortlist_inner_opt_top_k": 4,
+    "shortlist_enable_inner_optimization": True,
+    "shortlist_inner_opt_trials": 12,
     "workers": 4,
     "checkpoint_every_generations": 1,
     "stress_fee_multiplier": 1.5,
     "stress_slippage_multiplier": 1.5,
     "output_dir": "simple_strategy/auto_evolve/runs",
     "save_strategy_files": True,
+    "publish_top_n": 3,
     "enable_inner_optimization": True,
 }
 

@@ -201,14 +201,17 @@ class RiskManager:
             balance = account_state['balance']
             positions = account_state.get('positions', {})
             
+            open_signals = {'OPEN_LONG', 'OPEN_SHORT'}
+            close_signals = {'CLOSE_LONG', 'CLOSE_SHORT'}
+
             # Validate signal type
-            if signal_type not in ['BUY', 'SELL']:
+            if signal_type not in open_signals.union(close_signals):
                 result['valid'] = False
                 result['reason'] = f"Invalid signal type: {signal_type}"
                 return result
-            
-            # For BUY signals, check if we can open a new position
-            if signal_type == 'BUY':
+
+            # For entry signals, check if we can open a new position
+            if signal_type in open_signals:
                 # Check maximum positions limit
                 if len(positions) >= self.max_positions:
                     result['valid'] = False
@@ -232,9 +235,9 @@ class RiskManager:
                     return result
                 
                 result['adjusted_position_size'] = position_size
-            
-            # For SELL signals, check if we have a position to close
-            elif signal_type == 'SELL':
+
+            # For exit signals, check if we have a position to close
+            elif signal_type in close_signals:
                 if symbol not in positions:
                     result['valid'] = False
                     result['reason'] = f"No position to close for {symbol}"
