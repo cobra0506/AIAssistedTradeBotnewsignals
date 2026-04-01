@@ -62,6 +62,8 @@ class PaperTradingLauncher:
         self.strategy_parameter_definitions = {}
         self.strategy_parameter_widgets = {}
         self.optimized_strategy_params = {}
+        self.latest_activity_var = tk.StringVar(value="Latest event: waiting to start")
+        self.graph_summary_var = tk.StringVar(value="Equity graph will appear here after trades close.")
 
         self.create_widgets()
         
@@ -301,22 +303,33 @@ class PaperTradingLauncher:
         self.stop_percentage_spinbox.pack(side="left", padx=2)
         ttk.Label(stop_percentage_frame, text="% of initial balance").pack(side="left", padx=2)
         
-        # Trading log
-        log_frame = ttk.LabelFrame(self.root, text="Trading Log", padding=10)
-        log_frame.pack(fill="both", expand=True, padx=10, pady=5)
-        
-        # Create text widget with scrollbar
-        self.log_text = tk.Text(log_frame, height=15, width=80)
-        scrollbar = ttk.Scrollbar(log_frame, orient="vertical", command=self.log_text.yview)
-        self.log_text.configure(yscrollcommand=scrollbar.set)
-        
-        self.log_text.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-        
+        graph_frame = ttk.LabelFrame(self.root, text="Equity Graph", padding=10)
+        graph_frame.pack(fill="both", expand=True, padx=10, pady=5)
+
+        ttk.Label(graph_frame, textvariable=self.graph_summary_var, foreground="gray").pack(anchor="w", pady=(0, 2))
+        ttk.Label(graph_frame, textvariable=self.latest_activity_var, foreground="gray").pack(anchor="w", pady=(0, 8))
+
+        graph_container = ttk.Frame(graph_frame)
+        graph_container.pack(fill="both", expand=True)
+        self.graph_canvas = tk.Canvas(graph_container, background="white", height=260)
+        self.graph_h_scrollbar = ttk.Scrollbar(graph_container, orient="horizontal", command=self.graph_canvas.xview)
+        self.graph_v_scrollbar = ttk.Scrollbar(graph_container, orient="vertical", command=self.graph_canvas.yview)
+        self.graph_canvas.configure(
+            xscrollcommand=self.graph_h_scrollbar.set,
+            yscrollcommand=self.graph_v_scrollbar.set,
+        )
+        self.graph_canvas.grid(row=0, column=0, sticky="nsew")
+        self.graph_v_scrollbar.grid(row=0, column=1, sticky="ns")
+        self.graph_h_scrollbar.grid(row=1, column=0, sticky="ew")
+        graph_container.columnconfigure(0, weight=1)
+        graph_container.rowconfigure(0, weight=1)
+        self.graph_canvas.bind("<Configure>", lambda _event: self._draw_equity_graph())
+
         self.log_message("Paper trading window initialized")
         self.update_performance()
         self.refresh_data_feed_status()
         self._update_exchange_stop_mode_label()
+        self._draw_equity_graph()
 
     def toggle_exchange_sl_entry(self):
         """Enable/disable fixed or trailing stop-loss controls."""
@@ -552,6 +565,7 @@ class PaperTradingLauncher:
                 label.config(foreground="red")
             else:
                 label.config(foreground="black")
+        self._draw_equity_graph()
 
     def update_status(self, status):
         """Update status display with appropriate colors"""
@@ -803,10 +817,118 @@ class PaperTradingLauncher:
         return True
 
     def log_message(self, message):
-        """Add message to trading log"""
+        """Track the latest activity and mirror it to stdout."""
         timestamp = datetime.now().strftime("%H:%M:%S")
-        self.log_text.insert("end", f"[{timestamp}] {message}\n")
-        self.log_text.see("end")
+        formatted = f"[{timestamp}] {message}"
+        self.latest_activity_var.set(f"Latest event: {formatted}")
+        print(formatted)
+
+    def _extract_closed_trade_points(self):
+        if not hasattr(self, "trading_engine") or not self.trading_engine:
+            return []
+        points = []
+        for trade in getattr(self.trading_engine, "trades", []):
+            if trade.get("type") not in ("CLOSE_LONG", "CLOSE_SHORT"):
+                continue
+            timestamp = trade.get("timestamp", "")
+            try:
+                dt = datetime.fromisoformat(str(timestamp))
+            except Exception:
+                dt = None
+            points.append(
+                {
+                    "timestamp": dt,
+                    "symbol": trade.get("symbol", ""),
+                    "pnl": float(trade.get("pnl", 0.0)),
+                    "balance_after": float(trade.get("balance_after", self.simulated_balance)),
+                }
+            )
+        return points
+
+    def _draw_equity_graph(self):
+        if not hasattr(self, "graph_canvas"):
+            return
+
+        canvas = self.graph_canvas
+        canvas.delete("all")
+        width = max(canvas.winfo_width(), 640)
+        height = max(canvas.winfo_height(), 260)
+        left_pad = 60
+        right_pad = 40
+        top_pad = 30
+        bottom_pad = 45
+        points = self._extract_closed_trade_points()
+
+        if not points:
+            baseline_y = (height - bottom_pad + top_pad) / 2
+            canvas.create_line(left_pad, baseline_y, width - right_pad, baseline_y, fill="#c7c7c7", dash=(3, 3))
+            canvas.create_text(
+                width / 2,
+                baseline_y - 18,
+                text="No closed trades yet. The line updates after each closed position.",
+                fill="#666666",
+                font=("Arial", 10),
+            )
+            canvas.create_text(left_pad, baseline_y + 16, text=f"${self.simulated_balance:,.2f}", anchor="w", fill="#444444")
+            canvas.configure(scrollregion=(0, 0, width, height))
+            return
+
+        balances = [float(point["balance_after"]) for point in points]
+        pnl_values = [float(point["pnl"]) for point in points]
+        min_balance = min(balances)
+        max_balance = max(balances)
+        if abs(max_balance - min_balance) < 1e-9:
+            max_balance += 1.0
+            min_balance -= 1.0
+
+        plot_width = max(width - left_pad - right_pad, 800)
+        if len(points) > 1:
+            plot_width = max(plot_width, 120 + (len(points) - 1) * 90)
+        plot_height = max(120, height - top_pad - bottom_pad)
+
+        def map_x(index: int) -> float:
+            if len(points) == 1:
+                return left_pad + (plot_width / 2)
+            return left_pad + (index / (len(points) - 1)) * plot_width
+
+        def map_y(balance_value: float) -> float:
+            ratio = (balance_value - min_balance) / max(max_balance - min_balance, 1e-9)
+            return top_pad + (1.0 - ratio) * plot_height
+
+        for i in range(5):
+            y = top_pad + (plot_height / 4) * i
+            canvas.create_line(left_pad, y, left_pad + plot_width, y, fill="#efefef")
+            value = max_balance - ((max_balance - min_balance) / 4) * i
+            canvas.create_text(left_pad - 8, y, text=f"${value:,.2f}", anchor="e", fill="#555555", font=("Arial", 9))
+
+        coords = []
+        for idx, point in enumerate(points):
+            coords.extend([map_x(idx), map_y(point["balance_after"])])
+        canvas.create_line(*coords, fill="#1f77b4", width=2, smooth=True)
+
+        label_every = max(1, len(points) // 6)
+        for idx, point in enumerate(points):
+            x = map_x(idx)
+            y = map_y(point["balance_after"])
+            color = "#2e8b57" if point["pnl"] >= 0 else "#c0392b"
+            canvas.create_oval(x - 4, y - 4, x + 4, y + 4, fill=color, outline=color)
+            if idx in {0, len(points) - 1} or idx % label_every == 0:
+                label = point["timestamp"].strftime("%m-%d %H:%M") if point["timestamp"] else point["symbol"]
+                canvas.create_text(x, height - 16, text=label, anchor="n", fill="#555555", font=("Arial", 8))
+
+        canvas.create_text(
+            left_pad,
+            10,
+            anchor="w",
+            text="Blue line: balance after each close | Green dot: win | Red dot: loss",
+            fill="#444444",
+            font=("Arial", 9, "bold"),
+        )
+        self.graph_summary_var.set(
+            f"Closed trades: {len(points)} | Latest close balance: ${balances[-1]:,.2f} | "
+            f"Realized P&L: ${sum(pnl_values):,.2f}"
+        )
+        canvas.configure(scrollregion=(0, 0, left_pad + plot_width + right_pad, height))
 
     def _is_pid_alive(self, pid):
         if not pid:

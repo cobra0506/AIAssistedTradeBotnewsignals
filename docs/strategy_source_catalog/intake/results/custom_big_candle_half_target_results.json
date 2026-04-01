@@ -1,0 +1,30 @@
+{
+  "strategy_module": "Strategy_Custom_BigCandle_HalfTarget",
+  "trade_symbols": [
+    "BNBUSDT",
+    "ADAUSDT",
+    "XRPUSDT",
+    "ALGOUSDT",
+    "ARBUSDT",
+    "ATOMUSDT",
+    "DOTUSDT",
+    "FILUSDT",
+    "NEARUSDT",
+    "OPUSDT"
+  ],
+  "timeframes": [
+    "5m",
+    "15m"
+  ],
+  "screen_days": 31,
+  "start_date": "2026-02-27 00:00:00",
+  "end_date": "2026-03-30 00:00:00",
+  "wall_clock_start": "2026-04-01 15:52:39",
+  "wall_clock_end": "2026-04-01 15:53:03",
+  "wall_clock_elapsed_seconds": 24.29,
+  "total_return_pct": 1.6412,
+  "win_rate_pct": 91.1111,
+  "sharpe_ratio": 5.0398,
+  "max_drawdown_pct": 0.0,
+  "total_trades": 45
+}

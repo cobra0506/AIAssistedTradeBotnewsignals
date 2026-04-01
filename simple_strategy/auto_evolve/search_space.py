@@ -119,7 +119,7 @@ DEFAULT_SEARCH_SPACE: Dict[str, Any] = {
         },
     },
     "risk_exit": {
-        "risk_exit_mode": {"type": "choice", "choices": ["none", "fixed", "trailing", "atr"]},
+        "risk_exit_mode": {"type": "choice", "choices": ["fixed", "trailing", "atr"]},
         "risk_sl_pct": {"type": "float", "low": 0.005, "high": 0.04, "step": 0.005},
         "risk_atr_period": {"type": "int", "low": 5, "high": 30, "step": 1},
         "risk_atr_sl_multiplier": {"type": "float", "low": 0.8, "high": 3.0, "step": 0.1},
@@ -174,6 +174,7 @@ DEFAULT_RUN_CONFIG: Dict[str, Any] = {
     "save_strategy_files": True,
     "publish_top_n": 3,
     "enable_inner_optimization": True,
+    "candidate_timeout_seconds": 480,
 }
 
 

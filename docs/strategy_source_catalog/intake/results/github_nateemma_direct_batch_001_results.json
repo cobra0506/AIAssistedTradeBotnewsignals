@@ -1,0 +1,148 @@
+{
+  "batch_id": "github_nateemma_direct_batch_001",
+  "trade_symbols": [
+    "BNBUSDT",
+    "ADAUSDT",
+    "XRPUSDT",
+    "ALGOUSDT",
+    "ARBUSDT",
+    "ATOMUSDT",
+    "DOTUSDT",
+    "FILUSDT",
+    "NEARUSDT",
+    "OPUSDT"
+  ],
+  "benchmark_symbol": "BTCUSDT",
+  "timeframes": [
+    "5m",
+    "15m"
+  ],
+  "screen_days": 31,
+  "start_date": "2026-02-18 12:30:00",
+  "end_date": "2026-03-21 12:30:00",
+  "wall_clock_start": "2026-03-29 18:41:21",
+  "wall_clock_end": "2026-03-29 19:07:22",
+  "wall_clock_elapsed_seconds": 1560.76,
+  "results": [
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_ADXDM",
+      "symbols": "BNBUSDT,ADAUSDT,XRPUSDT,ALGOUSDT,ARBUSDT,ATOMUSDT,DOTUSDT,FILUSDT,NEARUSDT,OPUSDT",
+      "benchmark_symbol": "BTCUSDT",
+      "start_date": "2026-02-18 12:30:00",
+      "end_date": "2026-03-21 12:30:00",
+      "total_return_pct": 2.9776,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 6.1998,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_BBBHold",
+      "symbols": "BNBUSDT,ADAUSDT,XRPUSDT,ALGOUSDT,ARBUSDT,ATOMUSDT,DOTUSDT,FILUSDT,NEARUSDT,OPUSDT",
+      "benchmark_symbol": "BTCUSDT",
+      "start_date": "2026-02-18 12:30:00",
+      "end_date": "2026-03-21 12:30:00",
+      "total_return_pct": 0.0,
+      "win_rate_pct": 0.0,
+      "sharpe_ratio": 0.0,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 0
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_BBKCBounce",
+      "symbols": "BNBUSDT,ADAUSDT,XRPUSDT,ALGOUSDT,ARBUSDT,ATOMUSDT,DOTUSDT,FILUSDT,NEARUSDT,OPUSDT",
+      "benchmark_symbol": "BTCUSDT",
+      "start_date": "2026-02-18 12:30:00",
+      "end_date": "2026-03-21 12:30:00",
+      "total_return_pct": 0.0,
+      "win_rate_pct": 0.0,
+      "sharpe_ratio": 0.0,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 0
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_BTCBigDrop",
+      "symbols": "BNBUSDT,ADAUSDT,XRPUSDT,ALGOUSDT,ARBUSDT,ATOMUSDT,DOTUSDT,FILUSDT,NEARUSDT,OPUSDT",
+      "benchmark_symbol": "BTCUSDT",
+      "start_date": "2026-02-18 12:30:00",
+      "end_date": "2026-03-21 12:30:00",
+      "total_return_pct": 0.0,
+      "win_rate_pct": 0.0,
+      "sharpe_ratio": 0.0,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 0
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_BTCEMABounce",
+      "symbols": "BNBUSDT,ADAUSDT,XRPUSDT,ALGOUSDT,ARBUSDT,ATOMUSDT,DOTUSDT,FILUSDT,NEARUSDT,OPUSDT",
+      "benchmark_symbol": "BTCUSDT",
+      "start_date": "2026-02-18 12:30:00",
+      "end_date": "2026-03-21 12:30:00",
+      "total_return_pct": 0.0,
+      "win_rate_pct": 0.0,
+      "sharpe_ratio": 0.0,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 0
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_BTCJump",
+      "symbols": "BNBUSDT,ADAUSDT,XRPUSDT,ALGOUSDT,ARBUSDT,ATOMUSDT,DOTUSDT,FILUSDT,NEARUSDT,OPUSDT",
+      "benchmark_symbol": "BTCUSDT",
+      "start_date": "2026-02-18 12:30:00",
+      "end_date": "2026-03-21 12:30:00",
+      "total_return_pct": 0.0,
+      "win_rate_pct": 0.0,
+      "sharpe_ratio": 0.0,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 0
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_BTCMACDCross",
+      "symbols": "BNBUSDT,ADAUSDT,XRPUSDT,ALGOUSDT,ARBUSDT,ATOMUSDT,DOTUSDT,FILUSDT,NEARUSDT,OPUSDT",
+      "benchmark_symbol": "BTCUSDT",
+      "start_date": "2026-02-18 12:30:00",
+      "end_date": "2026-03-21 12:30:00",
+      "total_return_pct": 0.0,
+      "win_rate_pct": 0.0,
+      "sharpe_ratio": 0.0,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 0
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_BTCNDrop",
+      "symbols": "BNBUSDT,ADAUSDT,XRPUSDT,ALGOUSDT,ARBUSDT,ATOMUSDT,DOTUSDT,FILUSDT,NEARUSDT,OPUSDT",
+      "benchmark_symbol": "BTCUSDT",
+      "start_date": "2026-02-18 12:30:00",
+      "end_date": "2026-03-21 12:30:00",
+      "total_return_pct": 0.0,
+      "win_rate_pct": 0.0,
+      "sharpe_ratio": 0.0,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 0
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_BTCNSeq",
+      "symbols": "BNBUSDT,ADAUSDT,XRPUSDT,ALGOUSDT,ARBUSDT,ATOMUSDT,DOTUSDT,FILUSDT,NEARUSDT,OPUSDT",
+      "benchmark_symbol": "BTCUSDT",
+      "start_date": "2026-02-18 12:30:00",
+      "end_date": "2026-03-21 12:30:00",
+      "total_return_pct": 0.0,
+      "win_rate_pct": 0.0,
+      "sharpe_ratio": 0.0,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 0
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_BigDrop",
+      "symbols": "BNBUSDT,ADAUSDT,XRPUSDT,ALGOUSDT,ARBUSDT,ATOMUSDT,DOTUSDT,FILUSDT,NEARUSDT,OPUSDT",
+      "benchmark_symbol": "BTCUSDT",
+      "start_date": "2026-02-18 12:30:00",
+      "end_date": "2026-03-21 12:30:00",
+      "total_return_pct": 0.0,
+      "win_rate_pct": 0.0,
+      "sharpe_ratio": 0.0,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 0
+    }
+  ]
+}

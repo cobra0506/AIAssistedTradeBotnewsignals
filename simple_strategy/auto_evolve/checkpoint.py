@@ -1,4 +1,5 @@
 import json
+import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -8,10 +9,26 @@ def save_json(path: Path, payload: Dict[str, Any]) -> None:
     tmp = path.with_suffix(path.suffix + ".tmp")
     with tmp.open("w", encoding="utf-8") as fh:
         json.dump(payload, fh, indent=2)
-    tmp.replace(path)
+    last_error = None
+    for _ in range(5):
+        try:
+            tmp.replace(path)
+            return
+        except PermissionError as exc:
+            last_error = exc
+            time.sleep(0.1)
+    if last_error is not None:
+        raise last_error
 
 
 def load_json(path: Path) -> Optional[Dict[str, Any]]:
+    if not path.exists():
+        return None
+    with path.open("r", encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def load_json_list(path: Path) -> Optional[list]:
     if not path.exists():
         return None
     with path.open("r", encoding="utf-8") as fh:

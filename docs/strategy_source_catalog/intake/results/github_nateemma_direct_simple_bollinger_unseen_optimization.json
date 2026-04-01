@@ -1,0 +1,164 @@
+{
+  "strategy_module": "Strategy_Import_Nateemma_Direct_SimpleBollinger",
+  "trade_symbols": [
+    "BNBUSDT",
+    "ADAUSDT",
+    "XRPUSDT",
+    "ALGOUSDT",
+    "ARBUSDT",
+    "ATOMUSDT",
+    "DOTUSDT",
+    "FILUSDT",
+    "NEARUSDT",
+    "OPUSDT"
+  ],
+  "timeframes": [
+    "5m",
+    "15m"
+  ],
+  "train_days": 31,
+  "unseen_days": 31,
+  "train_start_date": "2026-01-27 00:00:00",
+  "train_end_date": "2026-02-27 00:00:00",
+  "unseen_start_date": "2026-02-27 00:00:00",
+  "unseen_end_date": "2026-03-30 00:00:00",
+  "wall_clock_start": "2026-03-31 20:48:58",
+  "wall_clock_end": "2026-03-31 21:35:27",
+  "wall_clock_elapsed_seconds": 2788.66,
+  "trial_count": 4,
+  "default_params": {
+    "simple_bollinger_buy_adx": 25.0,
+    "simple_bollinger_buy_mfi": 60.0,
+    "simple_bollinger_sell_mfi": 80.0,
+    "trend_ma_period": 50,
+    "trend_deadband_pct": 0.15
+  },
+  "best_train": {
+    "strategy_module": "Strategy_Import_Nateemma_Direct_SimpleBollinger",
+    "label": "train",
+    "params": {
+      "simple_bollinger_buy_adx": 20.0,
+      "simple_bollinger_buy_mfi": 60.0,
+      "simple_bollinger_sell_mfi": 80.0,
+      "trend_ma_period": 34,
+      "trend_deadband_pct": 0.1
+    },
+    "start_date": "2026-01-27 00:00:00",
+    "end_date": "2026-02-27 00:00:00",
+    "total_return_pct": -7.6001,
+    "win_rate_pct": 20.0,
+    "sharpe_ratio": -8.8816,
+    "max_drawdown_pct": 7.6001,
+    "total_trades": 10
+  },
+  "default_unseen": {
+    "strategy_module": "Strategy_Import_Nateemma_Direct_SimpleBollinger",
+    "label": "unseen_default",
+    "params": {
+      "simple_bollinger_buy_adx": 25.0,
+      "simple_bollinger_buy_mfi": 60.0,
+      "simple_bollinger_sell_mfi": 80.0,
+      "trend_ma_period": 50,
+      "trend_deadband_pct": 0.15
+    },
+    "start_date": "2026-02-27 00:00:00",
+    "end_date": "2026-03-30 00:00:00",
+    "total_return_pct": 0.0631,
+    "win_rate_pct": 53.8462,
+    "sharpe_ratio": 0.2314,
+    "max_drawdown_pct": 0.0,
+    "total_trades": 13
+  },
+  "best_unseen": {
+    "strategy_module": "Strategy_Import_Nateemma_Direct_SimpleBollinger",
+    "label": "unseen_optimized",
+    "params": {
+      "simple_bollinger_buy_adx": 20.0,
+      "simple_bollinger_buy_mfi": 60.0,
+      "simple_bollinger_sell_mfi": 80.0,
+      "trend_ma_period": 34,
+      "trend_deadband_pct": 0.1
+    },
+    "start_date": "2026-02-27 00:00:00",
+    "end_date": "2026-03-30 00:00:00",
+    "total_return_pct": 0.8854,
+    "win_rate_pct": 57.1429,
+    "sharpe_ratio": 2.0405,
+    "max_drawdown_pct": 0.0,
+    "total_trades": 14
+  },
+  "all_train_trials": [
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_SimpleBollinger",
+      "label": "train",
+      "params": {
+        "simple_bollinger_buy_adx": 20.0,
+        "simple_bollinger_buy_mfi": 60.0,
+        "simple_bollinger_sell_mfi": 80.0,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2026-01-27 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": -7.6001,
+      "win_rate_pct": 20.0,
+      "sharpe_ratio": -8.8816,
+      "max_drawdown_pct": 7.6001,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_SimpleBollinger",
+      "label": "train",
+      "params": {
+        "simple_bollinger_buy_adx": 25.0,
+        "simple_bollinger_buy_mfi": 60.0,
+        "simple_bollinger_sell_mfi": 80.0,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2026-01-27 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": -7.6001,
+      "win_rate_pct": 20.0,
+      "sharpe_ratio": -8.8816,
+      "max_drawdown_pct": 7.6001,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_SimpleBollinger",
+      "label": "train",
+      "params": {
+        "simple_bollinger_buy_adx": 20.0,
+        "simple_bollinger_buy_mfi": 60.0,
+        "simple_bollinger_sell_mfi": 80.0,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2026-01-27 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": -7.6211,
+      "win_rate_pct": 20.0,
+      "sharpe_ratio": -8.9003,
+      "max_drawdown_pct": 7.6211,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_SimpleBollinger",
+      "label": "train",
+      "params": {
+        "simple_bollinger_buy_adx": 25.0,
+        "simple_bollinger_buy_mfi": 60.0,
+        "simple_bollinger_sell_mfi": 80.0,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2026-01-27 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": -7.6211,
+      "win_rate_pct": 20.0,
+      "sharpe_ratio": -8.9003,
+      "max_drawdown_pct": 7.6211,
+      "total_trades": 10
+    }
+  ]
+}

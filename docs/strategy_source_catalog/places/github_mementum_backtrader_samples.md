@@ -1,0 +1,93 @@
+# GitHub Place: mementum/backtrader samples
+
+- Status: `enumerated`
+- Source: https://github.com/mementum/backtrader
+- Notes:
+  - This place contains many sample strategies and framework demos
+  - Some files are pure examples rather than full reusable systems
+
+## Current Discoverable Sample Files
+- `samples/analyzer-annualreturn/analyzer-annualreturn.py`
+- `samples/bidask-to-ohlc/bidask-to-ohlc.py`
+- `samples/bracket/bracket.py`
+- `samples/btfd/btfd.py`
+- `samples/calendar-days/calendar-days.py`
+- `samples/calmar/calmar-test.py`
+- `samples/cheat-on-open/cheat-on-open.py`
+- `samples/commission-schemes/commission-schemes.py`
+- `samples/credit-interest/credit-interest.py`
+- `samples/data-bid-ask/bidask.py`
+- `samples/data-filler/data-filler.py`
+- `samples/data-filler/relativevolume.py`
+- `samples/data-multitimeframe/data-multitimeframe.py`
+- `samples/data-pandas/data-pandas-optix.py`
+- `samples/data-pandas/data-pandas.py`
+- `samples/data-replay/data-replay.py`
+- `samples/data-resample/data-resample.py`
+- `samples/daysteps/daysteps.py`
+- `samples/future-spot/future-spot.py`
+- `samples/gold-vs-sp500/gold-vs-sp500.py`
+- `samples/ib-cash-bid-ask/ib-cash-bid-ask.py`
+- `samples/ibtest/ibtest.py`
+- `samples/kselrsi/ksignal.py`
+- `samples/lineplotter/lineplotter.py`
+- `samples/lrsi/lrsi-test.py`
+- `samples/macd-settings/macd-settings.py`
+- `samples/memory-savings/memory-savings.py`
+- `samples/mixing-timeframes/mixing-timeframes.py`
+- `samples/multi-copy/multi-copy.py`
+- `samples/multi-example/mult-values.py`
+- `samples/multidata-strategy/multidata-strategy-unaligned.py`
+- `samples/multidata-strategy/multidata-strategy.py`
+- `samples/multitrades/mtradeobserver.py`
+- `samples/multitrades/multitrades.py`
+- `samples/oandatest/oandatest.py`
+- `samples/observer-benchmark/observer-benchmark.py`
+- `samples/observers/observers-default-drawdown.py`
+- `samples/observers/observers-default.py`
+- `samples/observers/observers-orderobserver.py`
+- `samples/observers/orderobserver.py`
+- `samples/oco/oco.py`
+- `samples/optimization/optimization.py`
+- `samples/order-close/close-daily.py`
+- `samples/order-close/close-minute.py`
+- `samples/order-execution/order-execution.py`
+- `samples/order-history/order-history.py`
+- `samples/order_target/order_target.py`
+- `samples/partial-plot/partial-plot.py`
+- `samples/pinkfish-challenge/pinkfish-challenge.py`
+- `samples/pivot-point/pivotpoint.py`
+- `samples/pivot-point/ppsample.py`
+- `samples/plot-same-axis/plot-same-axis.py`
+- `samples/psar/psar-intraday.py`
+- `samples/psar/psar.py`
+- `samples/pyfolio2/pyfoliotest.py`
+- `samples/pyfoliotest/pyfoliotest.py`
+- `samples/relative-volume/relative-volume.py`
+- `samples/relative-volume/relvolbybar.py`
+- `samples/renko/renko.py`
+- `samples/resample-tickdata/resample-tickdata.py`
+- `samples/rollover/rollover.py`
+- `samples/sharpe-timereturn/sharpe-timereturn.py`
+- `samples/signals-strategy/signals-strategy.py`
+- `samples/sigsmacross/sigsmacross.py`
+- `samples/sigsmacross/sigsmacross2.py`
+- `samples/sizertest/sizertest.py`
+- `samples/slippage/slippage.py`
+- `samples/sratio/sratio.py`
+- `samples/stop-trading/stop-loss-approaches.py`
+- `samples/stoptrail/trail.py`
+- `samples/strategy-selection/strategy-selection.py`
+- `samples/talib/tablibsartest.py`
+- `samples/talib/talibtest.py`
+- `samples/timers/scheduled-min.py`
+- `samples/timers/scheduled.py`
+- `samples/tradingcalendar/tcal-intra.py`
+- `samples/tradingcalendar/tcal.py`
+- `samples/vctest/vctest.py`
+- `samples/volumefilling/volumefilling.py`
+- `samples/vwr/vwr.py`
+- `samples/weekdays-filler/weekdaysaligner.py`
+- `samples/weekdays-filler/weekdaysfiller.py`
+- `samples/writer-test/writer-test.py`
+- `samples/yahoo-test/yahoo-test.py`

@@ -195,11 +195,22 @@ class TradingBotDashboard:
         refresh_btn = ttk.Button(profile_row, text="REFRESH STATUS",
                                  command=self.refresh_auto_evolve_status)
         refresh_btn.pack(side="left", padx=5)
-        seed_label = ttk.Label(profile_row, text="SEED (blank = config):")
+        seed_label = ttk.Label(profile_row, text="SEED (blank = auto):")
         seed_label.pack(side="left", padx=(12, 5))
         self.ae_seed_var = tk.StringVar(value="")
         seed_entry = ttk.Entry(profile_row, textvariable=self.ae_seed_var, width=10)
         seed_entry.pack(side="left")
+        family_label = ttk.Label(profile_row, text="OVERNIGHT FAMILY:")
+        family_label.pack(side="left", padx=(12, 5))
+        self.ae_family_var = tk.StringVar(value="mixed")
+        family_combo = ttk.Combobox(
+            profile_row,
+            textvariable=self.ae_family_var,
+            values=["mixed", "rsi_osob", "ema_cross", "sma_cross"],
+            state="readonly",
+            width=12,
+        )
+        family_combo.pack(side="left")
 
         help_text = (
             "All normal runs now search fast on 2 symbols first, then re-check only the better "
@@ -223,6 +234,8 @@ class TradingBotDashboard:
                    command=self.open_fast_strategy_finder).pack(side="left", padx=5)
         ttk.Button(bottom_button_row, text="OPEN UNIQUE ADVANCED ENGINE",
                    command=self.open_unique_advanced_engine).pack(side="left", padx=5)
+        ttk.Button(bottom_button_row, text="DELETE LAST RUN",
+                   command=self.clear_auto_evolve_last_run).pack(side="left", padx=5)
         ttk.Button(bottom_button_row, text="DELETE ALL RUNS",
                    command=self.clear_auto_evolve_runs).pack(side="left", padx=5)
         self._add_tooltip(smoke_btn, "Quick wiring check only. Does not do a deep search.")
@@ -230,8 +243,10 @@ class TradingBotDashboard:
         self._add_tooltip(full_btn, "Stronger run. Fast 2-symbol search first, then shortlisted results are checked harder on 6 symbols.")
         self._add_tooltip(multiday_btn, "Deepest run. Fast 2-symbol search first, then shortlisted results are checked on 8 symbols with heavier tuning.")
         self._add_tooltip(refresh_btn, "Reload the latest run status without starting a new run.")
-        self._add_tooltip(seed_label, "Use a number to repeat the same search path. Leave blank to use the config value.")
-        self._add_tooltip(seed_entry, "Same seed = same random starting point.")
+        self._add_tooltip(seed_label, "Use a number to repeat the same search path. Leave blank to generate a fresh seed.")
+        self._add_tooltip(seed_entry, "Same seed = same random starting point. Blank = new seed for a new run.")
+        self._add_tooltip(family_label, "Choose which family RUN OVERNIGHT should use. Mixed keeps all enabled families.")
+        self._add_tooltip(family_combo, "RUN OVERNIGHT will use this family config. Mixed = regular overnight profile.")
         self.refresh_auto_evolve_status()
         self._schedule_auto_evolve_status_refresh()
 
@@ -807,6 +822,17 @@ class TradingBotDashboard:
     def _auto_evolve_overnight_config_path(self):
         return os.path.join("simple_strategy", "auto_evolve", "configs", "overnight.json")
 
+    def _auto_evolve_selected_overnight_config_path(self):
+        family_name = self.ae_family_var.get().strip() if hasattr(self, "ae_family_var") else "mixed"
+        family_map = {
+            "mixed": "overnight.json",
+            "rsi_osob": "overnight_rsi_osob.json",
+            "ema_cross": "overnight_ema_cross.json",
+            "sma_cross": "overnight_sma_cross.json",
+        }
+        config_name = family_map.get(family_name, "overnight.json")
+        return os.path.join("simple_strategy", "auto_evolve", "configs", config_name)
+
     def _auto_evolve_multiday_config_path(self):
         return os.path.join("simple_strategy", "auto_evolve", "configs", "multiday.json")
 
@@ -919,21 +945,35 @@ class TradingBotDashboard:
             run_name = os.path.basename(latest_run_dir)
             run_config = self._read_json_file(os.path.join(latest_run_dir, "run_config.resolved.json"))
             checkpoint = self._read_json_file(os.path.join(latest_run_dir, "checkpoints", "latest.json"))
+            progress = self._read_json_file(os.path.join(latest_run_dir, "progress.json"))
             has_summary = os.path.exists(os.path.join(latest_run_dir, "summary.txt"))
             has_top_results = os.path.exists(os.path.join(latest_run_dir, "top_results.json"))
 
             checkpoint_config = checkpoint.get("config", {}) if isinstance(checkpoint, dict) else {}
             checkpoint_config = checkpoint_config if isinstance(checkpoint_config, dict) else {}
-            generations = int(checkpoint_config.get("generations", run_config.get("generations", 0)) or 0)
-            population_size = int(checkpoint_config.get("population_size", run_config.get("population_size", 0)) or 0)
+            progress = progress if isinstance(progress, dict) else {}
+            generations = int(
+                checkpoint_config.get("generations", progress.get("generations", run_config.get("generations", 0))) or 0
+            )
+            population_size = int(
+                checkpoint_config.get("population_size", progress.get("population_size", run_config.get("population_size", 0))) or 0
+            )
             checkpoint_population = checkpoint.get("population", [])
             if isinstance(checkpoint_population, list) and checkpoint_population:
                 population_size = len(checkpoint_population)
             expected_evals = generations * population_size if generations > 0 and population_size > 0 else 0
 
-            generation_idx = int(checkpoint.get("generation", -1) or -1)
+            generation_idx = int(checkpoint.get("generation", progress.get("generation", -1)) or -1)
             all_results = checkpoint.get("all_results", [])
             evaluated = len(all_results) if isinstance(all_results, list) else 0
+            if evaluated <= 0:
+                evaluated = int(progress.get("evaluated", 0) or 0)
+            expected_evals = int(progress.get("expected_evaluations", expected_evals) or expected_evals or 0)
+            generation_completed = int(progress.get("generation_completed", 0) or 0)
+            generation_total = int(progress.get("generation_total", population_size) or population_size or 0)
+            current_candidate = str(progress.get("current_candidate", "") or "")
+            progress_message = str(progress.get("message", "") or "")
+            best_score = progress.get("best_score", None)
 
             progress_pct = 0.0
             if expected_evals > 0 and evaluated > 0:
@@ -957,8 +997,14 @@ class TradingBotDashboard:
             if 0.0 < progress_pct < 100.0:
                 eta_sec = elapsed_sec * ((100.0 - progress_pct) / progress_pct)
 
+            progress_path = os.path.join(latest_run_dir, "progress.json")
             checkpoint_path = os.path.join(latest_run_dir, "checkpoints", "latest.json")
-            last_update_ts = os.path.getmtime(checkpoint_path) if os.path.exists(checkpoint_path) else run_start_ts
+            if os.path.exists(progress_path):
+                last_update_ts = os.path.getmtime(progress_path)
+            elif os.path.exists(checkpoint_path):
+                last_update_ts = os.path.getmtime(checkpoint_path)
+            else:
+                last_update_ts = run_start_ts
             seconds_since_update = max(0.0, time.time() - last_update_ts)
             process_running = self.auto_evolve_process is not None and self.auto_evolve_process.poll() is None
 
@@ -982,10 +1028,24 @@ class TradingBotDashboard:
             self.ae_status.set(status_text)
             self.ae_run_var.set(f"Run: {run_name}")
             self.ae_progress_var.set(f"Progress: {progress_pct:.1f}% | Generations: {generation_text}")
-            self.ae_eval_var.set(f"Evaluated: {eval_text}")
-            self.ae_eta_var.set(
-                f"Elapsed: {self._format_duration(elapsed_sec)} | ETA: {self._format_duration(eta_sec)} | Last update: {self._format_duration(seconds_since_update)} ago"
+            eval_detail = f"Evaluated: {eval_text}"
+            if generation_total > 0:
+                eval_detail += f" | Current gen: {generation_completed}/{generation_total}"
+            if current_candidate:
+                eval_detail += f" | Last: {current_candidate}"
+            self.ae_eval_var.set(eval_detail)
+            eta_text = (
+                f"Elapsed: {self._format_duration(elapsed_sec)} | ETA: {self._format_duration(eta_sec)} | "
+                f"Last update: {self._format_duration(seconds_since_update)} ago"
             )
+            if progress_message:
+                eta_text += f" | {progress_message}"
+            if best_score is not None:
+                try:
+                    eta_text += f" | Best score: {float(best_score):.2f}"
+                except Exception:
+                    pass
+            self.ae_eta_var.set(eta_text)
             if hasattr(self, "ae_progressbar"):
                 self.ae_progressbar["value"] = progress_pct
         except Exception:
@@ -1024,7 +1084,12 @@ class TradingBotDashboard:
     def _get_auto_evolve_seed_args(self):
         seed_text = self.ae_seed_var.get().strip() if hasattr(self, "ae_seed_var") else ""
         if not seed_text:
-            return []
+            seed = int(time.time()) % 2147483647
+            if seed <= 0:
+                seed = 1
+            if hasattr(self, "ae_seed_var"):
+                self.ae_seed_var.set(str(seed))
+            return ["--seed", str(seed)]
         try:
             seed = int(seed_text)
         except ValueError:
@@ -1040,12 +1105,12 @@ class TradingBotDashboard:
         self._launch_auto_evolve(["--config", config_path])
 
     def start_auto_evolve_overnight(self):
-        config_path = self._auto_evolve_overnight_config_path()
+        config_path = self._auto_evolve_selected_overnight_config_path()
         self._launch_auto_evolve([
             "--config", config_path,
-            "--population", "16",
-            "--generations", "12",
-            "--workers", "4",
+            "--population", "8",
+            "--generations", "6",
+            "--workers", "1",
             "--max-runtime-hours", "9.5",
         ])
 
@@ -1110,6 +1175,42 @@ class TradingBotDashboard:
                 pass
 
         messagebox.showinfo("Auto Evolve", f"Deleted {deleted} run folder(s).")
+        self.refresh_auto_evolve_status()
+
+    def clear_auto_evolve_last_run(self):
+        latest_run_dir = self._auto_evolve_latest_run_dir()
+        if not latest_run_dir:
+            messagebox.showinfo("Auto Evolve", "No run folder found to delete.")
+            return
+
+        if self.auto_evolve_process is not None and self.auto_evolve_process.poll() is None:
+            messagebox.showinfo("Auto Evolve", "A run is active. Stop it or wait before deleting the latest run.")
+            return
+
+        if not self._auto_evolve_run_is_complete(latest_run_dir) and self._has_recent_unfinished_run():
+            messagebox.showinfo(
+                "Auto Evolve",
+                "The latest run looks unfinished and recent. Resume it or wait before deleting it.",
+            )
+            return
+
+        run_name = os.path.basename(latest_run_dir)
+        should_delete = messagebox.askyesno(
+            "Delete Last Run",
+            f"Delete the latest run folder?\n{run_name}",
+        )
+        if not should_delete:
+            return
+
+        import shutil
+
+        try:
+            shutil.rmtree(latest_run_dir)
+            messagebox.showinfo("Auto Evolve", f"Deleted latest run: {run_name}")
+        except Exception as e:
+            messagebox.showerror("Auto Evolve Error", f"Failed to delete latest run: {e}")
+            return
+
         self.refresh_auto_evolve_status()
     
     def start_data_collection(self):

@@ -61,8 +61,10 @@ class BacktesterEngine:
         """
         self.data_feeder = data_feeder
         self.strategy = strategy
-        self.risk_manager = risk_manager or RiskManager()  # Use default if not provided
         self.config = config or {}
+        self.risk_manager = risk_manager or RiskManager(
+            max_positions=self.config.get('max_positions', 0)
+        )
         self.global_rules: GlobalRules = resolve_global_rules(self.config)
         self._global_rule_stats = {
             'blocked_signals': 0,
@@ -756,6 +758,18 @@ class BacktesterEngine:
         if row_index < len(entry_df):
             heapq.heappush(event_heap, (pd.Timestamp(entry_df.index[row_index]), symbol))
 
+    def _resolve_max_positions(self) -> Optional[int]:
+        raw_value = self.config.get('max_positions', 0)
+        if raw_value is None:
+            return None
+        try:
+            max_positions = int(raw_value)
+        except (TypeError, ValueError):
+            return None
+        if max_positions <= 0:
+            return None
+        return max_positions
+
     def _open_backtest_position(
         self,
         *,
@@ -769,8 +783,8 @@ class BacktesterEngine:
         row_index: int,
         entry_window: pd.DataFrame,
     ) -> bool:
-        max_positions = self.config.get('max_positions', 3)
-        if len(self.positions) >= max_positions or symbol in self.positions:
+        max_positions = self._resolve_max_positions()
+        if (max_positions is not None and len(self.positions) >= max_positions) or symbol in self.positions:
             return False
 
         is_short = signal == 'OPEN_SHORT'
@@ -1134,9 +1148,7 @@ class BacktesterEngine:
             }
 
         except Exception as e:
-            print(f"Error in backtest: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.exception("Error in backtest: %s", e)
             return {
                 'win_rate': 0.0,
                 'sharpe_ratio': 0.0,
@@ -1401,8 +1413,16 @@ class BacktesterEngine:
         win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0.0
         
         total_pnl = sum(t.pnl for t in trades)
-        logger.info(f"DEBUG: Total PnL: {total_pnl}")
-        total_return_pct = (total_pnl / self.initial_balance * 100) if self.initial_balance > 0 else 0.0
+        logger.info(f"DEBUG: Total closed-trade PnL: {total_pnl}")
+
+        # Use actual ending balance so entry fees and any other balance-side
+        # adjustments are reflected in reported return.
+        final_balance = float(getattr(self, 'balance', self.initial_balance))
+        total_return_pct = (
+            ((final_balance - self.initial_balance) / self.initial_balance) * 100
+            if self.initial_balance > 0
+            else 0.0
+        )
         
         # Simple Sharpe ratio calculation (assuming risk-free rate = 0)
         pnl_list = [t.pnl for t in trades]

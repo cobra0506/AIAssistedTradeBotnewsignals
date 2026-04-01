@@ -1,0 +1,112 @@
+[
+  {
+    "strategy_module": "Strategy_Import_Nateemma_NNTC_PROFIT_ATTENTION",
+    "symbols": "BNBUSDT,ADAUSDT,XRPUSDT,ALGOUSDT,ARBUSDT,ATOMUSDT,DOTUSDT,FILUSDT,NEARUSDT,OPUSDT",
+    "start_date": "2026-02-18 12:30:00",
+    "end_date": "2026-03-21 12:30:00",
+    "total_return_pct": -1.6452,
+    "win_rate_pct": 53.1532,
+    "sharpe_ratio": -3.0709,
+    "max_drawdown_pct": 1.9476,
+    "total_trades": 111
+  },
+  {
+    "strategy_module": "Strategy_Import_Nateemma_NNTC_PROFIT_CNN",
+    "symbols": "BNBUSDT,ADAUSDT,XRPUSDT,ALGOUSDT,ARBUSDT,ATOMUSDT,DOTUSDT,FILUSDT,NEARUSDT,OPUSDT",
+    "start_date": "2026-02-18 12:30:00",
+    "end_date": "2026-03-21 12:30:00",
+    "total_return_pct": -1.6452,
+    "win_rate_pct": 53.1532,
+    "sharpe_ratio": -3.0709,
+    "max_drawdown_pct": 1.9476,
+    "total_trades": 111
+  },
+  {
+    "strategy_module": "Strategy_Import_Nateemma_NNTC_PROFIT_ENSEMBLE",
+    "symbols": "BNBUSDT,ADAUSDT,XRPUSDT,ALGOUSDT,ARBUSDT,ATOMUSDT,DOTUSDT,FILUSDT,NEARUSDT,OPUSDT",
+    "start_date": "2026-02-18 12:30:00",
+    "end_date": "2026-03-21 12:30:00",
+    "total_return_pct": -1.6452,
+    "win_rate_pct": 53.1532,
+    "sharpe_ratio": -3.0709,
+    "max_drawdown_pct": 1.9476,
+    "total_trades": 111
+  },
+  {
+    "strategy_module": "Strategy_Import_Nateemma_NNTC_PROFIT_GRU",
+    "symbols": "BNBUSDT,ADAUSDT,XRPUSDT,ALGOUSDT,ARBUSDT,ATOMUSDT,DOTUSDT,FILUSDT,NEARUSDT,OPUSDT",
+    "start_date": "2026-02-18 12:30:00",
+    "end_date": "2026-03-21 12:30:00",
+    "total_return_pct": -1.6452,
+    "win_rate_pct": 53.1532,
+    "sharpe_ratio": -3.0709,
+    "max_drawdown_pct": 1.9476,
+    "total_trades": 111
+  },
+  {
+    "strategy_module": "Strategy_Import_Nateemma_NNTC_PROFIT_LSTM",
+    "symbols": "BNBUSDT,ADAUSDT,XRPUSDT,ALGOUSDT,ARBUSDT,ATOMUSDT,DOTUSDT,FILUSDT,NEARUSDT,OPUSDT",
+    "start_date": "2026-02-18 12:30:00",
+    "end_date": "2026-03-21 12:30:00",
+    "total_return_pct": -1.6452,
+    "win_rate_pct": 53.1532,
+    "sharpe_ratio": -3.0709,
+    "max_drawdown_pct": 1.9476,
+    "total_trades": 111
+  },
+  {
+    "strategy_module": "Strategy_Import_Nateemma_NNTC_PROFIT_LSTM2",
+    "symbols": "BNBUSDT,ADAUSDT,XRPUSDT,ALGOUSDT,ARBUSDT,ATOMUSDT,DOTUSDT,FILUSDT,NEARUSDT,OPUSDT",
+    "start_date": "2026-02-18 12:30:00",
+    "end_date": "2026-03-21 12:30:00",
+    "total_return_pct": -1.6452,
+    "win_rate_pct": 53.1532,
+    "sharpe_ratio": -3.0709,
+    "max_drawdown_pct": 1.9476,
+    "total_trades": 111
+  },
+  {
+    "strategy_module": "Strategy_Import_Nateemma_NNTC_PROFIT_LSTM3",
+    "symbols": "BNBUSDT,ADAUSDT,XRPUSDT,ALGOUSDT,ARBUSDT,ATOMUSDT,DOTUSDT,FILUSDT,NEARUSDT,OPUSDT",
+    "start_date": "2026-02-18 12:30:00",
+    "end_date": "2026-03-21 12:30:00",
+    "total_return_pct": -1.6452,
+    "win_rate_pct": 53.1532,
+    "sharpe_ratio": -3.0709,
+    "max_drawdown_pct": 1.9476,
+    "total_trades": 111
+  },
+  {
+    "strategy_module": "Strategy_Import_Nateemma_NNTC_PROFIT_MLP",
+    "symbols": "BNBUSDT,ADAUSDT,XRPUSDT,ALGOUSDT,ARBUSDT,ATOMUSDT,DOTUSDT,FILUSDT,NEARUSDT,OPUSDT",
+    "start_date": "2026-02-18 12:30:00",
+    "end_date": "2026-03-21 12:30:00",
+    "total_return_pct": -1.6452,
+    "win_rate_pct": 53.1532,
+    "sharpe_ratio": -3.0709,
+    "max_drawdown_pct": 1.9476,
+    "total_trades": 111
+  },
+  {
+    "strategy_module": "Strategy_Import_Nateemma_NNTC_PROFIT_TRANSFORMER",
+    "symbols": "BNBUSDT,ADAUSDT,XRPUSDT,ALGOUSDT,ARBUSDT,ATOMUSDT,DOTUSDT,FILUSDT,NEARUSDT,OPUSDT",
+    "start_date": "2026-02-18 12:30:00",
+    "end_date": "2026-03-21 12:30:00",
+    "total_return_pct": -1.6452,
+    "win_rate_pct": 53.1532,
+    "sharpe_ratio": -3.0709,
+    "max_drawdown_pct": 1.9476,
+    "total_trades": 111
+  },
+  {
+    "strategy_module": "Strategy_Import_Nateemma_NNTC_PROFIT_WAVENET",
+    "symbols": "BNBUSDT,ADAUSDT,XRPUSDT,ALGOUSDT,ARBUSDT,ATOMUSDT,DOTUSDT,FILUSDT,NEARUSDT,OPUSDT",
+    "start_date": "2026-02-18 12:30:00",
+    "end_date": "2026-03-21 12:30:00",
+    "total_return_pct": -1.6452,
+    "win_rate_pct": 53.1532,
+    "sharpe_ratio": -3.0709,
+    "max_drawdown_pct": 1.9476,
+    "total_trades": 111
+  }
+]

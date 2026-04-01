@@ -8,7 +8,7 @@ class DataCollectionConfig:
     API_BASE_URL = 'https://api.bybit.com'
     
     # Data settings
-    SYMBOLS = ['BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'DOTUSDT', 'ATOMUSDT', 'ALGOUSDT', 'VETUSDT', 'ICPUSDT', 'FILUSDT', 'AAVEUSDT', 'COMPUSDT', 'CRVUSDT', 'SNXUSDT', 'SUSHIUSDT', 'ARBUSDT', 'OPUSDT', 'NEARUSDT', 'GRTUSDT']
+    SYMBOLS = ['BTCUSDT','BNBUSDT', 'XRPUSDT', 'ADAUSDT', 'DOTUSDT', 'ATOMUSDT', 'ALGOUSDT', 'VETUSDT', 'ICPUSDT', 'FILUSDT', 'AAVEUSDT', 'COMPUSDT', 'CRVUSDT', 'SNXUSDT', 'SUSHIUSDT', 'ARBUSDT', 'OPUSDT', 'NEARUSDT', 'GRTUSDT']
     #['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'LINKUSDT', 'DOGEUSDT', 'AVAXUSDT', 'UNIUSDT']  # Add more symbols as needed
     TIMEFRAMES = ['1', '5', '15', '60','120', '240']  # Add more timeframes as needed
     DATA_DIR = 'data'
@@ -36,6 +36,7 @@ class DataCollectionConfig:
     
     # Fetch settings
     DAYS_TO_FETCH = 420
+    
     BULK_BATCH_SIZE = 20         # Number of concurrent requests to make at once 50, 20, 10
     BULK_REQUEST_DELAY_MS = 10  # Delay between requests in milliseconds (100 = 0.1 seconds) 50, 10, 200
     BULK_MAX_RETRIES = 5

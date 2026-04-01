@@ -125,8 +125,24 @@ def write_reports(
 
     for rank, row in enumerate(top_results, start=1):
         metrics = row.get("metrics", {})
-        lines.append(f"#{rank} | score={row.get('score', 0.0):.4f}")
+        failed_gate = str(row.get("failed_gate", "") or "")
+        failure_reason = str(row.get("failure_reason", "") or "")
+        lines.append(
+            f"#{rank} | score={row.get('score', 0.0):.4f} | final_passed={bool(row.get('final_passed', row.get('passed', False)))}"
+        )
         lines.append(f"  signals: {row.get('candidate', {}).get('active_signals', [])}")
+        if failed_gate:
+            failure_line = f"  failed_gate: {failed_gate}"
+            if failure_reason:
+                failure_line += f" | reason: {failure_reason}"
+            lines.append(failure_line)
+        final_failed_gate = str(row.get("final_failed_gate", "") or "")
+        final_failure_reason = str(row.get("final_failure_reason", "") or "")
+        if final_failed_gate:
+            final_failure_line = f"  final_failed_gate: {final_failed_gate}"
+            if final_failure_reason:
+                final_failure_line += f" | reason: {final_failure_reason}"
+            lines.append(final_failure_line)
         lines.append(
             "  train: return={:.2f}% sharpe={:.3f} drawdown={:.2f}% trades={}".format(
                 float(metrics.get("total_return", 0.0)),
@@ -156,11 +172,14 @@ def write_reports(
     csv_headers = [
         "rank",
         "passed",
+        "final_passed",
         "score",
         "final_score",
         "signals",
         "failed_gate",
         "failure_reason",
+        "final_failed_gate",
+        "final_failure_reason",
         "train_profit_pct",
         "train_max_drawdown_pct",
         "train_sharpe",
@@ -190,9 +209,25 @@ def write_reports(
         validation = _as_metric_block(row.get("validation_metrics", {}))
         final = _as_metric_block(row.get("final_metrics", {}))
         signals = row.get("candidate", {}).get("active_signals", [])
+        failed_gate = str(row.get("failed_gate", "") or "")
+        failure_reason = str(row.get("failure_reason", "") or "")
+        final_failed_gate = str(row.get("final_failed_gate", "") or "")
+        final_failure_reason = str(row.get("final_failure_reason", "") or "")
 
-        txt_lines.append(f"#{rank} | passed={bool(row.get('passed', False))} | score={float(row.get('score', 0.0)):.4f}")
+        txt_lines.append(
+            f"#{rank} | passed={bool(row.get('passed', False))} | final_passed={bool(row.get('final_passed', row.get('passed', False)))} | score={float(row.get('score', 0.0)):.4f}"
+        )
         txt_lines.append(f"  signals: {signals}")
+        if failed_gate:
+            failure_line = f"  failed_gate: {failed_gate}"
+            if failure_reason:
+                failure_line += f" | reason: {failure_reason}"
+            txt_lines.append(failure_line)
+        if final_failed_gate:
+            final_failure_line = f"  final_failed_gate: {final_failed_gate}"
+            if final_failure_reason:
+                final_failure_line += f" | reason: {final_failure_reason}"
+            txt_lines.append(final_failure_line)
         txt_lines.append(
             "  train: profit={:.2f}% drawdown={:.2f}% sharpe={:.3f} win_rate={:.2f}% trades={}".format(
                 train["total_return"],
@@ -226,11 +261,14 @@ def write_reports(
             {
                 "rank": rank,
                 "passed": bool(row.get("passed", False)),
+                "final_passed": bool(row.get("final_passed", row.get("passed", False))),
                 "score": float(row.get("score", 0.0)),
                 "final_score": float(row.get("final_score", row.get("score", 0.0))),
                 "signals": ",".join(str(s) for s in signals),
                 "failed_gate": row.get("failed_gate", ""),
                 "failure_reason": row.get("failure_reason", ""),
+                "final_failed_gate": row.get("final_failed_gate", ""),
+                "final_failure_reason": row.get("final_failure_reason", ""),
                 "train_profit_pct": train["total_return"],
                 "train_max_drawdown_pct": train["max_drawdown"],
                 "train_sharpe": train["sharpe_ratio"],
@@ -362,7 +400,8 @@ def render_strategy_module(
         func_name = fdef.get("function")
         if not func_name:
             continue
-        kwargs = candidate.get("filter_params", {}).get(filter_id, {})
+        # Export the same effective timeframe params that auto-evolve used during evaluation.
+        kwargs = candidate_builder._resolve_filter_params(filter_id, timeframes, candidate)
         args = ", ".join([f"{k}={v!r}" for k, v in kwargs.items()])
         lines.append(f"    builder.add_filter_rule('{filter_id}', {func_name}, {args})")
 

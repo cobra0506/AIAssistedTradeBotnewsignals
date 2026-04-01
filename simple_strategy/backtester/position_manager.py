@@ -72,19 +72,19 @@ class PositionManager:
     Manages all trading positions, account balance, and trading limits
     """
     
-    def __init__(self, initial_balance: float = 10000.0, max_positions: int = 3, 
+    def __init__(self, initial_balance: float = 10000.0, max_positions: int = 0, 
                  max_risk_per_trade: float = 0.02):
         """
         Initialize position manager
         
         Args:
             initial_balance: Starting account balance
-            max_positions: Maximum number of concurrent positions
+            max_positions: Maximum number of concurrent positions. `0` means unlimited.
             max_risk_per_trade: Maximum risk per trade as fraction of balance
         """
         self.initial_balance = initial_balance
         self.current_balance = initial_balance
-        self.max_positions = max_positions
+        self.max_positions = max(0, int(max_positions))
         self.max_risk_per_trade = max_risk_per_trade
         
         # Storage
@@ -112,7 +112,7 @@ class PositionManager:
             return False, f"Position already open for {symbol}"
         
         # Check maximum positions limit
-        if len(self.positions) >= self.max_positions:
+        if self.max_positions > 0 and len(self.positions) >= self.max_positions:
             return False, f"Maximum positions ({self.max_positions}) reached"
         
         # Check if enough balance

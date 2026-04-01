@@ -1,0 +1,121 @@
+# GitHub Place: tradingstrategy-ai/getting-started
+
+- Status: `enumerated`
+- Source: https://github.com/tradingstrategy-ai/getting-started
+- Notes:
+  - Mostly notebooks
+  - Rich source of breakout, momentum, and basket ideas
+  - This is a strong later-place intake source after cleaner repos
+
+## Current Discoverable Strategy/Optimisation Notebooks
+- `notebooks/grid-search/bollinger-bands-matic-breakout.ipynb`
+- `notebooks/grid-search/btc-bb-1h-binance-optimiser.ipynb`
+- `notebooks/grid-search/momentum-basket-optimiser.ipynb`
+- `notebooks/grid-search/multipair-breakout-4h-optimiser-balanced.ipynb`
+- `notebooks/grid-search/multipair-breakout-grid-atr-slow.ipynb`
+- `notebooks/single-backtest/bitcoin-breakout-atr-dex.ipynb`
+- `notebooks/single-backtest/bitcoin-breakout-atr-short.ipynb`
+- `notebooks/single-backtest/bitcoin-breakout-atr.ipynb`
+- `notebooks/single-backtest/matic-breakout.ipynb`
+- `notebooks/single-backtest/momentum-basket.ipynb`
+- `notebooks/single-backtest/multipair-breakout-atr.ipynb`
+- `scratchpad/avax-eco/03-breakout-atr.ipynb`
+- `scratchpad/avax-eco/04-ava-optimise-breakout.ipynb`
+- `scratchpad/avax-eco/05-ava-optimise-breakout-2.ipynb`
+- `scratchpad/avax-eco/06-ava-optimise-breakout-3.ipynb`
+- `scratchpad/avax-eco/07-breakout-vol-bin.ipynb`
+- `scratchpad/avax-eco/08-breakout-vol-bin-masked-025.ipynb`
+- `scratchpad/avax-eco/09-breakout-vol-bin-masked-050.ipynb`
+- `scratchpad/avax-eco/10-breakout-vol-bin-masked-075.ipynb`
+- `scratchpad/avax-eco/11-breakout-vol-bin-masked-100.ipynb`
+- `scratchpad/avax-eco/12-breakout-vol-bin-masked-lower-half.ipynb`
+- `scratchpad/avax-eco/14-breakout-vol-bin-masked-lower-half-poked.ipynb`
+- `scratchpad/avax-eco/20-breakout-low-vol-tuned.ipynb`
+- `scratchpad/avax-eco/21-breakout-low-vol-more-pairs.ipynb`
+- `scratchpad/avax-eco/22-breakout-low-vol-alt-chain.ipynb`
+- `scratchpad/avax-eco/23-breakout-low-vol-mainnet.ipynb`
+- `scratchpad/avax-eco/24-breakout-low-vol-mainnet-filtered.ipynb`
+- `scratchpad/avax-eco/25-breakout-low-vol-filtered.ipynb`
+- `scratchpad/avax-eco/30-breakout-mainnet-2.ipynb`
+- `scratchpad/avax-eco/31-breakout-mainnet-big-coin.ipynb`
+- `scratchpad/avax-eco/32-opt-breakout-mainnet-big-coin.ipynb`
+- `scratchpad/avax-eco/33-breakout-mainnet-big-coin-fast.ipynb`
+- `scratchpad/avax-eco/34-opt-breakout-bnb-chain.ipynb`
+- `scratchpad/base-active/39-base-atr-breakout.ipynb`
+- `scratchpad/btc-atr-new/01-bitcoin-breakout-atr.ipynb`
+- `scratchpad/btc-atr-new/02-bitcoin-breakout-atr-stop-loss-atr.ipynb`
+- `scratchpad/btc-atr-new/03-bitcoin-breakout-atr-stop-loss-atr-optimise.ipynb`
+- `scratchpad/btc-atr-new/04-bitcoin-breakout-atr-stop-loss-fixed-optimise.ipynb`
+- `scratchpad/btc-atr-new/05-bitcoin-breakout-atr-stop-loss-atr-optimise-all.ipynb`
+- `scratchpad/btc-atr-new/06-bitcoin-breakout-atr-stop-loss-fixed-optimise-all.ipynb`
+- `scratchpad/btc-atr-new/08-multipair-breakout-atr-stop-loss-fixed-optimise-all.ipynb`
+- `scratchpad/btc-atr-new/09-eth-breakout-atr-stop-loss-fixed-optimise-all copy.ipynb`
+- `scratchpad/btc-atr-new/10-matic-breakout-atr-stop-loss-fixed-optimise-all.ipynb`
+- `scratchpad/btc-atr-new/xx-btc-breakout-new.ipynb`
+- `scratchpad/btc-breakout/all-bitcoin-ever.ipynb`
+- `scratchpad/btc-breakout/btc-breakout-15m-arbitrum-lending.ipynb`
+- `scratchpad/btc-breakout/btc-breakout-15m-arbitrum-realistic.ipynb`
+- `scratchpad/btc-breakout/btc-breakout-15m-arbitrum.ipynb`
+- `scratchpad/btc-breakout/btc-breakout-15m-binance.ipynb`
+- `scratchpad/btc-breakout/grid-btc-breakout-15m-arbitrum.ipynb`
+- `scratchpad/eth-breakout/eth-breakout-atr-15m.ipynb`
+- `scratchpad/eth-breakout/eth-breakout-atr-1h-polygon.ipynb`
+- `scratchpad/eth-breakout/eth-breakout-atr-1h.ipynb`
+- `scratchpad/eth-breakout/eth-breakout-atr-lending-1h-binance.ipynb`
+- `scratchpad/eth-breakout/eth-breakout-atr-lending-1h-dex-no-lending.ipynb`
+- `scratchpad/eth-breakout/eth-breakout-atr-lending-1h-dex.ipynb`
+- `scratchpad/eth-breakout/eth-breakout-atr-lending-1h-polygon.ipynb`
+- `scratchpad/eth-breakout/eth-breakout-optimiser.ipynb`
+- `scratchpad/eth-breakout/grid-eth-breakout-atr-1h-v2.ipynb`
+- `scratchpad/eth-breakout/grid-eth-breakout-atr-1h.ipynb`
+- `scratchpad/momentum-basket/01-momentum-basket-optimiser-2.ipynb`
+- `scratchpad/momentum-basket/02-momentum-basket-rsi.ipynb`
+- `scratchpad/momentum-basket/03-momentum-basket-rsi-daily-only.ipynb`
+- `scratchpad/momentum-basket/04-momentum-basket-rsi-4h-only.ipynb`
+- `scratchpad/momentum-basket/05-momentum-basket-rsi-4h-only-gbrt.ipynb`
+- `scratchpad/momentum-basket/06-momentum-basket-roc-4h-only-gbrt.ipynb`
+- `scratchpad/momentum-basket/07-momentum-basket-roc-1h-only-gbrt.ipynb`
+- `scratchpad/momentum-basket/08-momentum-basket-optimiser-1h-returns.ipynb`
+- `scratchpad/momentum-basket/09-momentum-basked-rsi-1h.ipynb`
+- `scratchpad/multipair-breakout/multipair-breakout-15m-decision.ipynb`
+- `scratchpad/multipair-breakout/multipair-breakout-4h-optimiser-balanced.ipynb`
+- `scratchpad/multipair-breakout/multipair-breakout-4h-optimiser-btc-eth-only.ipynb`
+- `scratchpad/multipair-breakout/multipair-breakout-4h-optimiser-rolling-sharpe.ipynb`
+- `scratchpad/multipair-breakout/multipair-breakout-4h-optimiser.ipynb`
+- `scratchpad/multipair-breakout/multipair-breakout-atr-single.ipynb`
+- `scratchpad/vault-of-vaults/110-hyperliquid-recovery-adjusted-momentum.ipynb`
+- `scratchpad/vault-of-vaults/121-hyperliquid-strategy-type-decomposition.ipynb`
+- `scratchpad/vault-of-vaults/30-waterfall-diversified-larger-universe-grid-search.ipynb`
+- `scratchpad/vault-of-vaults/31-waterfall-diversified-larger-universe-grid-search-4d-rebalance.ipynb`
+- `scratchpad/vault-of-vaults/32-waterfall-diversified-larger-universe-grid-search-4d-rebalance-profit.ipynb`
+- `scratchpad/vault-of-vaults/33-hyperliquid-only-grid-search-4d-rebalance-profit.ipynb`
+- `scratchpad/vault-of-vaults/35-hyperliquid-dynamic-filters-grid-search.ipynb`
+- `scratchpad/vault-of-vaults/36-hyperliquid-sharpe-entry-gate-grid-search.ipynb`
+- `scratchpad/vault-of-vaults/84-hyperliquid-momentum-acceleration-weight.ipynb`
+- `scratchpad/vol-basket/08-vol-basked-strategy.ipynb`
+- `scratchpad/vol-basket/10-vol-basket-grid-search.ipynb`
+- `scratchpad/vol-basket/11-vol-basket-grid-search-more.ipynb`
+- `scratchpad/vol-basket/12-vol-basket-strategy-2.ipynb`
+- `scratchpad/vol-basket/13-vol-basket-1h-grid-search-scam-filter.ipynb`
+- `scratchpad/vol-basket/14-vol-basket-1d-grid-search-scam-filter.ipynb`
+- `scratchpad/vol-basket/15-vol-basket-strategy-1d.ipynb`
+- `scratchpad/vol-basket/16-vol-basket-strategy-1d-max-allocation.ipynb`
+- `scratchpad/vol-basket/17-vol-basket-strategy-funny-cycle.ipynb`
+- `scratchpad/vol-basket/18-vol-basket-strategy-4h-cycle.ipynb`
+- `scratchpad/vol-basket/19-vol-basket-strategy-4h-cycle-tweaked.ipynb`
+- `scratchpad/vol-basket/20-vol-basket-strategy-4h-ignore-monthly-picks copy.ipynb`
+- `scratchpad/vol-basket/21-vol-basket-strategy-4h-ignore-monthly-picks-threshold-pick.ipynb`
+- `scratchpad/vol-basket/22-vol-basket-strategy-4h-simplified.ipynb`
+- `scratchpad/vol-basket/23-vol-basket-strategy-4h-modified.ipynb`
+- `scratchpad/vol-basket/24-grid-search-simplified.ipynb`
+- `scratchpad/vol-basket/25-vol-basket-strategy-4h-directional.ipynb`
+- `scratchpad/vol-basket/26-grid-search-sharpe.ipynb`
+- `scratchpad/vol-basket/27-vol-basket-strategy-4h-exp-avg.ipynb`
+- `scratchpad/vol-basket/28-grid-search-ewm.ipynb`
+- `scratchpad/vol-basket/29-vol-basket-strategy-4h-exp-searched.ipynb`
+- `scratchpad/vol-basket/32-vol-basket-strategy-vol-filter.ipynb`
+- `scratchpad/vol-basket/33-vol-basket-strategy-vol-ranking.ipynb`
+- `scratchpad/vol-basket/34-grid-search-vol-threshold.ipynb`
+- `scratchpad/vol-basket/45-grid-search-rebalance-cycle-duration.ipynb`
+- `scratchpad/vol-basket/46-grid-search-rebalance-threshold.ipynb`
+- `scratchpad/weekly-momentum-atr/01-weekly-momentum-atr.ipynb`

@@ -1,0 +1,137 @@
+{
+  "batch_id": "github_nateemma_direct_batch_002",
+  "trade_symbols": [
+    "BNBUSDT",
+    "ADAUSDT",
+    "XRPUSDT",
+    "ALGOUSDT",
+    "ARBUSDT",
+    "ATOMUSDT",
+    "DOTUSDT",
+    "FILUSDT",
+    "NEARUSDT",
+    "OPUSDT"
+  ],
+  "timeframes": [
+    "5m",
+    "15m"
+  ],
+  "screen_days": 31,
+  "start_date": "2026-02-27 00:00:00",
+  "end_date": "2026-03-30 00:00:00",
+  "wall_clock_start": "2026-03-30 11:15:57",
+  "wall_clock_end": "2026-03-30 14:41:49",
+  "wall_clock_elapsed_seconds": 12351.4,
+  "results": [
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_BollingerBounce",
+      "symbols": "BNBUSDT,ADAUSDT,XRPUSDT,ALGOUSDT,ARBUSDT,ATOMUSDT,DOTUSDT,FILUSDT,NEARUSDT,OPUSDT",
+      "start_date": "2026-02-27 00:00:00",
+      "end_date": "2026-03-30 00:00:00",
+      "total_return_pct": 0.0,
+      "win_rate_pct": 0.0,
+      "sharpe_ratio": 0.0,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 0
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_BuyDips",
+      "symbols": "BNBUSDT,ADAUSDT,XRPUSDT,ALGOUSDT,ARBUSDT,ATOMUSDT,DOTUSDT,FILUSDT,NEARUSDT,OPUSDT",
+      "start_date": "2026-02-27 00:00:00",
+      "end_date": "2026-03-30 00:00:00",
+      "total_return_pct": 0.0,
+      "win_rate_pct": 0.0,
+      "sharpe_ratio": 0.0,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 0
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_DCBBBounce",
+      "symbols": "BNBUSDT,ADAUSDT,XRPUSDT,ALGOUSDT,ARBUSDT,ATOMUSDT,DOTUSDT,FILUSDT,NEARUSDT,OPUSDT",
+      "start_date": "2026-02-27 00:00:00",
+      "end_date": "2026-03-30 00:00:00",
+      "total_return_pct": -1.1367,
+      "win_rate_pct": 50.0,
+      "sharpe_ratio": -2.9588,
+      "max_drawdown_pct": 1.1367,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_DonchianBounce",
+      "symbols": "BNBUSDT,ADAUSDT,XRPUSDT,ALGOUSDT,ARBUSDT,ATOMUSDT,DOTUSDT,FILUSDT,NEARUSDT,OPUSDT",
+      "start_date": "2026-02-27 00:00:00",
+      "end_date": "2026-03-30 00:00:00",
+      "total_return_pct": 0.0,
+      "win_rate_pct": 0.0,
+      "sharpe_ratio": 0.0,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 0
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_DonchianChannel",
+      "symbols": "BNBUSDT,ADAUSDT,XRPUSDT,ALGOUSDT,ARBUSDT,ATOMUSDT,DOTUSDT,FILUSDT,NEARUSDT,OPUSDT",
+      "start_date": "2026-02-27 00:00:00",
+      "end_date": "2026-03-30 00:00:00",
+      "total_return_pct": 0.0361,
+      "win_rate_pct": 55.5556,
+      "sharpe_ratio": 0.1867,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 9
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "symbols": "BNBUSDT,ADAUSDT,XRPUSDT,ALGOUSDT,ARBUSDT,ATOMUSDT,DOTUSDT,FILUSDT,NEARUSDT,OPUSDT",
+      "start_date": "2026-02-27 00:00:00",
+      "end_date": "2026-03-30 00:00:00",
+      "total_return_pct": 4.3465,
+      "win_rate_pct": 90.0,
+      "sharpe_ratio": 17.9289,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA50",
+      "symbols": "BNBUSDT,ADAUSDT,XRPUSDT,ALGOUSDT,ARBUSDT,ATOMUSDT,DOTUSDT,FILUSDT,NEARUSDT,OPUSDT",
+      "start_date": "2026-02-27 00:00:00",
+      "end_date": "2026-03-30 00:00:00",
+      "total_return_pct": 4.5223,
+      "win_rate_pct": 90.0,
+      "sharpe_ratio": 18.488,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMABounce",
+      "symbols": "BNBUSDT,ADAUSDT,XRPUSDT,ALGOUSDT,ARBUSDT,ATOMUSDT,DOTUSDT,FILUSDT,NEARUSDT,OPUSDT",
+      "start_date": "2026-02-27 00:00:00",
+      "end_date": "2026-03-30 00:00:00",
+      "total_return_pct": 0.0,
+      "win_rate_pct": 0.0,
+      "sharpe_ratio": 0.0,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 0
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMABreakout",
+      "symbols": "BNBUSDT,ADAUSDT,XRPUSDT,ALGOUSDT,ARBUSDT,ATOMUSDT,DOTUSDT,FILUSDT,NEARUSDT,OPUSDT",
+      "start_date": "2026-02-27 00:00:00",
+      "end_date": "2026-03-30 00:00:00",
+      "total_return_pct": -6.7602,
+      "win_rate_pct": 12.782,
+      "sharpe_ratio": -2.7714,
+      "max_drawdown_pct": 6.7602,
+      "total_trades": 532
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMACross",
+      "symbols": "BNBUSDT,ADAUSDT,XRPUSDT,ALGOUSDT,ARBUSDT,ATOMUSDT,DOTUSDT,FILUSDT,NEARUSDT,OPUSDT",
+      "start_date": "2026-02-27 00:00:00",
+      "end_date": "2026-03-30 00:00:00",
+      "total_return_pct": -17.285,
+      "win_rate_pct": 20.475,
+      "sharpe_ratio": -3.2295,
+      "max_drawdown_pct": 17.285,
+      "total_trades": 1558
+    }
+  ]
+}

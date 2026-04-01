@@ -1,0 +1,112 @@
+[
+  {
+    "strategy_module": "Strategy_Import_Nateemma_Anomaly_ADX",
+    "symbols": "BNBUSDT",
+    "start_date": "2026-03-07 12:30:00",
+    "end_date": "2026-03-21 12:30:00",
+    "total_return_pct": -0.2685,
+    "win_rate_pct": 33.9286,
+    "sharpe_ratio": -5.1916,
+    "max_drawdown_pct": 0.4222,
+    "total_trades": 56
+  },
+  {
+    "strategy_module": "Strategy_Import_Nateemma_Anomaly_ALL",
+    "symbols": "BNBUSDT",
+    "start_date": "2026-03-07 12:30:00",
+    "end_date": "2026-03-21 12:30:00",
+    "total_return_pct": -1.0176,
+    "win_rate_pct": 31.0345,
+    "sharpe_ratio": -4.5758,
+    "max_drawdown_pct": 1.3349,
+    "total_trades": 116
+  },
+  {
+    "strategy_module": "Strategy_Import_Nateemma_Anomaly_AROON",
+    "symbols": "BNBUSDT",
+    "start_date": "2026-03-07 12:30:00",
+    "end_date": "2026-03-21 12:30:00",
+    "total_return_pct": -0.0231,
+    "win_rate_pct": 27.2727,
+    "sharpe_ratio": -1.3234,
+    "max_drawdown_pct": 0.0533,
+    "total_trades": 11
+  },
+  {
+    "strategy_module": "Strategy_Import_Nateemma_Anomaly_BBW",
+    "symbols": "BNBUSDT",
+    "start_date": "2026-03-07 12:30:00",
+    "end_date": "2026-03-21 12:30:00",
+    "total_return_pct": -0.1669,
+    "win_rate_pct": 38.2353,
+    "sharpe_ratio": -5.4394,
+    "max_drawdown_pct": 0.2603,
+    "total_trades": 34
+  },
+  {
+    "strategy_module": "Strategy_Import_Nateemma_Anomaly_DWT",
+    "symbols": "BNBUSDT",
+    "start_date": "2026-03-07 12:30:00",
+    "end_date": "2026-03-21 12:30:00",
+    "total_return_pct": -0.2422,
+    "win_rate_pct": 14.2857,
+    "sharpe_ratio": -8.4428,
+    "max_drawdown_pct": 0.3191,
+    "total_trades": 28
+  },
+  {
+    "strategy_module": "Strategy_Import_Nateemma_Anomaly_FBB",
+    "symbols": "BNBUSDT",
+    "start_date": "2026-03-07 12:30:00",
+    "end_date": "2026-03-21 12:30:00",
+    "total_return_pct": -0.0927,
+    "win_rate_pct": 50.0,
+    "sharpe_ratio": -7.4683,
+    "max_drawdown_pct": 0.1037,
+    "total_trades": 4
+  },
+  {
+    "strategy_module": "Strategy_Import_Nateemma_Anomaly_FWR",
+    "symbols": "BNBUSDT",
+    "start_date": "2026-03-07 12:30:00",
+    "end_date": "2026-03-21 12:30:00",
+    "total_return_pct": -0.4392,
+    "win_rate_pct": 31.3725,
+    "sharpe_ratio": -6.3633,
+    "max_drawdown_pct": 0.5791,
+    "total_trades": 51
+  },
+  {
+    "strategy_module": "Strategy_Import_Nateemma_Anomaly_HIGHLOW",
+    "symbols": "BNBUSDT",
+    "start_date": "2026-03-07 12:30:00",
+    "end_date": "2026-03-21 12:30:00",
+    "total_return_pct": -0.5962,
+    "win_rate_pct": 16.0,
+    "sharpe_ratio": -8.2782,
+    "max_drawdown_pct": 0.8016,
+    "total_trades": 75
+  },
+  {
+    "strategy_module": "Strategy_Import_Nateemma_Anomaly_JUMP",
+    "symbols": "BNBUSDT",
+    "start_date": "2026-03-07 12:30:00",
+    "end_date": "2026-03-21 12:30:00",
+    "total_return_pct": -0.2799,
+    "win_rate_pct": 8.8235,
+    "sharpe_ratio": -18.9578,
+    "max_drawdown_pct": 0.3732,
+    "total_trades": 34
+  },
+  {
+    "strategy_module": "Strategy_Import_Nateemma_Anomaly_MACD",
+    "symbols": "BNBUSDT",
+    "start_date": "2026-03-07 12:30:00",
+    "end_date": "2026-03-21 12:30:00",
+    "total_return_pct": -0.5847,
+    "win_rate_pct": 18.3099,
+    "sharpe_ratio": -7.2736,
+    "max_drawdown_pct": 0.7794,
+    "total_trades": 71
+  }
+]

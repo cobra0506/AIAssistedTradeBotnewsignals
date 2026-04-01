@@ -19,19 +19,19 @@ class RiskManager:
     """
     
     def __init__(self, max_risk_per_trade: float = 0.02, max_portfolio_risk: float = 0.10,
-                 max_positions: int = 10, default_stop_loss_pct: float = 0.02):
+                 max_positions: int = 0, default_stop_loss_pct: float = 0.02):
         """
         Initialize risk manager with risk parameters
         
         Args:
             max_risk_per_trade: Maximum risk per trade as percentage of account balance (default: 2%)
             max_portfolio_risk: Maximum total portfolio risk (default: 10%)
-            max_positions: Maximum number of concurrent positions (default: 10)
+            max_positions: Maximum number of concurrent positions. `0` means unlimited.
             default_stop_loss_pct: Default stop loss percentage (default: 2%)
         """
         self.max_risk_per_trade = max_risk_per_trade
         self.max_portfolio_risk = max_portfolio_risk
-        self.max_positions = max_positions
+        self.max_positions = max(0, int(max_positions))
         self.default_stop_loss_pct = default_stop_loss_pct
         
         # Risk management strategies
@@ -213,7 +213,7 @@ class RiskManager:
             # For entry signals, check if we can open a new position
             if signal_type in open_signals:
                 # Check maximum positions limit
-                if len(positions) >= self.max_positions:
+                if self.max_positions > 0 and len(positions) >= self.max_positions:
                     result['valid'] = False
                     result['reason'] = f"Maximum positions limit reached: {self.max_positions}"
                     return result
@@ -379,7 +379,7 @@ class RiskManager:
         if max_portfolio_risk is not None:
             self.max_portfolio_risk = max_portfolio_risk
         if max_positions is not None:
-            self.max_positions = max_positions
+            self.max_positions = max(0, int(max_positions))
         if default_stop_loss_pct is not None:
             self.default_stop_loss_pct = default_stop_loss_pct
         

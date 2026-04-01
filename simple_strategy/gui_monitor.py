@@ -72,12 +72,17 @@ class SimpleStrategyGUI:
         self.current_strategy = None
         self.current_strategy_source_name = None
         self.param_widgets = {}
+        self._mousewheel_handlers_bound = False
+        self._mousewheel_handler = None
+        self._mousewheel_linux_up_handler = None
+        self._mousewheel_linux_down_handler = None
         self.risk_exit_mode_options = {
             "No extra exit": "none",
             "Fixed stop (%)": "fixed",
             "Trailing stop (%)": "trailing",
             "ATR stop + ATR target": "atr",
         }
+        self.root.bind("<Destroy>", self._on_root_destroy, add="+")
         
         self.create_widgets()
 
@@ -556,21 +561,64 @@ class SimpleStrategyGUI:
 
     def _on_param_frame_configure(self, event=None):
         """Update the scrollregion to encompass the inner frame"""
-        self.param_canvas.configure(scrollregion=self.param_canvas.bbox("all"))
+        if self._param_canvas_exists():
+            self.param_canvas.configure(scrollregion=self.param_canvas.bbox("all"))
+
+    def _param_canvas_exists(self):
+        return hasattr(self, "param_canvas") and self.param_canvas is not None and self.param_canvas.winfo_exists()
+
+    def _unbind_mouse_wheel(self):
+        if not self._mousewheel_handlers_bound:
+            return
+        if self._mousewheel_handler is not None:
+            self.root.unbind_all("<MouseWheel>")
+        if self._mousewheel_linux_up_handler is not None:
+            self.root.unbind_all("<Button-4>")
+        if self._mousewheel_linux_down_handler is not None:
+            self.root.unbind_all("<Button-5>")
+        self._mousewheel_handlers_bound = False
+
+    def _on_root_destroy(self, event=None):
+        if event is not None and getattr(event, "widget", None) is not self.root:
+            return
+        self._unbind_mouse_wheel()
     
     def _bind_mouse_wheel(self):
         """Bind mouse wheel scrolling to the parameter canvas"""
+        self._unbind_mouse_wheel()
+
         def _on_mousewheel(event):
-            # Check if mouse is over the parameter canvas
-            if self.param_canvas.winfo_containing(event.x, event.y):
-                # Scroll the canvas
-                self.param_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-        
+            if not self._param_canvas_exists():
+                return "break"
+            widget_under_pointer = self.root.winfo_containing(self.root.winfo_pointerx(), self.root.winfo_pointery())
+            if widget_under_pointer is None:
+                return
+            parent = widget_under_pointer
+            while parent is not None:
+                if parent == self.param_canvas:
+                    self.param_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+                    return "break"
+                parent = parent.master
+
+        def _on_linux_scroll_up(_event):
+            if self._param_canvas_exists():
+                self.param_canvas.yview_scroll(-1, "units")
+                return "break"
+
+        def _on_linux_scroll_down(_event):
+            if self._param_canvas_exists():
+                self.param_canvas.yview_scroll(1, "units")
+                return "break"
+
         # Bind to all mouse wheel events
-        self.param_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        self._mousewheel_handler = _on_mousewheel
+        self._mousewheel_linux_up_handler = _on_linux_scroll_up
+        self._mousewheel_linux_down_handler = _on_linux_scroll_down
+        self.param_canvas.bind_all("<MouseWheel>", self._mousewheel_handler)
         # For Linux
-        self.param_canvas.bind_all("<Button-4>", lambda e: self.param_canvas.yview_scroll(-1, "units"))
-        self.param_canvas.bind_all("<Button-5>", lambda e: self.param_canvas.yview_scroll(1, "units"))
+        self.param_canvas.bind_all("<Button-4>", self._mousewheel_linux_up_handler)
+        self.param_canvas.bind_all("<Button-5>", self._mousewheel_linux_down_handler)
+        self._mousewheel_handlers_bound = True
     
     def on_strategy_selected(self, event=None):
         """Handle strategy selection change"""

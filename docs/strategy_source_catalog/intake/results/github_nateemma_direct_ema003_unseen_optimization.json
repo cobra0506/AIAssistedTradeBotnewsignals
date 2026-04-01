@@ -1,0 +1,1465 @@
+{
+  "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+  "trade_symbols": [
+    "BNBUSDT",
+    "ADAUSDT",
+    "XRPUSDT",
+    "ALGOUSDT",
+    "ARBUSDT",
+    "ATOMUSDT",
+    "DOTUSDT",
+    "FILUSDT",
+    "NEARUSDT",
+    "OPUSDT"
+  ],
+  "timeframes": [
+    "5m",
+    "15m"
+  ],
+  "train_days": 90,
+  "unseen_days": 31,
+  "train_start_date": "2025-11-29 00:00:00",
+  "train_end_date": "2026-02-27 00:00:00",
+  "unseen_start_date": "2026-02-27 00:00:00",
+  "unseen_end_date": "2026-03-30 00:00:00",
+  "wall_clock_start": "2026-03-31 08:58:40",
+  "wall_clock_end": "2026-03-31 13:32:05",
+  "wall_clock_elapsed_seconds": 16404.78,
+  "trial_count": 81,
+  "default_params": {
+    "ema003_short_period": 7,
+    "ema003_long_period": 25,
+    "trend_ma_period": 50,
+    "trend_deadband_pct": 0.15
+  },
+  "best_train": {
+    "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+    "label": "train",
+    "params": {
+      "ema003_short_period": 7,
+      "ema003_long_period": 34,
+      "trend_ma_period": 34,
+      "trend_deadband_pct": 0.1
+    },
+    "start_date": "2025-11-29 00:00:00",
+    "end_date": "2026-02-27 00:00:00",
+    "total_return_pct": 18.8944,
+    "win_rate_pct": 100.0,
+    "sharpe_ratio": 51.9702,
+    "max_drawdown_pct": 0.0,
+    "total_trades": 10
+  },
+  "default_unseen": {
+    "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+    "label": "unseen_default",
+    "params": {
+      "ema003_short_period": 7,
+      "ema003_long_period": 25,
+      "trend_ma_period": 50,
+      "trend_deadband_pct": 0.15
+    },
+    "start_date": "2026-02-27 00:00:00",
+    "end_date": "2026-03-30 00:00:00",
+    "total_return_pct": 4.3465,
+    "win_rate_pct": 90.0,
+    "sharpe_ratio": 17.9289,
+    "max_drawdown_pct": 0.0,
+    "total_trades": 10
+  },
+  "best_unseen": {
+    "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+    "label": "unseen_optimized",
+    "params": {
+      "ema003_short_period": 7,
+      "ema003_long_period": 34,
+      "trend_ma_period": 34,
+      "trend_deadband_pct": 0.1
+    },
+    "start_date": "2026-02-27 00:00:00",
+    "end_date": "2026-03-30 00:00:00",
+    "total_return_pct": 4.314,
+    "win_rate_pct": 80.0,
+    "sharpe_ratio": 17.5039,
+    "max_drawdown_pct": 0.0,
+    "total_trades": 10
+  },
+  "all_train_trials": [
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 7,
+        "ema003_long_period": 34,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 18.8944,
+      "win_rate_pct": 100.0,
+      "sharpe_ratio": 51.9702,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 9,
+        "ema003_long_period": 25,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 15.7714,
+      "win_rate_pct": 90.0,
+      "sharpe_ratio": 21.0168,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 9,
+        "ema003_long_period": 25,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.15
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 15.7526,
+      "win_rate_pct": 90.0,
+      "sharpe_ratio": 21.022,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 7,
+        "ema003_long_period": 34,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.15
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 15.7228,
+      "win_rate_pct": 90.0,
+      "sharpe_ratio": 20.9537,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 7,
+        "ema003_long_period": 34,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.05
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 15.2266,
+      "win_rate_pct": 90.0,
+      "sharpe_ratio": 19.1765,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 7,
+        "ema003_long_period": 34,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.05
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 15.2266,
+      "win_rate_pct": 90.0,
+      "sharpe_ratio": 19.1765,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 7,
+        "ema003_long_period": 34,
+        "trend_ma_period": 72,
+        "trend_deadband_pct": 0.05
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 15.2266,
+      "win_rate_pct": 90.0,
+      "sharpe_ratio": 19.1765,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 7,
+        "ema003_long_period": 34,
+        "trend_ma_period": 72,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 15.2266,
+      "win_rate_pct": 90.0,
+      "sharpe_ratio": 19.1765,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 9,
+        "ema003_long_period": 34,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.05
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 15.2241,
+      "win_rate_pct": 90.0,
+      "sharpe_ratio": 19.1575,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 9,
+        "ema003_long_period": 34,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 15.2241,
+      "win_rate_pct": 90.0,
+      "sharpe_ratio": 19.1575,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 9,
+        "ema003_long_period": 34,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.05
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 15.2241,
+      "win_rate_pct": 90.0,
+      "sharpe_ratio": 19.1575,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 9,
+        "ema003_long_period": 34,
+        "trend_ma_period": 72,
+        "trend_deadband_pct": 0.05
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 15.2241,
+      "win_rate_pct": 90.0,
+      "sharpe_ratio": 19.1575,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 9,
+        "ema003_long_period": 34,
+        "trend_ma_period": 72,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 15.2241,
+      "win_rate_pct": 90.0,
+      "sharpe_ratio": 19.1575,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 7,
+        "ema003_long_period": 21,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.05
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 15.2206,
+      "win_rate_pct": 90.0,
+      "sharpe_ratio": 19.087,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 7,
+        "ema003_long_period": 21,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.05
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 15.2206,
+      "win_rate_pct": 90.0,
+      "sharpe_ratio": 19.087,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 7,
+        "ema003_long_period": 21,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 15.2206,
+      "win_rate_pct": 90.0,
+      "sharpe_ratio": 19.087,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 7,
+        "ema003_long_period": 21,
+        "trend_ma_period": 72,
+        "trend_deadband_pct": 0.05
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 15.2206,
+      "win_rate_pct": 90.0,
+      "sharpe_ratio": 19.087,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 7,
+        "ema003_long_period": 21,
+        "trend_ma_period": 72,
+        "trend_deadband_pct": 0.15
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 15.2206,
+      "win_rate_pct": 90.0,
+      "sharpe_ratio": 19.087,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 7,
+        "ema003_long_period": 21,
+        "trend_ma_period": 72,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 15.2206,
+      "win_rate_pct": 90.0,
+      "sharpe_ratio": 19.087,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 7,
+        "ema003_long_period": 21,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 15.1924,
+      "win_rate_pct": 90.0,
+      "sharpe_ratio": 19.0487,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 7,
+        "ema003_long_period": 21,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.15
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 15.1924,
+      "win_rate_pct": 90.0,
+      "sharpe_ratio": 19.0487,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 7,
+        "ema003_long_period": 21,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.15
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 15.1747,
+      "win_rate_pct": 90.0,
+      "sharpe_ratio": 19.0505,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 9,
+        "ema003_long_period": 25,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.05
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.108,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2967,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 9,
+        "ema003_long_period": 25,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.05
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.108,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2967,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 9,
+        "ema003_long_period": 25,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.108,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2967,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 9,
+        "ema003_long_period": 25,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.15
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.108,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2967,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 9,
+        "ema003_long_period": 25,
+        "trend_ma_period": 72,
+        "trend_deadband_pct": 0.05
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.108,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2967,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 9,
+        "ema003_long_period": 25,
+        "trend_ma_period": 72,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.108,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2967,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 9,
+        "ema003_long_period": 25,
+        "trend_ma_period": 72,
+        "trend_deadband_pct": 0.15
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.108,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2967,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 9,
+        "ema003_long_period": 21,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.05
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.108,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2903,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 9,
+        "ema003_long_period": 21,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.108,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2903,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 9,
+        "ema003_long_period": 21,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.05
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.108,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2903,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 9,
+        "ema003_long_period": 21,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.108,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2903,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 9,
+        "ema003_long_period": 21,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.15
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.108,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2903,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 9,
+        "ema003_long_period": 21,
+        "trend_ma_period": 72,
+        "trend_deadband_pct": 0.05
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.108,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2903,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 9,
+        "ema003_long_period": 21,
+        "trend_ma_period": 72,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.108,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2903,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 9,
+        "ema003_long_period": 21,
+        "trend_ma_period": 72,
+        "trend_deadband_pct": 0.15
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.108,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2903,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 5,
+        "ema003_long_period": 34,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.05
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.1029,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2858,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 5,
+        "ema003_long_period": 34,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.1029,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2858,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 5,
+        "ema003_long_period": 34,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.05
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.1029,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2858,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 5,
+        "ema003_long_period": 34,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.1029,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2858,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 5,
+        "ema003_long_period": 34,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.15
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.1029,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2858,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 5,
+        "ema003_long_period": 34,
+        "trend_ma_period": 72,
+        "trend_deadband_pct": 0.05
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.1029,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2858,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 5,
+        "ema003_long_period": 34,
+        "trend_ma_period": 72,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.1029,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2858,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 5,
+        "ema003_long_period": 34,
+        "trend_ma_period": 72,
+        "trend_deadband_pct": 0.15
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.1029,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2858,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 7,
+        "ema003_long_period": 25,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.05
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.1025,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2848,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 7,
+        "ema003_long_period": 25,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.1025,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2848,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 7,
+        "ema003_long_period": 25,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.05
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.1025,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2848,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 7,
+        "ema003_long_period": 25,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.1025,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2848,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 7,
+        "ema003_long_period": 25,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.15
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.1025,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2848,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 7,
+        "ema003_long_period": 25,
+        "trend_ma_period": 72,
+        "trend_deadband_pct": 0.05
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.1025,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2848,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 7,
+        "ema003_long_period": 25,
+        "trend_ma_period": 72,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.1025,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2848,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 7,
+        "ema003_long_period": 25,
+        "trend_ma_period": 72,
+        "trend_deadband_pct": 0.15
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.1025,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2848,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 9,
+        "ema003_long_period": 21,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.15
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.0881,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2846,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 7,
+        "ema003_long_period": 25,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.15
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.0881,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2807,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 5,
+        "ema003_long_period": 34,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.15
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.0873,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2812,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 9,
+        "ema003_long_period": 34,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.0769,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.251,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 9,
+        "ema003_long_period": 34,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.15
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.0769,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.251,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 9,
+        "ema003_long_period": 34,
+        "trend_ma_period": 72,
+        "trend_deadband_pct": 0.15
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.0769,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.251,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 5,
+        "ema003_long_period": 25,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.05
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.0757,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.1834,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 5,
+        "ema003_long_period": 25,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.0757,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.1834,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 5,
+        "ema003_long_period": 25,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.05
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.0757,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.1834,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 5,
+        "ema003_long_period": 25,
+        "trend_ma_period": 72,
+        "trend_deadband_pct": 0.05
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.0757,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.1834,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 5,
+        "ema003_long_period": 25,
+        "trend_ma_period": 72,
+        "trend_deadband_pct": 0.15
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.0757,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.1834,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 5,
+        "ema003_long_period": 25,
+        "trend_ma_period": 72,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.0757,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.1834,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 7,
+        "ema003_long_period": 34,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.0736,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2549,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 7,
+        "ema003_long_period": 34,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.15
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.0736,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2549,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 7,
+        "ema003_long_period": 34,
+        "trend_ma_period": 72,
+        "trend_deadband_pct": 0.15
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.0736,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2549,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 5,
+        "ema003_long_period": 21,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.05
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.0695,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.1832,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 5,
+        "ema003_long_period": 21,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.05
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.0695,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.1832,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 5,
+        "ema003_long_period": 21,
+        "trend_ma_period": 72,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.0695,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.1832,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 5,
+        "ema003_long_period": 21,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.0695,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.1832,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 5,
+        "ema003_long_period": 21,
+        "trend_ma_period": 72,
+        "trend_deadband_pct": 0.05
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.0695,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.1832,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 5,
+        "ema003_long_period": 21,
+        "trend_ma_period": 72,
+        "trend_deadband_pct": 0.15
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.0695,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.1832,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 9,
+        "ema003_long_period": 34,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.15
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.0569,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.2452,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 5,
+        "ema003_long_period": 21,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.15
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.0479,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.1639,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 5,
+        "ema003_long_period": 25,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.15
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.0475,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.1581,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 5,
+        "ema003_long_period": 21,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.15
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.0332,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.1482,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 5,
+        "ema003_long_period": 21,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.0332,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.1482,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 5,
+        "ema003_long_period": 25,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.0328,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.1424,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_EMA003",
+      "label": "train",
+      "params": {
+        "ema003_short_period": 5,
+        "ema003_long_period": 25,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.15
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": 12.0184,
+      "win_rate_pct": 80.0,
+      "sharpe_ratio": 12.138,
+      "max_drawdown_pct": 0.0,
+      "total_trades": 10
+    }
+  ]
+}

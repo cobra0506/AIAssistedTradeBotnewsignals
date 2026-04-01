@@ -1,0 +1,212 @@
+{
+  "strategy_module": "Strategy_Import_Nateemma_Direct_ADXDM",
+  "trade_symbols": [
+    "BNBUSDT",
+    "ADAUSDT",
+    "XRPUSDT",
+    "ALGOUSDT",
+    "ARBUSDT",
+    "ATOMUSDT",
+    "DOTUSDT",
+    "FILUSDT",
+    "NEARUSDT",
+    "OPUSDT"
+  ],
+  "timeframes": [
+    "5m",
+    "15m"
+  ],
+  "train_days": 90,
+  "unseen_days": 31,
+  "train_start_date": "2025-11-29 00:00:00",
+  "train_end_date": "2026-02-27 00:00:00",
+  "unseen_start_date": "2026-02-27 00:00:00",
+  "unseen_end_date": "2026-03-30 00:00:00",
+  "wall_clock_start": "2026-03-30 07:19:02",
+  "wall_clock_end": "2026-03-30 09:19:02",
+  "wall_clock_elapsed_seconds": 7200.43,
+  "trial_count": 8,
+  "default_params": {
+    "buy_adx": 60.0,
+    "trend_ma_period": 50,
+    "trend_deadband_pct": 0.15
+  },
+  "best_train": {
+    "strategy_module": "Strategy_Import_Nateemma_Direct_ADXDM",
+    "label": "train",
+    "params": {
+      "buy_adx": 50.0,
+      "trend_ma_period": 50,
+      "trend_deadband_pct": 0.1
+    },
+    "start_date": "2025-11-29 00:00:00",
+    "end_date": "2026-02-27 00:00:00",
+    "total_return_pct": -7.4759,
+    "win_rate_pct": 40.0,
+    "sharpe_ratio": -6.6614,
+    "max_drawdown_pct": 7.4759,
+    "total_trades": 10
+  },
+  "default_unseen": {
+    "strategy_module": "Strategy_Import_Nateemma_Direct_ADXDM",
+    "label": "unseen_default",
+    "params": {
+      "buy_adx": 60.0,
+      "trend_ma_period": 50,
+      "trend_deadband_pct": 0.15
+    },
+    "start_date": "2026-02-27 00:00:00",
+    "end_date": "2026-03-30 00:00:00",
+    "total_return_pct": -2.0271,
+    "win_rate_pct": 30.0,
+    "sharpe_ratio": -5.349,
+    "max_drawdown_pct": 2.0271,
+    "total_trades": 10
+  },
+  "best_unseen": {
+    "strategy_module": "Strategy_Import_Nateemma_Direct_ADXDM",
+    "label": "unseen_optimized",
+    "params": {
+      "buy_adx": 50.0,
+      "trend_ma_period": 50,
+      "trend_deadband_pct": 0.1
+    },
+    "start_date": "2026-02-27 00:00:00",
+    "end_date": "2026-03-30 00:00:00",
+    "total_return_pct": -4.0101,
+    "win_rate_pct": 20.0,
+    "sharpe_ratio": -12.4245,
+    "max_drawdown_pct": 4.0101,
+    "total_trades": 10
+  },
+  "all_train_trials": [
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_ADXDM",
+      "label": "train",
+      "params": {
+        "buy_adx": 50.0,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": -7.4759,
+      "win_rate_pct": 40.0,
+      "sharpe_ratio": -6.6614,
+      "max_drawdown_pct": 7.4759,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_ADXDM",
+      "label": "train",
+      "params": {
+        "buy_adx": 50.0,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.15
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": -7.4759,
+      "win_rate_pct": 40.0,
+      "sharpe_ratio": -6.6614,
+      "max_drawdown_pct": 7.4759,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_ADXDM",
+      "label": "train",
+      "params": {
+        "buy_adx": 60.0,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": -9.669,
+      "win_rate_pct": 30.0,
+      "sharpe_ratio": -9.0303,
+      "max_drawdown_pct": 9.669,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_ADXDM",
+      "label": "train",
+      "params": {
+        "buy_adx": 60.0,
+        "trend_ma_period": 50,
+        "trend_deadband_pct": 0.15
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": -9.669,
+      "win_rate_pct": 30.0,
+      "sharpe_ratio": -9.0303,
+      "max_drawdown_pct": 9.669,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_ADXDM",
+      "label": "train",
+      "params": {
+        "buy_adx": 50.0,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": -11.1462,
+      "win_rate_pct": 30.0,
+      "sharpe_ratio": -11.2052,
+      "max_drawdown_pct": 11.1462,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_ADXDM",
+      "label": "train",
+      "params": {
+        "buy_adx": 50.0,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.15
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": -11.1462,
+      "win_rate_pct": 30.0,
+      "sharpe_ratio": -11.2052,
+      "max_drawdown_pct": 11.1462,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_ADXDM",
+      "label": "train",
+      "params": {
+        "buy_adx": 60.0,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.15
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": -13.3396,
+      "win_rate_pct": 20.0,
+      "sharpe_ratio": -14.7874,
+      "max_drawdown_pct": 13.3396,
+      "total_trades": 10
+    },
+    {
+      "strategy_module": "Strategy_Import_Nateemma_Direct_ADXDM",
+      "label": "train",
+      "params": {
+        "buy_adx": 60.0,
+        "trend_ma_period": 34,
+        "trend_deadband_pct": 0.1
+      },
+      "start_date": "2025-11-29 00:00:00",
+      "end_date": "2026-02-27 00:00:00",
+      "total_return_pct": -13.3396,
+      "win_rate_pct": 20.0,
+      "sharpe_ratio": -14.7874,
+      "max_drawdown_pct": 13.3396,
+      "total_trades": 10
+    }
+  ]
+}

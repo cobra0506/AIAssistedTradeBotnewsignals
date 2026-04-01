@@ -1,8 +1,9 @@
 import logging
 import sys
+import time
 from copy import deepcopy
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -53,10 +54,12 @@ class CandidateEvaluator:
         use_inner_optimization: bool = True,
     ) -> Dict[str, Any]:
         candidate_working = deepcopy(candidate)
+        timeout_seconds = float(self.run_config.get("candidate_timeout_seconds", 0) or 0.0)
+        deadline_ts = time.time() + timeout_seconds if timeout_seconds > 0 else None
 
         try:
             if use_inner_optimization and self.run_config.get("enable_inner_optimization", True):
-                candidate_working = self._optimize_candidate(candidate_working, data_override)
+                candidate_working = self._optimize_candidate(candidate_working, data_override, deadline_ts=deadline_ts)
 
             strategy_name = f"AE_G{generation:03d}_I{candidate_idx:04d}"
             strategy = self.builder.build_strategy(
@@ -66,12 +69,22 @@ class CandidateEvaluator:
                 strategy_name=strategy_name,
             )
 
+            precheck_result, precheck_signal_events = self._run_precheck(
+                strategy=strategy,
+                candidate=candidate_working,
+                data_override=data_override,
+                deadline_ts=deadline_ts,
+            )
+            if precheck_result is not None:
+                return precheck_result
+
             train_metrics = self._run_segment(
                 strategy,
                 candidate=candidate_working,
                 start=self.run_config["train_start"],
                 end=self.run_config["train_end"],
                 data_override=data_override,
+                deadline_ts=deadline_ts,
             )
             train_gate = gate_train_metrics(
                 train_metrics,
@@ -88,6 +101,7 @@ class CandidateEvaluator:
                 start=self.run_config["validation_start"],
                 end=self.run_config["validation_end"],
                 data_override=data_override,
+                deadline_ts=deadline_ts,
             )
             validation_quality_gate = gate_train_metrics(
                 validation_metrics,
@@ -110,24 +124,27 @@ class CandidateEvaluator:
             if not validation_gate.passed:
                 return self._failed_result(candidate_working, train_metrics, "validation_gate", validation_gate.reason)
 
-            stress_metrics = self._run_segment(
-                strategy,
-                candidate=candidate_working,
-                start=self.run_config["train_start"],
-                end=self.run_config["train_end"],
-                data_override=data_override,
-                fee_multiplier=float(self.run_config.get("stress_fee_multiplier", 1.5)),
-                slippage_multiplier=float(self.run_config.get("stress_slippage_multiplier", 1.5)),
-            )
-            stress_gate = gate_stress(
-                train_metrics,
-                stress_metrics,
-                max_drop=float(self.run_config.get("max_stress_drop_pct", 30.0)),
-                min_return=float(self.run_config.get("min_stress_return_pct", -10.0)),
-                max_drawdown=float(self.run_config.get("max_stress_drawdown_pct", 50.0)),
-            )
-            if not stress_gate.passed:
-                return self._failed_result(candidate_working, train_metrics, "stress_gate", stress_gate.reason)
+            stress_metrics = metrics_or_zero({})
+            if bool(self.run_config.get("enable_stress_gate", True)):
+                stress_metrics = self._run_segment(
+                    strategy,
+                    candidate=candidate_working,
+                    start=self.run_config["train_start"],
+                    end=self.run_config["train_end"],
+                    data_override=data_override,
+                    fee_multiplier=float(self.run_config.get("stress_fee_multiplier", 1.5)),
+                    slippage_multiplier=float(self.run_config.get("stress_slippage_multiplier", 1.5)),
+                    deadline_ts=deadline_ts,
+                )
+                stress_gate = gate_stress(
+                    train_metrics,
+                    stress_metrics,
+                    max_drop=float(self.run_config.get("max_stress_drop_pct", 30.0)),
+                    min_return=float(self.run_config.get("min_stress_return_pct", -10.0)),
+                    max_drawdown=float(self.run_config.get("max_stress_drawdown_pct", 50.0)),
+                )
+                if not stress_gate.passed:
+                    return self._failed_result(candidate_working, train_metrics, "stress_gate", stress_gate.reason)
 
             score = composite_score(
                 train_metrics,
@@ -135,6 +152,7 @@ class CandidateEvaluator:
                 stress_metrics,
                 active_signal_count=len(candidate_working.get("active_signals", [])),
             )
+            score += float(self.run_config.get("precheck_signal_score_weight", 0.0) or 0.0) * float(precheck_signal_events)
 
             return {
                 "passed": True,
@@ -143,9 +161,13 @@ class CandidateEvaluator:
                 "metrics": train_metrics,
                 "validation_metrics": validation_metrics,
                 "stress_metrics": stress_metrics,
+                "precheck_signal_events": int(precheck_signal_events),
                 "failed_gate": "",
                 "failure_reason": "",
             }
+        except TimeoutError as exc:
+            logger.warning("Candidate timed out: %s", exc)
+            return self._failed_result(candidate_working, {}, "timeout", str(exc))
         except Exception as exc:
             logger.exception("Candidate evaluation failed: %s", exc)
             return self._failed_result(candidate_working, {}, "exception", str(exc))
@@ -168,6 +190,98 @@ class CandidateEvaluator:
             "failure_reason": reason,
         }
 
+    def _run_precheck(
+        self,
+        strategy,
+        candidate: Dict[str, Any],
+        data_override: Optional[Dict[str, Dict[str, pd.DataFrame]]] = None,
+        deadline_ts: Optional[float] = None,
+    ) -> Tuple[Optional[Dict[str, Any]], int]:
+        if not bool(self.run_config.get("precheck_enabled", False)):
+            return None, 0
+
+        probe_window = self._resolve_precheck_window()
+        if probe_window is None:
+            return None, 0
+        probe_start, probe_end = probe_window
+
+        symbol_count = max(1, int(self.run_config.get("precheck_symbol_count", 1)))
+        symbols = list(self.run_config.get("symbols", []))[:symbol_count]
+        if not symbols:
+            return None, 0
+
+        probe_data = self._slice_data(data_override, probe_start, probe_end) if data_override else None
+        if probe_data is None:
+            return None, 0
+        probe_data = {symbol: probe_data.get(symbol, {}) for symbol in symbols if symbol in probe_data}
+        if not self._has_non_empty_data(probe_data):
+            return self._failed_result(candidate, {}, "precheck_gate", "precheck_no_data"), 0
+
+        min_signal_events = max(1, int(self.run_config.get("precheck_min_signal_events", 2)))
+        signal_events = self._count_precheck_signal_events(strategy, probe_data)
+        if signal_events >= min_signal_events:
+            return None, signal_events
+
+        return (
+            self._failed_result(
+                candidate,
+                {},
+                "precheck_gate",
+                f"signal_events_failed:{signal_events}<{min_signal_events}",
+            ),
+            signal_events,
+        )
+
+    def _resolve_precheck_window(self) -> Optional[tuple[str, str]]:
+        start_text = str(self.run_config.get("train_start", "")).strip()
+        end_text = str(self.run_config.get("train_end", "")).strip()
+        if not start_text or not end_text:
+            return None
+
+        days = max(1, int(self.run_config.get("precheck_days", 3)))
+        start_ts = pd.to_datetime(start_text)
+        train_end_ts = pd.to_datetime(end_text)
+        probe_end_ts = min(train_end_ts, start_ts + pd.Timedelta(days=days - 1))
+        return start_ts.strftime("%Y-%m-%d"), probe_end_ts.strftime("%Y-%m-%d")
+
+    @staticmethod
+    def _normalize_signal_value(value: Any) -> str:
+        if isinstance(value, str):
+            return value
+        if isinstance(value, (int, float)):
+            if value >= 2:
+                return "OPEN_LONG"
+            if value == 1:
+                return "CLOSE_SHORT"
+            if value == -1:
+                return "CLOSE_LONG"
+            if value <= -2:
+                return "OPEN_SHORT"
+        return "HOLD"
+
+    def _count_precheck_signal_events(
+        self,
+        strategy,
+        data: Dict[str, Dict[str, pd.DataFrame]],
+    ) -> int:
+        generator = getattr(strategy, "generate_signals_vectorized", None)
+        if not callable(generator):
+            return 0
+
+        try:
+            signal_map = generator(data)
+        except Exception:
+            return 0
+
+        total_events = 0
+        for by_tf in signal_map.values():
+            for series in by_tf.values():
+                if series is None:
+                    continue
+                normalized = pd.Series(series).map(self._normalize_signal_value)
+                total_events += int(normalized.isin(["OPEN_LONG", "OPEN_SHORT"]).sum())
+        return total_events
+
     def _run_segment(
         self,
         strategy,
@@ -177,8 +291,11 @@ class CandidateEvaluator:
         data_override: Optional[Dict[str, Dict[str, pd.DataFrame]]] = None,
         fee_multiplier: float = 1.0,
         slippage_multiplier: float = 1.0,
+        deadline_ts: Optional[float] = None,
+        symbols_override: Optional[list[str]] = None,
     ) -> Dict[str, float]:
         self._ensure_utf8_stdout()
+        self._check_deadline(deadline_ts, stage_name=f"{start} -> {end}")
         config = deepcopy(self.base_backtest_config)
         if candidate:
             config.update(self._candidate_backtest_config(candidate))
@@ -191,8 +308,14 @@ class CandidateEvaluator:
             return metrics_or_zero({})
 
         engine = BacktesterEngine(data_feeder=self.data_feeder, strategy=strategy, config=config)
+        progress_callback = None
+        if deadline_ts is not None:
+            def _progress_callback(_progress_pct: float) -> None:
+                self._check_deadline(deadline_ts, stage_name=f"{start} -> {end}")
+
+            progress_callback = _progress_callback
         result = engine.run_backtest(
-            symbols=self.run_config["symbols"],
+            symbols=symbols_override or self.run_config["symbols"],
             timeframes=self.run_config["timeframes"],
             start_date=start,
             end_date=end,
@@ -200,7 +323,9 @@ class CandidateEvaluator:
             strategy=strategy,
             data=data,
             initial_balance=float(self.run_config.get("initial_balance", 10000.0)),
+            progress_callback=progress_callback,
         )
+        self._check_deadline(deadline_ts, stage_name=f"{start} -> {end}")
         return metrics_or_zero(result)
 
     @staticmethod
@@ -270,10 +395,12 @@ class CandidateEvaluator:
         self,
         candidate: Dict[str, Any],
         data_override: Optional[Dict[str, Dict[str, pd.DataFrame]]] = None,
+        deadline_ts: Optional[float] = None,
     ) -> Dict[str, Any]:
         trials = int(self.run_config.get("inner_opt_trials", 0))
         if trials <= 0:
             return candidate
+        self._check_deadline(deadline_ts, stage_name="inner optimization")
 
         try:
             import optuna
@@ -317,6 +444,7 @@ class CandidateEvaluator:
                 start=self.run_config["train_start"],
                 end=self.run_config["train_end"],
                 data_override=data_override,
+                deadline_ts=deadline_ts,
             )
 
             if metrics.get("total_trades", 0) < int(self.run_config.get("min_trades", 10)):
@@ -357,10 +485,20 @@ class CandidateEvaluator:
         self.builder._normalize_candidate(best)
         return best
 
+    @staticmethod
+    def _check_deadline(deadline_ts: Optional[float], stage_name: str = "") -> None:
+        if deadline_ts is None:
+            return
+        if time.time() <= deadline_ts:
+            return
+        label = stage_name or "candidate"
+        raise TimeoutError(f"Candidate exceeded time limit during {label}")
+
     def run_final_segment(
         self,
         candidate: Dict[str, Any],
         data_override: Optional[Dict[str, Dict[str, pd.DataFrame]]] = None,
+        deadline_ts: Optional[float] = None,
     ) -> Dict[str, float]:
         strategy = self.builder.build_strategy(
             candidate,
@@ -374,6 +512,7 @@ class CandidateEvaluator:
             start=self.run_config["final_start"],
             end=self.run_config["final_end"],
             data_override=data_override,
+            deadline_ts=deadline_ts,
         )
 
     @staticmethod

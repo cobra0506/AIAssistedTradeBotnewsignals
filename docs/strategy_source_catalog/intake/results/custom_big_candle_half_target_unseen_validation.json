@@ -1,0 +1,78 @@
+{
+  "strategy_module": "Strategy_Custom_BigCandle_HalfTarget",
+  "trade_symbols": [
+    "BNBUSDT",
+    "ADAUSDT",
+    "XRPUSDT",
+    "ALGOUSDT",
+    "ARBUSDT",
+    "ATOMUSDT",
+    "DOTUSDT",
+    "FILUSDT",
+    "NEARUSDT",
+    "OPUSDT"
+  ],
+  "timeframes": [
+    "5m",
+    "15m"
+  ],
+  "train_start_date": "2026-01-27 00:00:00",
+  "train_end_date": "2026-02-27 00:00:00",
+  "unseen_start_date": "2026-02-27 00:00:00",
+  "unseen_end_date": "2026-03-30 00:00:00",
+  "wall_clock_start": "2026-04-01 07:35:54",
+  "train_threshold_2pct": {
+    "label": "train_threshold_2pct",
+    "params": {
+      "min_candle_pct": 2.0
+    },
+    "start_date": "2026-01-27 00:00:00",
+    "end_date": "2026-02-27 00:00:00",
+    "total_return_pct": -8.0403,
+    "win_rate_pct": 76.3158,
+    "sharpe_ratio": -5.3347,
+    "max_drawdown_pct": 8.0403,
+    "total_trades": 38
+  },
+  "train_threshold_1pct": {
+    "label": "train_threshold_1pct",
+    "params": {
+      "min_candle_pct": 1.0
+    },
+    "start_date": "2026-01-27 00:00:00",
+    "end_date": "2026-02-27 00:00:00",
+    "total_return_pct": -12.0156,
+    "win_rate_pct": 77.7778,
+    "sharpe_ratio": -6.5745,
+    "max_drawdown_pct": 12.0156,
+    "total_trades": 45
+  },
+  "unseen_threshold_2pct": {
+    "label": "unseen_threshold_2pct",
+    "params": {
+      "min_candle_pct": 2.0
+    },
+    "start_date": "2026-02-27 00:00:00",
+    "end_date": "2026-03-30 00:00:00",
+    "total_return_pct": 1.6412,
+    "win_rate_pct": 91.1111,
+    "sharpe_ratio": 5.0398,
+    "max_drawdown_pct": 0.0,
+    "total_trades": 45
+  },
+  "unseen_threshold_1pct": {
+    "label": "unseen_threshold_1pct",
+    "params": {
+      "min_candle_pct": 1.0
+    },
+    "start_date": "2026-02-27 00:00:00",
+    "end_date": "2026-03-30 00:00:00",
+    "total_return_pct": -0.7834,
+    "win_rate_pct": 95.0,
+    "sharpe_ratio": -0.1711,
+    "max_drawdown_pct": 0.7834,
+    "total_trades": 160
+  },
+  "wall_clock_end": "2026-04-01 07:37:18",
+  "wall_clock_elapsed_seconds": 84.2
+}
